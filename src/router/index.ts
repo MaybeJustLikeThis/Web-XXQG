@@ -33,24 +33,60 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "organization" */ '../views/organization/index.vue'),
             },
             {
-                path: '/system-user',
-                name: 'system-user',
+                path: '/content/articles',
+                name: 'content-articles',
                 meta: {
-                    title: '用户管理',
-                    permiss: '11',
+                    title: '文章管理',
+                    permiss: '151',
                 },
-                component: () => import(/* webpackChunkName: "system-user" */ '../views/system/user.vue'),
+                component: () => import(/* webpackChunkName: "content-articles" */ '../views/content/articles.vue'),
             },
             {
-                path: '/system-role',
-                name: 'system-role',
+                path: '/content/topics',
+                name: 'content-topics',
                 meta: {
-                    title: '角色管理',
-                    permiss: '12',
+                    title: '专题管理',
+                    permiss: '152',
                 },
-                component: () => import(/* webpackChunkName: "system-role" */ '../views/system/role.vue'),
+                component: () => import(/* webpackChunkName: "content-topics" */ '../views/content/topics.vue'),
             },
             {
+                path: '/question/questions',
+                name: 'question-questions',
+                meta: {
+                    title: '题目管理',
+                    permiss: '16',
+                },
+                component: () => import(/* webpackChunkName: "question-questions" */ '../views/question/questions.vue'),
+            },
+            {
+                path: '/points/rules',
+                name: 'points-rules',
+                meta: {
+                    title: '积分规则',
+                    permiss: '171',
+                },
+                component: () => import(/* webpackChunkName: "points-rules" */ '../views/points/rules.vue'),
+            },
+            {
+                path: '/points/records',
+                name: 'points-records',
+                meta: {
+                    title: '积分记录',
+                    permiss: '172',
+                },
+                component: () => import(/* webpackChunkName: "points-records" */ '../views/points/records.vue'),
+            },
+            {
+                path: '/points/statistics',
+                name: 'points-statistics',
+                meta: {
+                    title: '积分统计',
+                    permiss: '173',
+                },
+                component: () => import(/* webpackChunkName: "points-statistics" */ '../views/points/statistics.vue'),
+            },
+                {
                 path: '/system-menu',
                 name: 'system-menu',
                 meta: {

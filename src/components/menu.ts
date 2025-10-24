@@ -15,23 +15,66 @@ export const menuData: Menus[] = [
         permiss: '10',
     },
     {
+        id: '15',
+        title: '内容管理',
+        index: '15',
+        icon: 'Document',
+        permiss: '15',
+        children: [
+            {
+                id: '151',
+                pid: '15',
+                index: '/content/articles',
+                title: '文章管理',
+            },
+            {
+                id: '152',
+                pid: '15',
+                index: '/content/topics',
+                title: '专题管理',
+            },
+        ],
+    },
+    {
+        id: '16',
+        title: '题目管理',
+        index: '/question/questions',
+        icon: 'Notebook',
+        permiss: '16',
+    },
+    {
+        id: '17',
+        title: '积分管理',
+        index: '17',
+        icon: 'Medal',
+        permiss: '17',
+        children: [
+            {
+                id: '171',
+                pid: '17',
+                index: '/points/rules',
+                title: '积分规则',
+            },
+            {
+                id: '172',
+                pid: '17',
+                index: '/points/records',
+                title: '积分记录',
+            },
+            {
+                id: '173',
+                pid: '17',
+                index: '/points/statistics',
+                title: '积分统计',
+            },
+        ],
+    },
+    {
         id: '1',
         title: '系统管理',
         index: '1',
         icon: 'HomeFilled',
         children: [
-            {
-                id: '11',
-                pid: '1',
-                index: '/system-user',
-                title: '用户管理',
-            },
-            {
-                id: '12',
-                pid: '1',
-                index: '/system-role',
-                title: '角色管理',
-            },
             {
                 id: '13',
                 pid: '1',

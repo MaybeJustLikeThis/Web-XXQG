@@ -9,9 +9,16 @@ export const usePermissStore = defineStore('permiss', {
         const defaultList: ObjectList = {
             admin: [
                 '0',
+                '10',
+                '15',
+                '151',
+                '152',
+                '16',
+                '17',
+                '171',
+                '172',
+                '173',
                 '1',
-                '11',
-                '12',
                 '13',
                 '2',
                 '21',
@@ -43,7 +50,7 @@ export const usePermissStore = defineStore('permiss', {
                 '65',
                 '66',
             ],
-            user: ['0', '1', '11', '12', '13'],
+            user: ['0', '1', '13'],
         };
         const username = localStorage.getItem('vuems_name');
         console.log(username);
