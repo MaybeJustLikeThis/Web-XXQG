@@ -66,7 +66,6 @@ npm run build
 ```
 
 ## 项目截图
-
 ### 首页
 
 ![Image text](https://github.com/lin-xin/manage-system/raw/master/screenshots/wms1.png)

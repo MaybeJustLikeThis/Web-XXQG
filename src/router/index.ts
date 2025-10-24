@@ -24,6 +24,15 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "dashboard" */ '../views/dashboard.vue'),
             },
             {
+                path: '/organization',
+                name: 'organization',
+                meta: {
+                    title: '组织管理',
+                    permiss: '10',
+                },
+                component: () => import(/* webpackChunkName: "organization" */ '../views/organization/index.vue'),
+            },
+            {
                 path: '/system-user',
                 name: 'system-user',
                 meta: {

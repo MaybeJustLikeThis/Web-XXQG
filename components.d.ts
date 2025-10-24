@@ -66,6 +66,8 @@ declare module '@vue/runtime-core' {
     ElTour: typeof import('element-plus/es')['ElTour']
     ElTourStep: typeof import('element-plus/es')['ElTourStep']
     ElTransfer: typeof import('element-plus/es')['ElTransfer']
+    ElTree: typeof import('element-plus/es')['ElTree']
+    ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     ElWatermark: typeof import('element-plus/es')['ElWatermark']
     Header: typeof import('./src/components/header.vue')['default']
@@ -77,5 +79,8 @@ declare module '@vue/runtime-core' {
     TableEdit: typeof import('./src/components/table-edit.vue')['default']
     TableSearch: typeof import('./src/components/table-search.vue')['default']
     Tabs: typeof import('./src/components/tabs.vue')['default']
+  }
+  export interface ComponentCustomProperties {
+    vLoading: typeof import('element-plus/es')['ElLoadingDirective']
   }
 }
