@@ -96,6 +96,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department } from '@/types/organization';
+import { getAllDepartments } from '@/api/department';
 
 // 响应式数据
 const departmentTree = ref<Department[]>([]);
@@ -142,68 +143,127 @@ const departmentOptions = computed(() => {
 
 // 获取部门数据
 const getDepartmentData = async () => {
-    // 模拟数据，实际应该从API获取
-    departmentTree.value = [
-        {
-            id: 1,
-            name: '总公司',
-            parentId: null,
-            level: 1,
-            description: '公司总部',
-            manager: '张三',
-            phone: '13800138000',
-            createTime: '2023-01-01',
-            userCount: 15,
-            children: [
-                {
-                    id: 2,
-                    name: '技术部',
-                    parentId: 1,
-                    level: 2,
-                    description: '负责技术研发',
-                    manager: '李四',
-                    phone: '13800138001',
-                    createTime: '2023-01-01',
-                    userCount: 8,
-                    children: [
-                        {
-                            id: 4,
-                            name: '前端组',
-                            parentId: 2,
-                            level: 3,
-                            description: '前端开发',
-                            manager: '王五',
-                            phone: '13800138003',
-                            createTime: '2023-01-01',
-                            userCount: 3
-                        },
-                        {
-                            id: 5,
-                            name: '后端组',
-                            parentId: 2,
-                            level: 3,
-                            description: '后端开发',
-                            manager: '赵六',
-                            phone: '13800138004',
-                            createTime: '2023-01-01',
-                            userCount: 5
-                        }
-                    ]
-                },
-                {
-                    id: 3,
-                    name: '市场部',
-                    parentId: 1,
-                    level: 2,
-                    description: '负责市场推广',
-                    manager: '钱七',
-                    phone: '13800138002',
-                    createTime: '2023-01-01',
-                    userCount: 7
-                }
-            ]
+    try {
+        const res = await getAllDepartments();
+
+        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+            // 将API数据转换为前端需要的格式
+            const departments = res.data.data.map((item: any) => {
+                return {
+                    id: item.id,
+                    name: item.name || '未命名部门',
+                    parentId: item.parent_id || null,
+                    level: item.level || 1,
+                    description: item.description || '',
+                    manager: item.manager || '',
+                    phone: item.phone || '',
+                    createTime: item.create_time || '',
+                    userCount: item.user_count || 0,
+                    children: [] // 先初始化为空，后面会构建树结构
+                };
+            });
+
+            // 构建树结构
+            departmentTree.value = buildDepartmentTree(departments);
+        } else {
+            throw new Error('API返回数据格式不正确');
         }
-    ];
+    } catch (error) {
+        ElMessage.error('获取部门数据失败');
+        console.error('获取部门数据错误:', error);
+
+        // 使用模拟数据作为fallback
+        departmentTree.value = [
+            {
+                id: 1,
+                name: '总公司',
+                parentId: null,
+                level: 1,
+                description: '公司总部',
+                manager: '张三',
+                phone: '13800138000',
+                createTime: '2023-01-01',
+                userCount: 15,
+                children: [
+                    {
+                        id: 2,
+                        name: '技术部',
+                        parentId: 1,
+                        level: 2,
+                        description: '负责技术研发',
+                        manager: '李四',
+                        phone: '13800138001',
+                        createTime: '2023-01-01',
+                        userCount: 8,
+                        children: [
+                            {
+                                id: 4,
+                                name: '前端组',
+                                parentId: 2,
+                                level: 3,
+                                description: '前端开发',
+                                manager: '王五',
+                                phone: '13800138003',
+                                createTime: '2023-01-01',
+                                userCount: 3
+                            },
+                            {
+                                id: 5,
+                                name: '后端组',
+                                parentId: 2,
+                                level: 3,
+                                description: '后端开发',
+                                manager: '赵六',
+                                phone: '13800138004',
+                                createTime: '2023-01-01',
+                                userCount: 5
+                            }
+                        ]
+                    },
+                    {
+                        id: 3,
+                        name: '市场部',
+                        parentId: 1,
+                        level: 2,
+                        description: '负责市场推广',
+                        manager: '钱七',
+                        phone: '13800138002',
+                        createTime: '2023-01-01',
+                        userCount: 7
+                    }
+                ]
+            }
+        ];
+    }
+};
+
+// 构建部门树结构
+const buildDepartmentTree = (departments: Department[]): Department[] => {
+    const map = new Map<number, Department>();
+    const tree: Department[] = [];
+
+    // 创建映射
+    departments.forEach(dept => {
+        map.set(dept.id, { ...dept, children: [] });
+    });
+
+    // 构建树
+    departments.forEach(dept => {
+        const node = map.get(dept.id)!;
+        if (dept.parentId === null) {
+            tree.push(node);
+        } else {
+            const parent = map.get(dept.parentId);
+            if (parent) {
+                parent.children!.push(node);
+            } else {
+                // 如果找不到父节点，作为根节点
+                tree.push(node);
+            }
+        }
+    });
+
+    return tree;
 };
 
 // 显示新增对话框
@@ -242,11 +302,15 @@ const handleDelete = async (department: Department) => {
             type: 'warning'
         });
 
-        // 实际应该调用API删除部门
+        // TODO: 调用删除API
+        // await deleteDepartment(department.id);
+
         ElMessage.success('删除成功');
-        getDepartmentData();
-    } catch {
-        // 用户取消删除
+        await getDepartmentData();
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('删除失败');
+        }
     }
 };
 
@@ -257,17 +321,20 @@ const handleSubmit = async () => {
     try {
         await formRef.value.validate();
 
-        // 实际应该调用API保存部门
-        if (isEdit.value) {
-            ElMessage.success('编辑成功');
-        } else {
-            ElMessage.success('新增成功');
-        }
+        // TODO: 调用创建或更新API
+        // if (isEdit.value) {
+        //     await updateDepartment(formData.id, formData);
+        // } else {
+        //     await createDepartment(formData);
+        // }
 
+        ElMessage.success(isEdit.value ? '编辑成功' : '新增成功');
         dialogVisible.value = false;
-        getDepartmentData();
+        await getDepartmentData();
     } catch (error) {
-        console.error('表单验证失败:', error);
+        if (error !== 'cancel') {
+            ElMessage.error(isEdit.value ? '编辑失败' : '新增失败');
+        }
     }
 };
 

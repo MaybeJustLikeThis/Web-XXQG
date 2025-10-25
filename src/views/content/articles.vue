@@ -1,21 +1,13 @@
 <template>
     <div class="container">
         <div class="handle-box">
-            <el-button type="primary" :icon="Plus" @click="handleCreate">新增文章</el-button>
             <el-input v-model="query.title" placeholder="文章标题" class="handle-input mr10" @keyup.enter="handleSearch"></el-input>
-            <el-select v-model="query.status" placeholder="状态" class="handle-select mr10">
-                <el-option label="全部" value=""></el-option>
-                <el-option label="已发布" value="published"></el-option>
-                <el-option label="草稿" value="draft"></el-option>
-                <el-option label="已撤稿" value="withdrawn"></el-option>
-            </el-select>
             <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
         </div>
 
         <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
             <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
             <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
-            <el-table-column prop="summary" label="摘要" show-overflow-tooltip></el-table-column>
             <el-table-column label="封面" width="100" align="center">
                 <template #default="scope">
                     <el-image
@@ -28,9 +20,9 @@
                     <span v-else class="no-cover">无封面</span>
                 </template>
             </el-table-column>
-            <el-table-column label="标签" width="150" align="center">
+            <el-table-column label="作者" width="120" align="center">
                 <template #default="scope">
-                    <el-tag v-for="tag in scope.row.tags" :key="tag" size="small" class="mr5">{{ tag }}</el-tag>
+                    {{ scope.row.author }}
                 </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100" align="center">
@@ -41,7 +33,8 @@
                 </template>
             </el-table-column>
             <el-table-column prop="viewCount" label="浏览量" width="100" align="center"></el-table-column>
-            <el-table-column prop="publishTime" label="发布时间" width="160" align="center"></el-table-column>
+            <el-table-column prop="commentCount" label="评论数" width="100" align="center"></el-table-column>
+            <el-table-column prop="publishTime" label="更新时间" width="160" align="center"></el-table-column>
             <el-table-column label="操作" width="220" align="center">
                 <template #default="scope">
                     <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
@@ -74,9 +67,6 @@
             <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
                 <el-form-item label="文章标题" prop="title">
                     <el-input v-model="form.title" placeholder="请输入文章标题"></el-input>
-                </el-form-item>
-                <el-form-item label="文章摘要" prop="summary">
-                    <el-input v-model="form.summary" type="textarea" rows="3" placeholder="请输入文章摘要"></el-input>
                 </el-form-item>
                 <el-form-item label="文章封面" prop="cover">
                     <el-upload
@@ -137,6 +127,7 @@ import { Plus, Edit, Delete, Search, Remove } from '@element-plus/icons-vue';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
 import type { Article, ArticleQuery } from '@/types/content';
+import { getAllArticles } from '@/api/article';
 
 // 编辑器实例，必须用 shallowRef
 const editorRef = shallowRef();
@@ -146,7 +137,6 @@ const query = reactive<ArticleQuery>({
     page: 1,
     pageSize: 10,
     title: '',
-    status: undefined,
 });
 
 // 表格数据
@@ -163,7 +153,7 @@ const form = reactive<Article>({
     id: '',
     title: '',
     content: '',
-    summary: '',
+    summary: '', // 保留字段以避免类型错误，但不使用
     cover: '',
     tags: [],
     status: 'draft',
@@ -220,51 +210,96 @@ const editorConfig = {
 };
 
 // 获取文章列表
-const getArticles = () => {
-    // 模拟数据
-    const mockData: Article[] = [
-        {
-            id: '1',
-            title: 'Vue3 Composition API 最佳实践',
-            content: '<p>Vue3 Composition API 最佳实践内容...</p>',
-            summary: '本文介绍了Vue3 Composition API的最佳实践方法',
-            cover: 'https://via.placeholder.com/300x200/4CAF50/ffffff?text=Vue3',
-            tags: ['技术', '前端', 'Vue3'],
-            status: 'published',
-            author: 'admin',
-            publishTime: '2024-01-15 10:30:00',
-            updateTime: '2024-01-15 10:30:00',
-            viewCount: 1250,
-        },
-        {
-            id: '2',
-            title: 'TypeScript 高级类型详解',
-            content: '<p>TypeScript 高级类型详解内容...</p>',
-            summary: '深入理解TypeScript的高级类型系统',
-            cover: '',
-            tags: ['技术', '前端', 'TypeScript'],
-            status: 'draft',
-            author: 'admin',
-            publishTime: '',
-            updateTime: '2024-01-14 15:20:00',
-            viewCount: 0,
-        },
-    ];
+const getArticles = async () => {
+    try {
+        const res = await getAllArticles();
 
-    tableData.value = mockData;
-    pageTotal.value = mockData.length;
+        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+            // 将API数据转换为前端需要的格式
+            const articles = res.data.data.map((item: any) => {
+                return {
+                    id: item.id.toString(),
+                    title: item.title || '未命名文章',
+                    content: item.text || '',
+                    cover: item.head_image || '',
+                    tags: item.tags || [],
+                    status: 'published', // API没有返回状态，默认为已发布
+                    author: item.creator || '未知作者',
+                    publishTime: item.update_time || '',
+                    updateTime: item.update_time || '',
+                    viewCount: item.comments ? item.comments.length : 0, // 使用评论数作为浏览量
+                    commentCount: item.comments ? item.comments.length : 0, // 评论数量
+                    // 保留原始API数据
+                    raw: item
+                };
+            });
+
+            // 应用筛选条件
+            let filteredData = articles.filter((article: any) => {
+                if (query.title && !article.title.includes(query.title)) return false;
+                return true;
+            });
+
+            tableData.value = filteredData;
+            pageTotal.value = filteredData.length;
+        } else {
+            throw new Error('API返回数据格式不正确');
+        }
+    } catch (error) {
+        ElMessage.error('获取文章列表失败');
+        console.error('获取文章列表错误:', error);
+
+        // 使用模拟数据作为fallback，与真实API数据格式一致
+        const mockData: Article[] = [
+            {
+                id: '1',
+                title: '深入学习贯彻党的二十大精神 扎实推进高校思想政治工作高质量发展',
+                content: ' <h2>引言</h2>\n<p>党的二十大是在全党全国各族人民迈上全面建设社会主义现代化国家新征程、向第二个百年奋斗目标进军的关键时刻召开的一次十分重要的大会。</p>',
+                cover: 'https://tyut-qiangguo.oss-cn-beijing.aliyuncs.com/%E6%88%AA%E5%B1%8F2025-10-13%2000.15.05.png',
+                tags: ['思想政治', '党的二十大精神', '高校发展'],
+                status: 'published',
+                author: '任博轩',
+                publishTime: '2025-10-13 23:49:09',
+                updateTime: '2025-10-13 23:49:09',
+                viewCount: 7,
+                commentCount: 7,
+            },
+            {
+                id: '2',
+                title: '这是第二个文章的标题',
+                content: '第二篇文章，第二个内容',
+                cover: 'https://tyut-qiangguo.oss-cn-beijing.aliyuncs.com/%E6%88%AA%E5%B1%8F2025-10-13%2000.15.05.png',
+                tags: ['教育', '学习'],
+                status: 'published',
+                author: '任博轩',
+                publishTime: '2025-10-13 23:53:05',
+                updateTime: '2025-10-13 23:53:05',
+                viewCount: 5,
+                commentCount: 5,
+            },
+        ];
+
+        // 应用筛选条件
+        let filteredData = mockData.filter(article => {
+            if (query.title && !article.title.includes(query.title)) return false;
+            return true;
+        });
+
+        tableData.value = filteredData;
+        pageTotal.value = filteredData.length;
+    }
 };
 
 // 搜索
-const handleSearch = () => {
+const handleSearch = async () => {
     query.page = 1;
-    getArticles();
+    await getArticles();
 };
 
 // 分页切换
-const handlePageChange = (val: number) => {
+const handlePageChange = async (val: number) => {
     query.page = val;
-    getArticles();
+    await getArticles();
 };
 
 // 新增文章
@@ -282,25 +317,41 @@ const handleEdit = (row: Article) => {
 };
 
 // 撤稿
-const handleWithdraw = (row: Article) => {
-    ElMessageBox.confirm('确定要撤稿这篇文章吗？', '提示', {
-        type: 'warning',
-    }).then(() => {
-        // 模拟撤稿操作
+const handleWithdraw = async (row: Article) => {
+    try {
+        await ElMessageBox.confirm('确定要撤稿这篇文章吗？', '提示', {
+            type: 'warning',
+        });
+
+        // TODO: 调用撤稿API
+        // await updateArticleStatus(row.id, 'withdrawn');
+
         ElMessage.success('撤稿成功');
-        getArticles();
-    });
+        await getArticles();
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('撤稿失败');
+        }
+    }
 };
 
 // 删除文章
-const handleDelete = (row: Article) => {
-    ElMessageBox.confirm('确定要删除这篇文章吗？', '提示', {
-        type: 'warning',
-    }).then(() => {
-        // 模拟删除操作
+const handleDelete = async (row: Article) => {
+    try {
+        await ElMessageBox.confirm('确定要删除这篇文章吗？', '提示', {
+            type: 'warning',
+        });
+
+        // TODO: 调用删除API
+        // await deleteArticle(row.id);
+
         ElMessage.success('删除成功');
-        getArticles();
-    });
+        await getArticles();
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('删除失败');
+        }
+    }
 };
 
 // 保存草稿
@@ -316,15 +367,27 @@ const handleSubmit = () => {
 };
 
 // 提交表单逻辑
-const submitForm = () => {
-    formRef.value.validate((valid: boolean) => {
-        if (valid) {
-            // 模拟提交操作
-            ElMessage.success(form.id ? '更新成功' : '创建成功');
-            dialogVisible.value = false;
-            getArticles();
+const submitForm = async () => {
+    if (!formRef.value) return;
+
+    try {
+        await formRef.value.validate();
+
+        // TODO: 调用创建或更新API
+        // if (form.id) {
+        //     await updateArticle(form.id, form);
+        // } else {
+        //     await createArticle(form);
+        // }
+
+        ElMessage.success(form.id ? '更新成功' : '创建成功');
+        dialogVisible.value = false;
+        await getArticles();
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error(form.id ? '更新失败' : '创建失败');
         }
-    });
+    }
 };
 
 // 重置表单
@@ -333,7 +396,7 @@ const resetForm = () => {
         id: '',
         title: '',
         content: '',
-        summary: '',
+        summary: '', // 保留字段以避免类型错误
         cover: '',
         tags: [],
         status: 'draft',
@@ -388,8 +451,8 @@ const statusText = (status: string) => {
     return texts[status as keyof typeof texts] || '未知';
 };
 
-onMounted(() => {
-    getArticles();
+onMounted(async () => {
+    await getArticles();
 });
 </script>
 

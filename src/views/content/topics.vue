@@ -15,27 +15,15 @@
         <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
             <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
             <el-table-column prop="name" label="专题名称" show-overflow-tooltip></el-table-column>
-            <el-table-column prop="description" label="专题描述" show-overflow-tooltip></el-table-column>
-            <el-table-column label="封面" width="100" align="center">
-                <template #default="scope">
-                    <el-image
-                        v-if="scope.row.cover"
-                        :src="scope.row.cover"
-                        :preview-src-list="[scope.row.cover]"
-                        class="cover-img"
-                        fit="cover"
-                    ></el-image>
-                    <span v-else class="no-cover">无封面</span>
-                </template>
-            </el-table-column>
+            <el-table-column prop="creator" label="创建者" width="100" align="center"></el-table-column>
             <el-table-column label="文章数量" width="100" align="center">
                 <template #default="scope">
-                    {{ scope.row.articleIds.length }}
+                    {{ scope.row.texts?.length || 0 }}
                 </template>
             </el-table-column>
-            <el-table-column label="置顶文章" width="100" align="center">
+            <el-table-column label="题目数量" width="100" align="center">
                 <template #default="scope">
-                    {{ scope.row.pinnedArticles.length }}
+                    {{ scope.row.question_list?.length || 0 }}
                 </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100" align="center">
@@ -47,14 +35,13 @@
             </el-table-column>
             <el-table-column label="有效期" width="200" align="center">
                 <template #default="scope">
-                    <div v-if="scope.row.startTime || scope.row.endTime">
-                        <div v-if="scope.row.startTime">开始：{{ scope.row.startTime }}</div>
-                        <div v-if="scope.row.endTime">结束：{{ scope.row.endTime }}</div>
+                    <div v-if="scope.row.begin_time || scope.row.end_time">
+                        <div v-if="scope.row.begin_time">开始：{{ scope.row.begin_time }}</div>
+                        <div v-if="scope.row.end_time">结束：{{ scope.row.end_time }}</div>
                     </div>
-                    <span v-else class="text-muted">永久有效</span>
+                    <span v-else class="text-muted">未设置</span>
                 </template>
             </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160" align="center"></el-table-column>
             <el-table-column label="操作" width="220" align="center">
                 <template #default="scope">
                     <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
@@ -76,50 +63,28 @@
         </div>
 
         <!-- 新增/编辑弹窗 -->
-        <el-dialog :title="dialogTitle" v-model="dialogVisible" width="60%" destroy-on-close>
+        <el-dialog :title="dialogTitle" v-model="dialogVisible" width="50%" destroy-on-close>
             <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
                 <el-form-item label="专题名称" prop="name">
                     <el-input v-model="form.name" placeholder="请输入专题名称"></el-input>
                 </el-form-item>
-                <el-form-item label="专题描述" prop="description">
-                    <el-input v-model="form.description" type="textarea" rows="3" placeholder="请输入专题描述"></el-input>
-                </el-form-item>
-                <el-form-item label="专题封面" prop="cover">
-                    <el-upload
-                        class="cover-uploader"
-                        :action="uploadUrl"
-                        :show-file-list="false"
-                        :on-success="handleCoverSuccess"
-                        :before-upload="beforeCoverUpload"
-                    >
-                        <img v-if="form.cover" :src="form.cover" class="cover-uploader-img" />
-                        <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
-                    </el-upload>
-                </el-form-item>
                 <el-form-item label="有效期设置">
-                    <el-row>
-                        <el-col :span="12">
-                            <el-date-picker
-                                v-model="dateRange"
-                                type="datetimerange"
-                                range-separator="至"
-                                start-placeholder="开始时间"
-                                end-placeholder="结束时间"
-                                format="YYYY-MM-DD HH:mm:ss"
-                                value-format="YYYY-MM-DD HH:mm:ss"
-                                @change="handleDateChange"
-                            />
-                        </el-col>
-                        <el-col :span="12" style="padding-left: 20px;">
-                            <el-checkbox v-model="noTimeLimit">永久有效</el-checkbox>
-                        </el-col>
-                    </el-row>
+                    <el-date-picker
+                        v-model="dateRange"
+                        type="datetimerange"
+                        range-separator="至"
+                        start-placeholder="开始时间"
+                        end-placeholder="结束时间"
+                        format="YYYY-MM-DD HH:mm:ss"
+                        value-format="YYYY-MM-DD HH:mm:ss"
+                        @change="handleDateChange"
+                    />
                 </el-form-item>
                 <el-form-item label="专题状态">
                     <el-radio-group v-model="form.status">
-                        <el-radio label="active">活跃</el-radio>
-                        <el-radio label="hidden">隐藏</el-radio>
-                        <el-radio label="expired">已过期</el-radio>
+                        <el-radio :label="0">未开始</el-radio>
+                        <el-radio :label="1">进行中</el-radio>
+                        <el-radio :label="2">已过期</el-radio>
                     </el-radio-group>
                 </el-form-item>
             </el-form>
@@ -356,7 +321,7 @@ const form = reactive<Topic>({
     cover: '',
     articleIds: [],
     pinnedArticles: [],
-    status: 'active',
+    status: 1, // 默认进行中
     startTime: '',
     endTime: '',
     createTime: '',
@@ -366,15 +331,11 @@ const form = reactive<Topic>({
 // 表单验证规则
 const rules = {
     name: [{ required: true, message: '请输入专题名称', trigger: 'blur' }],
-    description: [{ required: true, message: '请输入专题描述', trigger: 'blur' }],
 };
 
-// 上传地址
-const uploadUrl = '/api/upload';
 
 // 日期范围
 const dateRange = ref<[string, string]>(['', '']);
-const noTimeLimit = ref(true);
 
 // 文章管理相关
 const currentTopic = ref<Topic | null>(null);
@@ -413,25 +374,31 @@ const questionFilter = reactive({
 const getTopics = async () => {
     try {
         const res = await getSubjects();
-        // 假设API返回的数据结构为 { code: 200, data: [...], message: 'success' }
-        if (res.data && Array.isArray(res.data)) {
+
+        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
             // 将API数据转换为前端需要的格式
-            const topics = res.data.map((item: any) => ({
-                id: item.id || item._id,
-                name: item.name || item.title,
-                description: item.description || item.desc || '',
-                cover: item.cover || item.image || '',
-                articleIds: item.articleIds || item.articles || [],
-                pinnedArticles: item.pinnedArticles || item.pinned || [],
-                status: item.status || 'active',
-                startTime: item.startTime || item.start_time || '',
-                endTime: item.endTime || item.end_time || '',
-                createTime: item.createTime || item.created_at || '',
-                updateTime: item.updateTime || item.updated_at || '',
+            const topics = res.data.data.map((item: any) => ({
+                id: item.id.toString(),
+                name: item.name,
+                description: '', // API没有返回描述字段
+                creator: item.creator,
+                creator_id: item.creator_id,
+                texts: item.texts || [],
+                question_list: item.question_list || [],
+                status: item.status, // 直接使用API返回的状态（0:未开始，1:进行中，2:已过期）
+                begin_time: item.begin_time,
+                end_time: item.end_time,
+                // 兼容原有字段
+                articleIds: item.texts?.map(text => text.id.toString()) || [],
+                pinnedArticles: [], // API没有返回置顶信息
+                startTime: item.begin_time,
+                endTime: item.end_time,
+                createTime: '', // API没有返回创建时间
+                updateTime: '', // API没有返回更新时间
             }));
 
             // 根据查询条件过滤数据
-            let filteredData = topics.filter((topic: Topic) => {
+            let filteredData = topics.filter((topic: any) => {
                 if (query.name && !topic.name.includes(query.name)) return false;
                 if (query.status && topic.status !== query.status) return false;
                 return true;
@@ -447,37 +414,30 @@ const getTopics = async () => {
         console.error('获取专题列表错误:', error);
 
         // 开发阶段使用模拟数据作为fallback
-        const mockData: Topic[] = [
+        const mockData = [
             {
                 id: '1',
-                name: 'Vue.js 学习路线',
-                description: '从入门到精通的Vue.js学习指南',
-                cover: 'https://via.placeholder.com/300x200/42b883/ffffff?text=Vue.js',
-                articleIds: ['1', '2', '3'],
-                pinnedArticles: ['1'],
-                status: 'active',
-                startTime: '2024-01-01 00:00:00',
-                endTime: '2024-12-31 23:59:59',
-                createTime: '2024-01-01 10:00:00',
-                updateTime: '2024-01-15 14:30:00',
-            },
-            {
-                id: '2',
-                name: '前端性能优化',
-                description: '前端性能优化的最佳实践',
-                cover: '',
-                articleIds: ['4', '5'],
+                name: '10月专项学习',
+                creator: '研发部',
+                creator_id: 1,
+                texts: [
+                    { id: 2, title: '深入学习贯彻党的二十大精神', is_read: false },
+                    { id: 3, title: '这是第二个文章的标题', is_read: false }
+                ],
+                question_list: [
+                    { id: 36, title: '下列哪个是正确的？1', options: ['选项一', '选项二', '选项三', '选项四'], type: 1, fixed_answer: true, answered: false },
+                    { id: 37, title: '下列哪些是正确的？13', options: ['选项一', '选项二', '选项三', '选项四'], type: 2, fixed_answer: true, answered: false }
+                ],
+                status: 1,
+                begin_time: '2025-05-19 22:53:37',
+                end_time: '2025-12-19 22:53:47',
+                articleIds: ['2', '3'],
                 pinnedArticles: [],
-                status: 'active',
-                startTime: '',
-                endTime: '',
-                createTime: '2024-01-10 09:00:00',
-                updateTime: '2024-01-10 09:00:00',
             },
         ];
 
         // 根据查询条件过滤模拟数据
-        let filteredData = mockData.filter(topic => {
+        let filteredData = mockData.filter((topic: any) => {
             if (query.name && !topic.name.includes(query.name)) return false;
             if (query.status && topic.status !== query.status) return false;
             return true;
@@ -655,10 +615,8 @@ const handleEdit = (row: Topic) => {
     // 设置日期范围
     if (row.startTime && row.endTime) {
         dateRange.value = [row.startTime, row.endTime];
-        noTimeLimit.value = false;
     } else {
         dateRange.value = ['', ''];
-        noTimeLimit.value = true;
     }
 };
 
@@ -682,34 +640,51 @@ const handleDelete = async (row: Topic) => {
 };
 
 // 管理文章
-const handleManageArticles = (row: Topic) => {
+const handleManageArticles = (row: any) => {
     currentTopic.value = row;
     articleDialogVisible.value = true;
     activeTab.value = 'articles';
 
-    // 设置已选文章
-    topicArticles.value = row.articleIds.map(id => {
-        const article = availableArticles.value.find(a => a.id === id) || {
-            id,
-            title: `文章${id}`,
+    // 设置已选文章 - 使用新的texts数据
+    topicArticles.value = row.texts?.map((text: any) => {
+        return {
+            id: text.id.toString(),
+            title: text.title,
             content: '',
             summary: '',
             cover: '',
             tags: [],
-            status: 'published',
+            status: text.is_read ? 'read' : 'unread', // 根据阅读状态设置
             author: '',
             publishTime: '',
             updateTime: '',
             viewCount: 0,
+            isPinned: false, // API没有返回置顶信息
         };
-        return {
-            ...article,
-            isPinned: row.pinnedArticles.includes(id),
-        };
-    });
+    }) || [];
 
-    // 初始化题目数据
-    topicQuestions.value = [];
+    // 设置已选题目 - 使用新的question_list数据
+    topicQuestions.value = row.question_list?.map((question: any) => {
+        return {
+            id: question.id.toString(),
+            title: question.title,
+            type: question.type === 1 ? 'single_choice' : question.type === 2 ? 'multiple_choice' : 'essay',
+            difficulty: 'medium', // API没有返回难度信息
+            status: question.answered ? 'answered' : 'unanswered',
+            content: question.title,
+            options: question.options?.map((option: string, index: number) => ({
+                id: (index + 1).toString(),
+                text: option,
+                isCorrect: false // API没有返回正确答案
+            })) || [],
+            correctAnswer: '',
+            explanation: '',
+            points: 10, // 默认分值
+            creatorId: '',
+            createTime: '',
+            updateTime: ''
+        };
+    }) || [];
 
     getAvailableArticles();
     getAvailableQuestions();
@@ -893,7 +868,7 @@ const saveTopicContent = async () => {
 
 // 日期变化
 const handleDateChange = (dates: [string, string]) => {
-    if (dates && !noTimeLimit.value) {
+    if (dates) {
         form.startTime = dates[0];
         form.endTime = dates[1];
     }
@@ -905,11 +880,6 @@ const handleSubmit = async () => {
 
     try {
         await formRef.value.validate();
-
-        if (noTimeLimit.value) {
-            form.startTime = '';
-            form.endTime = '';
-        }
 
         // TODO: 这里应该调用创建或更新API
         // if (form.id) {
@@ -937,53 +907,34 @@ const resetForm = () => {
         cover: '',
         articleIds: [],
         pinnedArticles: [],
-        status: 'active',
+        status: 1, // 默认进行中
         startTime: '',
         endTime: '',
         createTime: '',
         updateTime: '',
     });
     dateRange.value = ['', ''];
-    noTimeLimit.value = true;
 };
 
-// 封面上传成功
-const handleCoverSuccess = (res: any) => {
-    form.cover = res.url;
-};
-
-// 封面上传前检查
-const beforeCoverUpload = (file: File) => {
-    const isJPG = file.type === 'image/jpeg' || file.type === 'image/png';
-    const isLt2M = file.size / 1024 / 1024 < 2;
-
-    if (!isJPG) {
-        ElMessage.error('封面图片只能是 JPG/PNG 格式!');
-    }
-    if (!isLt2M) {
-        ElMessage.error('封面图片大小不能超过 2MB!');
-    }
-    return isJPG && isLt2M;
-};
 
 // 状态类型
-const statusType = (status: string) => {
+const statusType = (status: number) => {
     const types = {
-        active: 'success',
-        expired: 'warning',
-        hidden: 'info',
+        0: 'info',    // 未开始
+        1: 'success', // 进行中
+        2: 'warning', // 已过期
     };
     return types[status as keyof typeof types] || 'info';
 };
 
 // 状态文本
-const statusText = (status: string) => {
+const statusText = (status: number) => {
     const texts = {
-        active: '活跃',
-        expired: '已过期',
-        hidden: '已隐藏',
+        0: '未开始',
+        1: '进行中',
+        2: '已过期'
     };
-    return texts[status as keyof typeof texts] || '未知';
+    return texts[status as keyof typeof texts] || '未知状态';
 };
 
 // 文章状态类型
@@ -1080,48 +1031,9 @@ onMounted(async () => {
     font-size: 14px;
 }
 
-.cover-img {
-    width: 60px;
-    height: 40px;
-    border-radius: 4px;
-}
-
-.no-cover {
-    color: #999;
-    font-size: 12px;
-}
-
 .text-muted {
     color: #999;
     font-size: 12px;
-}
-
-.cover-uploader {
-    border: 1px dashed #d9d9d9;
-    border-radius: 6px;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: 0.2s;
-}
-
-.cover-uploader:hover {
-    border-color: #409eff;
-}
-
-.cover-uploader-img {
-    width: 178px;
-    height: 178px;
-    display: block;
-}
-
-.cover-uploader-icon {
-    font-size: 28px;
-    color: #8c939d;
-    width: 178px;
-    height: 178px;
-    line-height: 178px;
-    text-align: center;
 }
 
 .article-management {

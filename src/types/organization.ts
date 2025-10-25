@@ -35,27 +35,12 @@ export interface UserGroup {
     createTime: string;
 }
 
-export interface InvitationCode {
-    id: number;
-    code: string;
-    departmentId: number;
-    departmentName: string;
-    groupId?: number;
-    groupName?: string;
-    status: 'unused' | 'used' | 'expired';
-    usedBy?: string;
-    usedTime?: string;
-    expireTime?: string;
-    createTime: string;
-}
-
 export interface ImportUserItem {
     name: string;
     phone?: string;
     email?: string;
     departmentName: string;
     groupName?: string;
-    invitationCode?: string;
 }
 
 export interface OrganizationTreeItem extends Department {

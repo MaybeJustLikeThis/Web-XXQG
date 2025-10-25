@@ -11,8 +11,8 @@ const getBaseURL = () => {
 
 const service: AxiosInstance = axios.create({
     baseURL: getBaseURL(),
-    timeout: 5000,
-    withCredentials: true, // 启用cookie支持
+    timeout: 15000,
+    withCredentials: true, // 禁用cookie支持，避免CORS问题
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -38,8 +38,13 @@ service.interceptors.response.use(
         }
     },
     (error: AxiosError) => {
-        console.log(error);
-        return Promise.reject();
+        console.log('Response Error:', error);
+        if (error.response) {
+            console.log('Error Status:', error.response.status);
+            console.log('Error Data:', error.response.data);
+            console.log('Error Headers:', error.response.headers);
+        }
+        return Promise.reject(error);
     }
 );
 

@@ -26,10 +26,6 @@
                             <el-icon><UserFilled /></el-icon>
                             <span>用户分组</span>
                         </el-menu-item>
-                        <el-menu-item index="invitation">
-                            <el-icon><Key /></el-icon>
-                            <span>邀请码管理</span>
-                        </el-menu-item>
                     </el-menu>
                 </el-card>
             </el-col>
@@ -51,11 +47,6 @@
                     <div v-show="activeMenu === 'group'">
                         <UserGroupManagement />
                     </div>
-
-                    <!-- 邀请码管理 -->
-                    <div v-show="activeMenu === 'invitation'">
-                        <InvitationManagement />
-                    </div>
                 </div>
             </el-col>
         </el-row>
@@ -64,11 +55,10 @@
 
 <script setup lang="ts" name="organization">
 import { ref } from 'vue';
-import { OfficeBuilding, User, UserFilled, Key } from '@element-plus/icons-vue';
+import { OfficeBuilding, User, UserFilled } from '@element-plus/icons-vue';
 import DepartmentManagement from './components/DepartmentManagement.vue';
 import UserManagement from './components/UserManagement.vue';
 import UserGroupManagement from './components/UserGroupManagement.vue';
-import InvitationManagement from './components/InvitationManagement.vue';
 
 const activeMenu = ref('department');
 
