@@ -21,8 +21,35 @@ export interface UserProfile {
     manage_departments: number[];
 }
 
+// 清理无效的localStorage数据
+const cleanupInvalidData = () => {
+    try {
+        // 检查并清理userProfile
+        const profileStr = localStorage.getItem('userProfile');
+        if (profileStr && (profileStr === 'undefined' || profileStr === 'null' || !profileStr.startsWith('{'))) {
+            localStorage.removeItem('userProfile');
+        }
+
+        // 检查并清理vuems_name
+        const username = localStorage.getItem('vuems_name');
+        if (username && (username === 'undefined' || username === 'null')) {
+            localStorage.removeItem('vuems_name');
+        }
+
+        // 检查并清理token
+        const token = localStorage.getItem('token');
+        if (token && (token === 'undefined' || token === 'null')) {
+            localStorage.removeItem('token');
+        }
+    } catch (e) {
+        console.error('清理localStorage数据时出错:', e);
+    }
+};
+
 export const usePermissStore = defineStore('permiss', {
     state: () => {
+        // 初始化时清理无效数据
+        cleanupInvalidData();
         // 权限码定义
         const PERMISSION_CODES = {
             // 基础权限
@@ -143,11 +170,13 @@ export const usePermissStore = defineStore('permiss', {
         // 从localStorage获取用户信息
         const getUserProfile = (): UserProfile | null => {
             const profileStr = localStorage.getItem('userProfile');
-            if (profileStr) {
+            if (profileStr && profileStr !== 'undefined' && profileStr !== 'null') {
                 try {
                     return JSON.parse(profileStr);
                 } catch (e) {
                     console.error('Failed to parse user profile:', e);
+                    // 清除无效数据
+                    localStorage.removeItem('userProfile');
                 }
             }
             return null;
@@ -234,9 +263,19 @@ export const usePermissStore = defineStore('permiss', {
     actions: {
         // 设置用户信息并更新权限
         setUserProfile(profile: UserProfile) {
+            if (!profile || !profile.name) {
+                console.error('无效的用户信息:', profile);
+                throw new Error('用户信息无效，缺少必要字段');
+            }
+
             this.userProfile = profile;
-            localStorage.setItem('userProfile', JSON.stringify(profile));
-            localStorage.setItem('vuems_name', profile.name);
+            try {
+                localStorage.setItem('userProfile', JSON.stringify(profile));
+                localStorage.setItem('vuems_name', profile.name);
+            } catch (e) {
+                console.error('保存用户信息到localStorage失败:', e);
+                throw new Error('保存用户信息失败');
+            }
 
             // 重新计算权限
             const permissions: string[] = [];
@@ -267,6 +306,7 @@ export const usePermissStore = defineStore('permiss', {
             this.key = [];
             localStorage.removeItem('userProfile');
             localStorage.removeItem('vuems_name');
+            localStorage.removeItem('token');
         },
 
         // 直接设置权限（向后兼容）

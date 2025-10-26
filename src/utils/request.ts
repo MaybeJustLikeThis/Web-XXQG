@@ -21,6 +21,11 @@ const service: AxiosInstance = axios.create({
 
 service.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+        // 添加token到请求头
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error: AxiosError) => {
@@ -43,6 +48,15 @@ service.interceptors.response.use(
             console.log('Error Status:', error.response.status);
             console.log('Error Data:', error.response.data);
             console.log('Error Headers:', error.response.headers);
+
+            // 如果返回401或403，说明认证失败，清除本地存储的用户信息
+            if (error.response.status === 401 || error.response.status === 403) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userProfile');
+                localStorage.removeItem('vuems_name');
+                // 可以在这里添加跳转到登录页的逻辑
+                // window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

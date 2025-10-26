@@ -102,29 +102,33 @@ const submitForm = (formEl: FormInstance | undefined) => {
 
                 if (response.data && response.data.code === 200) {
                     ElMessage.success('登录成功');
-                    localStorage.setItem('vuems_name', param.id_number);
 
-                    // 如果返回了token数据，保存它
-                    if (response.data.data && response.data.data.token) {
-                        localStorage.setItem('token', response.data.data.token);
+                    // 保存完整的用户信息到permiss store
+                    try {
+                        if (response.data.data && response.data.data.user) {
+                            console.log('保存用户信息:', response.data.data.user);
+                            // 保存用户信息到store和localStorage
+                            permiss.setUserProfile(response.data.data.user);
+
+                            // 如果返回了token数据，保存它
+                            if (response.data.data.token) {
+                                localStorage.setItem('token', response.data.data.token);
+                            }
+                        } else {
+                            console.log('API响应中没有用户信息，使用默认权限');
+                            console.log('完整响应:', response.data);
+                            // 如果没有返回用户信息，设置默认管理员权限（调试用）
+                            const keys = permiss.defaultList['admin'];
+                            permiss.handleSet(keys);
+                            localStorage.setItem('vuems_name', param.id_number);
+                        }
+                    } catch (error) {
+                        console.error('保存用户信息时出错:', error);
+                        // 降级处理：使用默认权限
+                        const keys = permiss.defaultList['admin'];
+                        permiss.handleSet(keys);
+                        localStorage.setItem('vuems_name', param.id_number);
                     }
-
-                    // 临时：为了方便调试，默认给管理员权限
-                    // TODO: 根据返回的 priority 字段判断权限
-                    // const priority = response.data.data.priority || 1;
-                    // const role = priority >= 10 ? 'admin' : 'user';
-                    // const keys = permiss.defaultList[role];
-                    // permiss.handleSet(keys);
-
-                    // 将来根据 priority 字段设置权限的逻辑：
-                    // const priority = response.data.data.priority || 1;
-                    // const role = priority >= 10 ? 'admin' : 'user';
-                    // const keys = permiss.defaultList[role];
-                    // permiss.handleSet(keys);
-
-                    // 如果没有返回用户信息，设置默认管理员权限（调试用）
-                    const keys = permiss.defaultList['admin'];
-                    permiss.handleSet(keys);
 
                     router.push('/');
 
