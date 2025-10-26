@@ -52,6 +52,15 @@ export const setDepartmentAdmin = (data: { admin_id: number; department_id: numb
     });
 };
 
+// 取消部门管理员
+export const unsetDepartmentAdmin = (data: { admin_id: number; department_id: number }) => {
+    return request({
+        url: '/department/unset_admin',
+        method: 'post',
+        data
+    });
+};
+
 // 获取部门用户
 export const getDepartmentUsers = (id: string | number) => {
     return request({

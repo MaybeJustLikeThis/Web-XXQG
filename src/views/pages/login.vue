@@ -99,43 +99,32 @@ const submitForm = (formEl: FormInstance | undefined) => {
                 if (response.data && response.data.code === 200) {
                     ElMessage.success('登录成功');
 
-                    // 保存 token - 如果后端没有返回token，使用默认token
-                    if (response.data.data && response.data.data.token) {
-                        localStorage.setItem('token', response.data.data.token);
-                    } else {
-                        // 调试用：如果后端没有返回token，设置一个默认token
-                        localStorage.setItem('token', 'default-debug-token-' + Date.now());
-                        console.warn('后端未返回token，使用默认token用于调试');
-                    }
-                    console.log('response.data.data', response.data.data);
-                    // 设置用户信息和权限
-                    if (response.data.data && response.data.data.user) {
-                        // 使用新的用户权限系统
-                        permiss.setUserProfile(response.data.data.user);
-                        localStorage.setItem('vuems_name', response.data.data.user.name);
-                    } else {
-                        // 如果没有返回用户信息，使用身份证号作为用户名，并设置默认权限
+                  // 保存完整的用户信息到permiss store
+                    try {
+                        if (response.data.data && response.data.data.user) {
+                            console.log('保存用户信息:', response.data.data.user);
+                            // 保存用户信息到store和localStorage
+                            permiss.setUserProfile(response.data.data.user);
+
+                            // 如果返回了token数据，保存它
+                            if (response.data.data.token) {
+                                localStorage.setItem('token', response.data.data.token);
+                            }
+                        } else {
+                            console.log('API响应中没有用户信息，使用默认权限');
+                            console.log('完整响应:', response.data);
+                            // 如果没有返回用户信息，设置默认管理员权限（调试用）
+                            const keys = permiss.defaultList['admin'];
+                            permiss.handleSet(keys);
+                            localStorage.setItem('vuems_name', param.id_number);
+                        }
+                    } catch (error) {
+                        console.error('保存用户信息时出错:', error);
+                        // 降级处理：使用默认权限
+                        const keys = permiss.defaultList['admin'];
+                        permiss.handleSet(keys);
                         localStorage.setItem('vuems_name', param.id_number);
-
-                        // 创建默认用户配置（调试用，实际应该由后端返回完整用户信息）
-                        const defaultUserProfile = {
-                            id: 0,
-                            wx_id: '',
-                            name: param.id_number,
-                            sex: '',
-                            race: '',
-                            political_status: '',
-                            id_number: param.id_number,
-                            department: '',
-                            points: 0,
-                            is_super_admin: true, // 调试时默认给管理员权限
-                            edit_text: true,
-                            edit_question: true,
-                            manage_departments: [],
-                        };
-                        permiss.setUserProfile(defaultUserProfile);
                     }
-
                     router.push('/');
 
                     if (checked.value) {

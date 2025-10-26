@@ -17,50 +17,21 @@
         <!-- 搜索区域 -->
         <div class="search-area">
             <el-form :model="searchForm" inline>
-                <el-form-item label="用户名">
+                <el-form-item label="姓名">
                     <el-input
                         v-model="searchForm.name"
-                        placeholder="请输入用户名"
+                        placeholder="请输入姓名"
                         clearable
                         style="width: 200px"
                     />
                 </el-form-item>
                 <el-form-item label="部门">
-                    <el-tree-select
-                        v-model="searchForm.departmentId"
-                        :data="departmentOptions"
-                        :props="treeProps"
-                        placeholder="请选择部门"
+                    <el-input
+                        v-model="searchForm.department"
+                        placeholder="请输入部门"
                         clearable
-                        check-strictly
                         style="width: 200px"
                     />
-                </el-form-item>
-                <el-form-item label="用户分组">
-                    <el-select
-                        v-model="searchForm.groupId"
-                        placeholder="请选择用户分组"
-                        clearable
-                        style="width: 200px"
-                    >
-                        <el-option
-                            v-for="group in groupOptions"
-                            :key="group.id"
-                            :label="group.name"
-                            :value="group.id"
-                        />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="状态">
-                    <el-select
-                        v-model="searchForm.status"
-                        placeholder="请选择状态"
-                        clearable
-                        style="width: 120px"
-                    >
-                        <el-option label="启用" value="active" />
-                        <el-option label="禁用" value="disabled" />
-                    </el-select>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="handleSearch">搜索</el-button>
@@ -79,49 +50,29 @@
             >
                 <el-table-column type="selection" width="55" />
                 <el-table-column type="index" label="序号" width="60" align="center" />
-                <el-table-column prop="name" label="用户名" min-width="120" />
-                <el-table-column prop="email" label="邮箱" min-width="180" />
-                <el-table-column prop="phone" label="手机号" width="120" />
-                <el-table-column prop="departmentName" label="部门" width="120" />
-                <el-table-column prop="groups" label="用户分组" width="150">
+                <el-table-column prop="name" label="姓名" min-width="100" />
+                <el-table-column prop="sex" label="性别" width="60" />
+                <el-table-column prop="race" label="民族" width="80" />
+                <el-table-column prop="political_status" label="政治面貌" width="100" />
+                <el-table-column prop="department" label="部门" width="120" />
+                <el-table-column prop="wx_id" label="微信ID" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="is_super_admin" label="超级管理员" width="100">
                     <template #default="{ row }">
-                        <el-tag
-                            v-for="group in row.groups"
-                            :key="group"
-                            size="small"
-                            class="group-tag"
-                        >
-                            {{ group }}
+                        <el-tag :type="row.is_super_admin ? 'warning' : 'info'" size="small">
+                            {{ row.is_super_admin ? '是' : '否' }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="invitationCode" label="邀请码" width="120">
+                <el-table-column label="权限" width="150">
                     <template #default="{ row }">
-                        <el-input
-                            v-model="row.invitationCode"
-                            size="small"
-                            readonly
-                            style="width: 100px"
-                        >
-                            <template #append>
-                                <el-button
-                                    size="small"
-                                    @click="copyInvitationCode(row.invitationCode)"
-                                >
-                                    复制
-                                </el-button>
-                            </template>
-                        </el-input>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="status" label="状态" width="80">
-                    <template #default="{ row }">
-                        <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
-                            {{ row.status === 'active' ? '启用' : '禁用' }}
+                        <el-tag v-if="row.edit_text" type="success" size="small" class="permission-tag">
+                            编辑文本
+                        </el-tag>
+                        <el-tag v-if="row.edit_question" type="primary" size="small" class="permission-tag">
+                            编辑题目
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="createTime" label="创建时间" width="160" />
                 <el-table-column label="操作" width="200" fixed="right">
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click="showEditDialog(row)">
@@ -289,9 +240,7 @@ const formRef = ref<FormInstance>();
 
 const searchForm = reactive({
     name: '',
-    departmentId: null as number | null,
-    groupId: null as number | null,
-    status: ''
+    department: ''
 });
 
 const formData = reactive({
@@ -351,53 +300,55 @@ const getUserData = async () => {
         const mockData: DepartmentUser[] = [
             {
                 id: 1,
+                wx_id: 'wx_123456',
                 name: '张三',
-                email: 'zhangsan@example.com',
-                phone: '13800138000',
-                invitationCode: 'INV001',
-                status: 'active',
-                departmentId: 2,
-                departmentName: '技术部',
-                groupIds: [1],
-                groups: ['开发者'],
-                createTime: '2023-01-01 10:00:00',
-                lastLoginTime: '2023-10-24 09:30:00'
+                sex: '男',
+                race: '汉族',
+                political_status: '中共党员',
+                id_number: '110101199001011234',
+                department: '技术部',
+                points: 85,
+                is_super_admin: false,
+                edit_text: true,
+                edit_question: false,
+                manage_departments: []
             },
             {
                 id: 2,
+                wx_id: 'wx_234567',
                 name: '李四',
-                email: 'lisi@example.com',
-                phone: '13800138001',
-                invitationCode: 'INV002',
-                status: 'active',
-                departmentId: 2,
-                departmentName: '技术部',
-                groupIds: [1, 2],
-                groups: ['开发者', '管理员'],
-                createTime: '2023-01-02 10:00:00',
-                lastLoginTime: '2023-10-23 15:20:00'
+                sex: '女',
+                race: '汉族',
+                political_status: '共青团员',
+                id_number: '110101199002022345',
+                department: '技术部',
+                points: 92,
+                is_super_admin: false,
+                edit_text: true,
+                edit_question: true,
+                manage_departments: []
             },
             {
                 id: 3,
+                wx_id: 'wx_345678',
                 name: '王五',
-                email: 'wangwu@example.com',
-                phone: '13800138002',
-                invitationCode: 'INV003',
-                status: 'disabled',
-                departmentId: 3,
-                departmentName: '市场部',
-                groupIds: [3],
-                groups: ['营销'],
-                createTime: '2023-01-03 10:00:00'
+                sex: '男',
+                race: '回族',
+                political_status: '群众',
+                id_number: '110101199003033456',
+                department: '市场部',
+                points: 76,
+                is_super_admin: false,
+                edit_text: false,
+                edit_question: false,
+                manage_departments: []
             }
         ];
 
         // 应用筛选条件
         let filteredData = mockData.filter(user => {
             if (searchForm.name && !user.name.includes(searchForm.name)) return false;
-            if (searchForm.departmentId && user.departmentId !== searchForm.departmentId) return false;
-            if (searchForm.groupId && !user.groupIds.includes(searchForm.groupId)) return false;
-            if (searchForm.status && user.status !== searchForm.status) return false;
+            if (searchForm.department && !user.department.includes(searchForm.department)) return false;
             return true;
         });
 
@@ -480,9 +431,7 @@ const handleSearch = () => {
 const resetSearch = () => {
     Object.assign(searchForm, {
         name: '',
-        departmentId: null,
-        groupId: null,
-        status: ''
+        department: ''
     });
     handleSearch();
 };
