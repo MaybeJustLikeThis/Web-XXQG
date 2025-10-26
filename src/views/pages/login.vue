@@ -86,7 +86,7 @@ const loginForm = ref<FormInstance>();
 
 const submitForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
-
+    console.log('登录点击', param);
     formEl.validate(async (valid: boolean) => {
         if (valid) {
             loading.value = true;
@@ -95,35 +95,49 @@ const submitForm = (formEl: FormInstance | undefined) => {
                     id_number: param.id_number,
                     password: param.password
                 });
-
+                console.log('response', response);
                 if (response.data && response.data.code === 200) {
                     ElMessage.success('登录成功');
 
-                  // 保存完整的用户信息到permiss store
+                    // 保存完整的用户信息到permiss store
                     try {
-                        if (response.data.data && response.data.data.user) {
-                            console.log('保存用户信息:', response.data.data.user);
-                            // 保存用户信息到store和localStorage
-                            permiss.setUserProfile(response.data.data.user);
+                        if (response.data.data) {
+                            console.log('保存用户信息:', response.data.data);
 
-                            // 如果返回了token数据，保存它
+                            // 保存用户信息到store和localStorage
+                            permiss.setUserProfile(response.data.data);
+
+                            // 设置用户名到localStorage（用于登录状态检查）
+                            localStorage.setItem('vuems_name', response.data.data.name || param.id_number);
+
+                            // 设置一个默认token（如果后端没有返回token的话）
                             if (response.data.data.token) {
                                 localStorage.setItem('token', response.data.data.token);
+                            } else {
+                                // 如果API没有返回token，生成一个默认的用于本地状态管理
+                                const defaultToken = `token-${response.data.data.id}-${Date.now()}`;
+                                localStorage.setItem('token', defaultToken);
+                                console.log('使用默认token:', defaultToken);
                             }
+
+                            console.log('登录成功，权限信息:', {
+                                is_super_admin: response.data.data.is_super_admin,
+                                edit_text: response.data.data.edit_text,
+                                edit_question: response.data.data.edit_question,
+                                manage_departments: response.data.data.manage_departments,
+                                permissions: permiss.key
+                            });
                         } else {
-                            console.log('API响应中没有用户信息，使用默认权限');
-                            console.log('完整响应:', response.data);
-                            // 如果没有返回用户信息，设置默认管理员权限（调试用）
-                            const keys = permiss.defaultList['admin'];
-                            permiss.handleSet(keys);
-                            localStorage.setItem('vuems_name', param.id_number);
+                            console.error('API响应中没有用户数据');
+                            ElMessage.error('登录失败：服务器返回数据异常');
+                            loading.value = false;
+                            return;
                         }
                     } catch (error) {
                         console.error('保存用户信息时出错:', error);
-                        // 降级处理：使用默认权限
-                        const keys = permiss.defaultList['admin'];
-                        permiss.handleSet(keys);
-                        localStorage.setItem('vuems_name', param.id_number);
+                        ElMessage.error('登录失败：保存用户信息出错');
+                        loading.value = false;
+                        return;
                     }
                     router.push('/');
 

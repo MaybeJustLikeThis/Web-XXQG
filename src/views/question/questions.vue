@@ -519,7 +519,6 @@ const handleEdit = (row: any) => {
     dialogTitle.value = '编辑题目';
     dialogVisible.value = true;
 
-  
     // 获取原始数据
     const originalData = row.originalData || row;
 
@@ -554,6 +553,7 @@ const handleEdit = (row: any) => {
         if (isChoiceQuestion.value && (!form.detail.options || form.detail.options.length === 0)) {
             form.detail.options = ['选项一', '选项二', '选项三', '选项四'];
         }
+    });
 };
 
 // 预览题目

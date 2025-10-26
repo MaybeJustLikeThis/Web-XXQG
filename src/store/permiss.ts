@@ -19,6 +19,7 @@ export interface UserProfile {
     edit_text: boolean;
     edit_question: boolean;
     manage_departments: number[];
+    invite_code?: string;
 }
 
 // 清理无效的localStorage数据
