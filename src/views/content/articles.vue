@@ -1,8 +1,10 @@
 <template>
     <div class="container">
         <div class="handle-box">
-            <el-input v-model="query.title" placeholder="文章标题" class="handle-input mr10" @keyup.enter="handleSearch"></el-input>
+            <el-input v-model="query.title" placeholder="文章标题" class="handle-input mr10"
+                @keyup.enter="handleSearch"></el-input>
             <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+            <el-button type="success" :icon="Plus" @click="handleCreate" class="ml10">添加文章</el-button>
         </div>
 
         <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
@@ -10,13 +12,8 @@
             <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
             <el-table-column label="封面" width="100" align="center">
                 <template #default="scope">
-                    <el-image
-                        v-if="scope.row.cover"
-                        :src="scope.row.cover"
-                        :preview-src-list="[scope.row.cover]"
-                        class="cover-img"
-                        fit="cover"
-                    ></el-image>
+                    <el-image v-if="scope.row.cover" :src="scope.row.cover" :preview-src-list="[scope.row.cover]"
+                        class="cover-img" fit="cover"></el-image>
                     <span v-else class="no-cover">无封面</span>
                 </template>
             </el-table-column>
@@ -38,12 +35,8 @@
             <el-table-column label="操作" width="220" align="center">
                 <template #default="scope">
                     <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button
-                        v-if="scope.row.status === 'published'"
-                        type="warning"
-                        :icon="Remove"
-                        @click="handleWithdraw(scope.row)"
-                    >
+                    <el-button v-if="scope.row.status === 'published'" type="warning" :icon="Remove"
+                        @click="handleWithdraw(scope.row)">
                         撤稿
                     </el-button>
                     <el-button type="danger" :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
@@ -52,14 +45,8 @@
         </el-table>
 
         <div class="pagination">
-            <el-pagination
-                background
-                layout="total, prev, pager, next"
-                :current-page="query.page"
-                :page-size="query.pageSize"
-                :total="pageTotal"
-                @current-change="handlePageChange"
-            ></el-pagination>
+            <el-pagination background layout="total, prev, pager, next" :current-page="query.page"
+                :page-size="query.pageSize" :total="pageTotal" @current-change="handlePageChange"></el-pagination>
         </div>
 
         <!-- 新增/编辑弹窗 -->
@@ -69,43 +56,26 @@
                     <el-input v-model="form.title" placeholder="请输入文章标题"></el-input>
                 </el-form-item>
                 <el-form-item label="文章封面" prop="cover">
-                    <el-upload
-                        class="cover-uploader"
-                        :action="uploadUrl"
-                        :show-file-list="false"
-                        :on-success="handleCoverSuccess"
-                        :before-upload="beforeCoverUpload"
-                    >
+                    <el-upload class="cover-uploader" :auto-upload="false" :show-file-list="false"
+                        :on-change="handleCoverChange" :before-upload="beforeCoverUpload">
                         <img v-if="form.cover" :src="form.cover" class="cover-uploader-img" />
-                        <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
+                        <el-icon v-else class="cover-uploader-icon">
+                            <Plus />
+                        </el-icon>
                     </el-upload>
                 </el-form-item>
                 <el-form-item label="标签" prop="tags">
-                    <el-select
-                        v-model="form.tags"
-                        multiple
-                        filterable
-                        allow-create
-                        default-first-option
-                        placeholder="请选择或输入标签"
-                    >
-                        <el-option
-                            v-for="item in tagOptions"
-                            :key="item"
-                            :label="item"
-                            :value="item"
-                        ></el-option>
+                    <el-select v-model="form.tags" multiple filterable allow-create default-first-option
+                        placeholder="请选择或输入标签">
+                        <el-option v-for="item in tagOptions" :key="item" :label="item" :value="item"></el-option>
                     </el-select>
                 </el-form-item>
                 <el-form-item label="文章内容" prop="content">
                     <div style="border: 1px solid #ccc">
-                        <Toolbar style="border-bottom: 1px solid #ccc" :editor="editorRef" :defaultConfig="toolbarConfig" />
-                        <Editor
-                            style="height: 400px; overflow-y: hidden"
-                            v-model="form.content"
-                            :defaultConfig="editorConfig"
-                            @onCreated="handleCreated"
-                        />
+                        <Toolbar style="border-bottom: 1px solid #ccc" :editor="editorRef"
+                            :defaultConfig="toolbarConfig" />
+                        <Editor style="height: 400px; overflow-y: hidden" v-model="form.content"
+                            :defaultConfig="editorConfig" @onCreated="handleCreated" />
                     </div>
                 </el-form-item>
             </el-form>
@@ -127,10 +97,12 @@ import { Plus, Edit, Delete, Search, Remove } from '@element-plus/icons-vue';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
 import type { Article, ArticleQuery } from '@/types/content';
-import { getAllArticles, deleteArticle, updateArticle, createArticle } from '@/api/article';
+import { getAllArticles, deleteArticle, updateArticle, addArticle } from '@/api/article';
+import { uploadFile } from '@/utils/upload';
 
 // 编辑器实例，必须用 shallowRef
 const editorRef = shallowRef();
+
 
 // 查询参数
 const query = reactive<ArticleQuery>({
@@ -153,7 +125,6 @@ const form = reactive<Article>({
     id: '',
     title: '',
     content: '',
-    summary: '', // 保留字段以避免类型错误，但不使用
     cover: '',
     tags: [],
     status: 'draft',
@@ -172,8 +143,52 @@ const rules = {
 // 标签选项
 const tagOptions = ref(['技术', '前端', '后端', '数据库', '算法', '架构', '运维']);
 
-// 上传地址
-const uploadUrl = '/api/upload';
+// 自定义图片上传函数
+const customUploadImage = async (file: File, insertFn: Function) => {
+    try {
+        const imageUrl = await uploadFile(file);
+        insertFn(imageUrl, file.name, imageUrl);
+    } catch (error) {
+        ElMessage.error('图片上传失败');
+    }
+};
+
+// 自定义视频上传函数
+const customUploadVideo = async (file: File, insertFn: Function) => {
+    try {
+        console.log('开始上传视频:', file.name);
+        console.log('视频文件信息:', {
+            name: file.name,
+            type: file.type,
+            size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
+        });
+
+        // 验证视频文件格式
+        const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv'];
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp4|avi|mov|wmv|mpeg)$/i)) {
+            throw new Error('不支持的视频格式，请上传 MP4、AVI、MOV、WMV 或 MPEG 格式的视频');
+        }
+
+        // 验证视频文件大小（限制100MB）
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        if (file.size > maxSize) {
+            throw new Error('视频文件过大，请上传小于100MB的视频文件');
+        }
+
+        const videoUrl = await uploadFile(file);
+        console.log('视频上传成功，URL:', videoUrl);
+
+        // wangeditor的insertVideo函数格式：insertVideo(src, poster)
+        // 这会自动生成正确的<video>标签
+        insertFn(videoUrl, '');
+        console.log('视频已插入到编辑器，生成的标签格式：<video>');
+
+        ElMessage.success('视频上传成功');
+    } catch (error) {
+        console.error('视频上传失败:', error);
+        ElMessage.error(error.message || '视频上传失败');
+    }
+};
 
 // 编辑器配置
 const toolbarConfig = {
@@ -190,7 +205,7 @@ const toolbarConfig = {
         'delIndent',
         'insertLink',
         'uploadImage',
-        'insertVideo',
+        'uploadVideo',
         'insertTable',
         'codeBlock',
         'divider',
@@ -203,8 +218,10 @@ const editorConfig = {
     placeholder: '请输入文章内容...',
     MENU_CONF: {
         uploadImage: {
-            server: '/api/upload/image',
-            fieldName: 'file',
+            customUpload: customUploadImage,
+        },
+        uploadVideo: {
+            customUpload: customUploadVideo,
         },
     },
 };
@@ -262,7 +279,6 @@ const getArticles = async () => {
                 publishTime: '2025-10-13 23:49:09',
                 updateTime: '2025-10-13 23:49:09',
                 viewCount: 7,
-                commentCount: 7,
             },
             {
                 id: '2',
@@ -275,7 +291,6 @@ const getArticles = async () => {
                 publishTime: '2025-10-13 23:53:05',
                 updateTime: '2025-10-13 23:53:05',
                 viewCount: 5,
-                commentCount: 5,
             },
         ];
 
@@ -379,22 +394,34 @@ const submitForm = async () => {
             const updateData = {
                 id: parseInt(form.id),
                 title: form.title,
-                text: form.content,
+                text: form.content, // 富文本编辑器内容已经是HTML格式
                 head_image: form.cover || undefined // 如果有封面则传递，否则不传递
             };
             await updateArticle(updateData);
+            ElMessage.success('文章更新成功');
+            dialogVisible.value = false;
+            await getArticles();
         } else {
-            await createArticle(form);
+            // 使用add接口创建新文章
+            const addData = {
+                title: form.title,
+                text: form.content, // 富文本编辑器内容已经是HTML格式
+                head_image: form.cover || undefined // 如果有封面则传递，否则不传递
+            };
+            await addArticle(addData);
+            ElMessage.success('文章创建成功');
+            dialogVisible.value = false;
+            await getArticles();
         }
-
-        ElMessage.success(form.id ? '更新成功' : '创建成功');
-        dialogVisible.value = false;
-        await getArticles();
     } catch (error) {
-        if (error !== 'cancel') {
-            ElMessage.error(form.id ? '更新失败' : '创建失败');
-        }
+        console.error('提交文章失败:', error);
+        ElMessage.error(error.message || '提交失败');
     }
+};
+
+// 编辑器创建回调
+const handleCreated = (editor: any) => {
+    editorRef.value = editor;
 };
 
 // 重置表单
@@ -411,12 +438,19 @@ const resetForm = () => {
         publishTime: '',
         updateTime: '',
         viewCount: 0,
+        commentCount: 0,
     });
 };
 
-// 封面上传成功
-const handleCoverSuccess = (res: any) => {
-    form.cover = res.url;
+// 封面处理函数
+const handleCoverChange = async (file: any) => {
+    try {
+        const coverUrl = await uploadFile(file.raw);
+        form.cover = coverUrl;
+        ElMessage.success('封面上传成功');
+    } catch (error) {
+        ElMessage.error('封面上传失败');
+    }
 };
 
 // 封面上传前检查
@@ -433,10 +467,6 @@ const beforeCoverUpload = (file: File) => {
     return isJPG && isLt2M;
 };
 
-// 编辑器创建
-const handleCreated = (editor: any) => {
-    editorRef.value = editor;
-};
 
 // 状态类型
 const statusType = (status: string) => {
@@ -479,6 +509,10 @@ onMounted(async () => {
 
 .mr10 {
     margin-right: 10px;
+}
+
+.ml10 {
+    margin-left: 10px;
 }
 
 .table {

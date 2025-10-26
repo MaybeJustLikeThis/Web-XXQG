@@ -3,7 +3,6 @@ export interface Article {
     id: string;
     title: string;
     content: string;
-    summary: string;
     cover: string;
     tags: string[];
     status: 'published' | 'draft' | 'withdrawn';

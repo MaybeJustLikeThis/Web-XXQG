@@ -25,6 +25,15 @@ export const createArticle = (data: any) => {
     });
 };
 
+// 添加文章（使用add接口）
+export const addArticle = (data: { title: string; text: string; head_image?: string }) => {
+    return request({
+        url: '/richtext/add',
+        method: 'post',
+        data
+    });
+};
+
 // 更新文章
 export const updateArticle = (data: { id: number; text: string; title: string; head_image?: string }) => {
     return request({
@@ -62,5 +71,14 @@ export const updateArticleStatus = (id: string | number, status: string) => {
         url: `/richtext/${id}/status`,
         method: 'patch',
         data: { status }
+    });
+};
+
+// 根据key获取文件下载URL
+export const getFileDownloadUrl = (key: string) => {
+    return request({
+        url: '/richtext/download',
+        method: 'get',
+        params: { key }
     });
 };

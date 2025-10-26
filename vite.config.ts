@@ -31,7 +31,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			'/api': {
-				target: 'https://wx.frp.geekyuu.com',
+				target: 'https://api.xuexi.geekyuu.com',
 				changeOrigin: true,
 				rewrite: (path) => path.replace(/^\/api/, ''),
 				configure: (proxy, _options) => {
