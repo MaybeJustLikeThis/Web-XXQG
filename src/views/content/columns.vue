@@ -13,12 +13,22 @@
             <el-button type="primary" :icon="Search" @click="handleSearch">
                 搜索
             </el-button>
-            <el-button type="primary" :icon="Plus" @click="handleCreate" v-if="selectedTagId">
+            <el-button type="success" :icon="Plus" @click="handleCreate" v-if="selectedTagId">
                 新增文章
+            </el-button>
+            <el-button type="primary" :icon="Plus" @click="handleAddToColumn" v-if="selectedTagId">
+                为专栏添加文章
+            </el-button>
+            <el-button type="danger" :icon="Delete" @click="handleRemoveFromColumn" v-if="selectedTagId && selectedRow">
+                从专栏移除文章
+            </el-button>
+            <el-button type="warning" :icon="Delete" @click="handleBatchRemoveFromColumn" v-if="selectedTagId && multipleSelection.length > 0" :loading="batchRemoving">
+                批量移除 ({{ multipleSelection.length }})
             </el-button>
         </div>
 
-        <el-table :data="tableData" border class="table" header-cell-class-name="table-header" v-loading="loading">
+        <el-table :data="tableData" border class="table" header-cell-class-name="table-header" v-loading="loading" @selection-change="handleSelectionChange" @row-click="handleRowClick">
+            <el-table-column type="selection" width="55" align="center"></el-table-column>
             <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
             <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
             <el-table-column label="封面" width="100" align="center">
@@ -48,18 +58,10 @@
             <el-table-column prop="viewCount" label="浏览量" width="100" align="center"></el-table-column>
             <el-table-column prop="commentCount" label="评论数" width="100" align="center"></el-table-column>
             <el-table-column prop="publishTime" label="更新时间" width="160" align="center"></el-table-column>
-            <el-table-column label="操作" width="220" align="center">
+            <el-table-column label="操作" width="150" align="center">
                 <template #default="scope">
                     <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button
-                        v-if="scope.row.status === 'published'"
-                        type="warning"
-                        :icon="Remove"
-                        @click="handleWithdraw(scope.row)"
-                    >
-                        撤稿
-                    </el-button>
-                    <el-button type="danger" :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+                    <el-button type="danger" :icon="Delete" @click="handleRemoveFromColumn(scope.row)">移除</el-button>
                 </template>
             </el-table-column>
         </el-table>
@@ -82,7 +84,7 @@
                     <el-input v-model="form.title" placeholder="请输入文章标题"></el-input>
                 </el-form-item>
                 <el-form-item label="所属专栏">
-                    <el-input :value="getCurrentTagName()" readonly></el-input>
+                    <el-input :value="getCurrentTagName" readonly></el-input>
                 </el-form-item>
                 <el-form-item label="文章封面" prop="cover">
                     <el-upload
@@ -133,6 +135,69 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 文章选择弹窗 -->
+        <el-dialog title="选择已有文章" v-model="articleSelectDialogVisible" width="70%" destroy-on-close>
+            <div class="article-select-content">
+                <!-- 搜索框 -->
+                <div class="search-section">
+                    <el-input
+                        v-model="articleSearchQuery"
+                        placeholder="搜索文章标题或作者"
+                        clearable
+                        @input="searchAvailableArticles"
+                        style="margin-bottom: 15px"
+                    >
+                        <template #prefix>
+                            <el-icon><Search /></el-icon>
+                        </template>
+                    </el-input>
+                </div>
+
+                <!-- 文章列表 -->
+                <el-table
+                    :data="availableArticles"
+                    border
+                    class="article-table"
+                    max-height="300"
+                    v-loading="articleLoading"
+                    @selection-change="handleArticleSelection"
+                >
+                    <el-table-column type="selection" width="50"></el-table-column>
+                    <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="author" label="作者" width="120"></el-table-column>
+                    <el-table-column prop="created_at" label="创建时间" width="150"></el-table-column>
+                </el-table>
+
+                <!-- 已选择的文章 -->
+                <div class="selected-articles" v-if="selectedArticlesForAdd.length > 0">
+                    <h4>已选择 {{ selectedArticlesForAdd.length }} 篇文章：</h4>
+                    <div class="selected-articles-list">
+                        <el-tag
+                            v-for="article in selectedArticlesForAdd"
+                            :key="article.id"
+                            closable
+                            @close="removeSelectedArticle(article)"
+                            style="margin: 2px"
+                        >
+                            {{ article.title }}
+                        </el-tag>
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="dialog-footer">
+                    <span>已选择 {{ selectedArticlesForAdd.length }} 篇文章</span>
+                    <div class="footer-buttons">
+                        <el-button @click="articleSelectDialogVisible = false">取消</el-button>
+                        <el-button type="primary" @click="confirmAddArticlesToColumn" :loading="articleAdding">
+                            确定添加 ({{ selectedArticlesForAdd.length }})
+                        </el-button>
+                    </div>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -144,6 +209,8 @@ import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
 import type { Article, ArticleQuery } from '@/types/content';
 import { getArticlesByTagId, deleteArticle, updateArticle, createArticle } from '@/api/article';
+import { addArticleToColumn, removeArticleFromColumn } from '@/api/column';
+import { getAllArticles } from '@/api/article';
 
 // 编辑器实例，必须用 shallowRef
 const editorRef = shallowRef();
@@ -151,8 +218,23 @@ const editorRef = shallowRef();
 // 加载状态
 const loading = ref(false);
 
+// 文章选择弹窗相关
+const articleSelectDialogVisible = ref(false);
+const availableArticles = ref<Article[]>([]);
+const selectedArticlesForAdd = ref<Article[]>([]);
+const articleSearchQuery = ref('');
+const articleLoading = ref(false);
+const articleAdding = ref(false);
+const batchRemoving = ref(false);
+
 // 选中的专栏ID
 const selectedTagId = ref<number | null>(null);
+
+// 选中的行
+const selectedRow = ref<Article | null>(null);
+
+// 多选数据
+const multipleSelection = ref<Article[]>([]);
 
 // 查询参数
 const query = reactive<ArticleQuery>({
@@ -193,7 +275,7 @@ const rules = {
 
 // 专栏选项（8个专栏 + 全部选项）
 const tagOptions = ref([
-    { id: null, name: '全部专栏' },
+    { id: 0, name: '全部专栏' },
     { id: 1, name: '通知公告' },
     { id: 2, name: '思政要闻' },
     { id: 3, name: '政策文件' },
@@ -243,15 +325,15 @@ const editorConfig = {
 
 // 获取当前选中的专栏名称
 const getCurrentTagName = computed(() => {
-    if (selectedTagId.value === null) return '全部专栏';
+    if (selectedTagId.value === null || selectedTagId.value === 0) return '全部专栏';
     const tag = tagOptions.value.find(t => t.id === selectedTagId.value);
-    return tag ? tag.name : '';
+    return tag ? tag.name : '未知专栏';
 });
 
 // 根据专栏获取文章列表
 const getArticlesByTag = async () => {
     // 如果没有选择专栏（选择的是"全部专栏"），则获取所有文章
-    if (selectedTagId.value === null) {
+    if (selectedTagId.value === null || selectedTagId.value === 0) {
         loading.value = true;
         try {
             // 调用获取所有文章的接口
@@ -389,43 +471,7 @@ const handleEdit = (row: Article) => {
     Object.assign(form, row);
 };
 
-// 撤稿
-const handleWithdraw = async (row: Article) => {
-    try {
-        await ElMessageBox.confirm('确定要撤稿这篇文章吗？', '提示', {
-            type: 'warning',
-        });
 
-        // TODO: 调用撤稿API
-        // await updateArticleStatus(row.id, 'withdrawn');
-
-        ElMessage.success('撤稿成功');
-        await getArticlesByTag();
-    } catch (error) {
-        if (error !== 'cancel') {
-            ElMessage.error('撤稿失败');
-        }
-    }
-};
-
-// 删除文章
-const handleDelete = async (row: Article) => {
-    try {
-        await ElMessageBox.confirm('确定要删除这篇文章吗？', '提示', {
-            type: 'warning',
-        });
-
-        // 调用删除API
-        await deleteArticle(parseInt(row.id));
-
-        ElMessage.success('删除成功');
-        await getArticlesByTag();
-    } catch (error) {
-        if (error !== 'cancel') {
-            ElMessage.error('删除失败');
-        }
-    }
-};
 
 // 保存草稿
 const handleSaveDraft = () => {
@@ -530,6 +576,211 @@ const statusText = (status: string) => {
     return texts[status as keyof typeof texts] || '未知';
 };
 
+// 选择行处理
+const handleRowClick = (row: Article) => {
+    selectedRow.value = row;
+};
+
+// 多选处理
+const handleSelectionChange = (selection: Article[]) => {
+    multipleSelection.value = selection;
+    selectedRow.value = selection.length > 0 ? selection[selection.length - 1] : null;
+};
+
+// 为专栏添加文章
+const handleAddToColumn = async () => {
+    // 打开文章选择弹窗
+    articleSelectDialogVisible.value = true;
+    selectedArticlesForAdd.value = [];
+    articleSearchQuery.value = '';
+    await searchAvailableArticles();
+};
+
+// 选择现有文章
+const handleSelectExistingArticle = () => {
+    articleSelectDialogVisible.value = true;
+};
+
+// 从专栏移除文章（单篇）
+const handleRemoveFromColumn = async (row: Article) => {
+    if (!selectedTagId.value || selectedTagId.value === 0) {
+        ElMessage.warning('请先选择专栏');
+        return;
+    }
+
+    try {
+        await ElMessageBox.confirm(`确定要将文章"${row.title}"从专栏"${getCurrentTagName.value}"中移除吗？`, '提示', {
+            type: 'warning',
+        });
+
+        // 调用从专栏移除的API - 使用 /richtext/remove_tag
+        await removeArticleFromColumn(selectedTagId.value, parseInt(row.id));
+
+        ElMessage.success('文章已从专栏中移除');
+
+        // 刷新数据
+        await getArticlesByTag();
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('从专栏移除文章失败');
+        }
+    }
+};
+
+// 搜索可用文章
+const searchAvailableArticles = async () => {
+    articleLoading.value = true;
+    try {
+        const response = await getAllArticles();
+
+        if (response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+            const articles = response.data.data.map((item: any) => ({
+                id: item.id.toString(),
+                title: item.title || '未命名文章',
+                content: item.text || '',
+                cover: item.head_image || '',
+                tags: item.tags || [],
+                status: 'published',
+                author: item.creator || '未知作者',
+                publishTime: item.update_time || '',
+                updateTime: item.update_time || '',
+                viewCount: item.comments ? item.comments.length : 0,
+                commentCount: item.comments ? item.comments.length : 0,
+                raw: item
+            }));
+
+            // 根据搜索关键词过滤
+            let filteredArticles = articles;
+            if (articleSearchQuery.value.trim()) {
+                filteredArticles = articles.filter((article: any) =>
+                    article.title.toLowerCase().includes(articleSearchQuery.value.toLowerCase().trim()) ||
+                    article.content.toLowerCase().includes(articleSearchQuery.value.toLowerCase().trim())
+                );
+            }
+
+            // 排除已经在当前专栏中的文章（只有在选择了具体专栏时才排除）
+            if (selectedTagId.value && selectedTagId.value !== 0) {
+                const currentTagArticles = tableData.value.map(article => article.id);
+                filteredArticles = filteredArticles.filter((article: any) =>
+                    !currentTagArticles.includes(article.id)
+                );
+            }
+
+            availableArticles.value = filteredArticles;
+        } else {
+            ElMessage.error('获取可用文章列表失败');
+            availableArticles.value = [];
+        }
+    } catch (error) {
+        console.error('获取可用文章错误:', error);
+        ElMessage.error('获取可用文章失败');
+        availableArticles.value = [];
+    } finally {
+        articleLoading.value = false;
+    }
+};
+
+// 文章选择处理
+const handleArticleSelection = (selection: Article[]) => {
+    selectedArticlesForAdd.value = selection;
+};
+
+// 移除选中的文章
+const removeSelectedArticle = (articleToRemove: Article) => {
+    const index = selectedArticlesForAdd.value.findIndex(article => article.id === articleToRemove.id);
+    if (index > -1) {
+        selectedArticlesForAdd.value.splice(index, 1);
+    }
+};
+
+// 确认添加文章到专栏
+const confirmAddArticlesToColumn = async () => {
+    if (!selectedTagId.value) {
+        ElMessage.warning('请先选择专栏');
+        return;
+    }
+
+    if (!selectedArticlesForAdd.value || selectedArticlesForAdd.value.length === 0) {
+        ElMessage.warning('请先选择要添加的文章');
+        return;
+    }
+
+    articleAdding.value = true;
+    try {
+        // 批量添加文章到专栏
+        const addPromises = selectedArticlesForAdd.value.map(article =>
+            addArticleToColumn(selectedTagId.value!, parseInt(article.id))
+        );
+
+        await Promise.all(addPromises);
+
+        ElMessage.success(`成功添加 ${selectedArticlesForAdd.value.length} 篇文章到专栏`);
+
+        // 关闭弹窗并重置
+        articleSelectDialogVisible.value = false;
+        selectedArticlesForAdd.value = [];
+        articleSearchQuery.value = '';
+
+        // 刷新当前专栏数据
+        await getArticlesByTag();
+    } catch (error) {
+        console.error('添加文章到专栏失败:', error);
+        ElMessage.error('添加文章到专栏失败');
+    } finally {
+        articleAdding.value = false;
+    }
+};
+
+// 批量从专栏移除文章
+const handleBatchRemoveFromColumn = async () => {
+    if (!selectedTagId.value || selectedTagId.value === 0) {
+        ElMessage.warning('请先选择专栏');
+        return;
+    }
+
+    if (!multipleSelection.value || multipleSelection.value.length === 0) {
+        ElMessage.warning('请先选择要移除的文章');
+        return;
+    }
+
+    try {
+        await ElMessageBox.confirm(
+            `确定要将选中的 ${multipleSelection.value.length} 篇文章从专栏"${getCurrentTagName.value}"中移除吗？`,
+            '批量移除确认',
+            {
+                type: 'warning',
+                confirmButtonText: '确定移除',
+                cancelButtonText: '取消',
+            }
+        );
+
+        batchRemoving.value = true;
+
+        // 批量从专栏移除文章 - 使用 /richtext/remove_tag
+        const removePromises = multipleSelection.value.map(article =>
+            removeArticleFromColumn(selectedTagId.value, parseInt(article.id))
+        );
+
+        await Promise.all(removePromises);
+
+        ElMessage.success(`成功从专栏移除 ${multipleSelection.value.length} 篇文章`);
+
+        // 清空选择
+        multipleSelection.value = [];
+        selectedRow.value = null;
+
+        // 刷新数据
+        await getArticlesByTag();
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('批量从专栏移除文章失败:', error);
+            ElMessage.error('批量从专栏移除文章失败');
+        }
+    } finally {
+        batchRemoving.value = false;
+    }
+};
+
 onMounted(() => {
     // 页面加载时不自动加载数据，等待用户选择专栏
 });
@@ -608,5 +859,53 @@ onMounted(() => {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
+}
+
+/* 文章选择弹窗样式 */
+.article-select-content {
+    padding: 20px;
+}
+
+.search-section {
+    margin-bottom: 20px;
+}
+
+.article-table {
+    width: 100%;
+}
+
+.article-table .el-table__body-wrapper {
+    max-height: 300px;
+}
+
+.selected-articles {
+    margin-top: 15px;
+    border: 1px solid #e4e7f;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: #f8f9fa;
+}
+
+.selected-articles h4 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: #333;
+}
+
+.selected-articles-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dialog-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-buttons {
+    display: flex;
+    gap: 10px;
 }
 </style>

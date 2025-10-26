@@ -20,7 +20,7 @@
                         type="password"
                         placeholder="密码"
                         v-model="param.password"
-                        @keyup.enter="submitForm(loginForm)"
+                        @keyup.enter="handleEnterSubmit"
                         show-password
                     >
                         <template #prepend>
@@ -34,7 +34,10 @@
                     <el-checkbox class="pwd-checkbox" v-model="checked" label="记住密码" />
                     <el-link type="primary" @click="$router.push('/reset-pwd')">忘记密码</el-link>
                 </div>
-                <el-button class="login-btn" type="primary" size="large" @click="submitForm(loginForm)">登录</el-button>
+                <el-button class="login-btn" type="primary" size="large" :loading="loading" @click="submitForm(loginForm)">
+                    <span v-if="!loading">登录</span>
+                    <span v-else>登录中...</span>
+                </el-button>
                 <p class="login-tips">Tips : 请输入有效的身份证号和密码。</p>
                 <p class="login-text">
                     没有账号？<el-link type="primary" @click="$router.push('/register')">立即注册</el-link>
@@ -53,6 +56,9 @@ import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { login as loginApi } from '@/api/auth';
+
+// 加载状态
+const loading = ref(false);
 
 interface LoginInfo {
     id_number: string;
@@ -81,10 +87,13 @@ const rules: FormRules = {
 };
 const permiss = usePermissStore();
 const loginForm = ref<FormInstance>();
+
 const submitForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
+
     formEl.validate(async (valid: boolean) => {
         if (valid) {
+            loading.value = true;
             try {
                 const response = await loginApi({
                     id_number: param.id_number,
@@ -98,22 +107,24 @@ const submitForm = (formEl: FormInstance | undefined) => {
                     // 如果返回了token数据，保存它
                     if (response.data.data && response.data.data.token) {
                         localStorage.setItem('token', response.data.data.token);
-
-                        // 临时：为了方便调试，默认给管理员权限
-                        // TODO: 根据返回的 priority 字段判断权限
-                        const keys = permiss.defaultList['admin'];
-                        permiss.handleSet(keys);
-
-                        // 将来根据 priority 字段设置权限的逻辑：
-                        // const priority = response.data.data.priority || 1;
-                        // const role = priority >= 10 ? 'admin' : 'user';
-                        // const keys = permiss.defaultList[role];
-                        // permiss.handleSet(keys);
-                    } else {
-                        // 如果没有返回用户信息，设置默认管理员权限（调试用）
-                        const keys = permiss.defaultList['admin'];
-                        permiss.handleSet(keys);
                     }
+
+                    // 临时：为了方便调试，默认给管理员权限
+                    // TODO: 根据返回的 priority 字段判断权限
+                    // const priority = response.data.data.priority || 1;
+                    // const role = priority >= 10 ? 'admin' : 'user';
+                    // const keys = permiss.defaultList[role];
+                    // permiss.handleSet(keys);
+
+                    // 将来根据 priority 字段设置权限的逻辑：
+                    // const priority = response.data.data.priority || 1;
+                    // const role = priority >= 10 ? 'admin' : 'user';
+                    // const keys = permiss.defaultList[role];
+                    // permiss.handleSet(keys);
+
+                    // 如果没有返回用户信息，设置默认管理员权限（调试用）
+                    const keys = permiss.defaultList['admin'];
+                    permiss.handleSet(keys);
 
                     router.push('/');
 
@@ -129,12 +140,21 @@ const submitForm = (formEl: FormInstance | undefined) => {
                 console.error('登录错误:', error);
                 ElMessage.error('登录失败，请检查身份证号和密码');
                 return false;
+            } finally {
+                loading.value = false;
             }
         } else {
             ElMessage.error('请填写完整的登录信息');
             return false;
         }
     });
+};
+
+// 监听回车键提交表单
+const handleEnterSubmit = () => {
+    if (!loading.value) {
+        submitForm(loginForm.value);
+    }
 };
 
 const tabs = useTabsStore();
@@ -172,7 +192,7 @@ tabs.clearTabs();
     width: 450px;
     border-radius: 5px;
     background: #fff;
-    padding: 40px 50px 50px;
+    padding: 40px 50px;
     box-sizing: border-box;
 }
 
