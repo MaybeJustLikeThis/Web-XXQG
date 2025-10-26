@@ -122,6 +122,26 @@ export const updatePermissionElement = (el: HTMLElement, binding: any) => {
     try {
         const permissStore = usePermissStore();
 
+        // 确保 store 已正确初始化，如果没有则尝试初始化
+        if (!permissStore.userProfile && !permissStore.key.length) {
+            const userProfileStr = localStorage.getItem('userProfile');
+            const username = localStorage.getItem('vuems_name');
+
+            if (userProfileStr) {
+                try {
+                    const userProfile = JSON.parse(userProfileStr);
+                    permissStore.setUserProfile(userProfile);
+                } catch (error) {
+                    console.error('解析用户信息失败:', error);
+                }
+            } else if (username) {
+                // 兼容旧版本
+                const keys = username === 'admin' ? permissStore.defaultList.admin : permissStore.defaultList.user;
+                permissStore.handleSet(keys);
+            }
+        }
+
+        // 检查权限
         if (value && !permissStore.key.includes(String(value))) {
             el.style.display = 'none';
         } else {

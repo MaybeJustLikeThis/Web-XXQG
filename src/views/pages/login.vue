@@ -16,13 +16,8 @@
                     </el-input>
                 </el-form-item>
                 <el-form-item prop="password">
-                    <el-input
-                        type="password"
-                        placeholder="密码"
-                        v-model="param.password"
-                        @keyup.enter="handleEnterSubmit"
-                        show-password
-                    >
+                    <el-input type="password" placeholder="密码" v-model="param.password" @keyup.enter="handleEnterSubmit"
+                        show-password>
                         <template #prepend>
                             <el-icon>
                                 <Lock />
@@ -34,7 +29,8 @@
                     <el-checkbox class="pwd-checkbox" v-model="checked" label="记住密码" />
                     <el-link type="primary" @click="$router.push('/reset-pwd')">忘记密码</el-link>
                 </div>
-                <el-button class="login-btn" type="primary" size="large" :loading="loading" @click="submitForm(loginForm)">
+                <el-button class="login-btn" type="primary" size="large" :loading="loading"
+                    @click="submitForm(loginForm)">
                     <span v-if="!loading">登录</span>
                     <span v-else>登录中...</span>
                 </el-button>
@@ -102,29 +98,43 @@ const submitForm = (formEl: FormInstance | undefined) => {
 
                 if (response.data && response.data.code === 200) {
                     ElMessage.success('登录成功');
-                    localStorage.setItem('vuems_name', param.id_number);
 
-                    // 如果返回了token数据，保存它
+                    // 保存 token - 如果后端没有返回token，使用默认token
                     if (response.data.data && response.data.data.token) {
                         localStorage.setItem('token', response.data.data.token);
+                    } else {
+                        // 调试用：如果后端没有返回token，设置一个默认token
+                        localStorage.setItem('token', 'default-debug-token-' + Date.now());
+                        console.warn('后端未返回token，使用默认token用于调试');
                     }
+                    console.log('response.data.data', response.data.data);
+                    // 设置用户信息和权限
+                    if (response.data.data && response.data.data.user) {
+                        // 使用新的用户权限系统
+                        permiss.setUserProfile(response.data.data.user);
+                        localStorage.setItem('vuems_name', response.data.data.user.name);
+                    } else {
+                        // 如果没有返回用户信息，使用身份证号作为用户名，并设置默认权限
+                        localStorage.setItem('vuems_name', param.id_number);
 
-                    // 临时：为了方便调试，默认给管理员权限
-                    // TODO: 根据返回的 priority 字段判断权限
-                    // const priority = response.data.data.priority || 1;
-                    // const role = priority >= 10 ? 'admin' : 'user';
-                    // const keys = permiss.defaultList[role];
-                    // permiss.handleSet(keys);
-
-                    // 将来根据 priority 字段设置权限的逻辑：
-                    // const priority = response.data.data.priority || 1;
-                    // const role = priority >= 10 ? 'admin' : 'user';
-                    // const keys = permiss.defaultList[role];
-                    // permiss.handleSet(keys);
-
-                    // 如果没有返回用户信息，设置默认管理员权限（调试用）
-                    const keys = permiss.defaultList['admin'];
-                    permiss.handleSet(keys);
+                        // 创建默认用户配置（调试用，实际应该由后端返回完整用户信息）
+                        const defaultUserProfile = {
+                            id: 0,
+                            wx_id: '',
+                            name: param.id_number,
+                            sex: '',
+                            race: '',
+                            political_status: '',
+                            id_number: param.id_number,
+                            department: '',
+                            points: 0,
+                            is_super_admin: true, // 调试时默认给管理员权限
+                            edit_text: true,
+                            edit_question: true,
+                            manage_departments: [],
+                        };
+                        permiss.setUserProfile(defaultUserProfile);
+                    }
 
                     router.push('/');
 
