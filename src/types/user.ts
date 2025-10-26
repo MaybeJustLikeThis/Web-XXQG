@@ -1,12 +1,18 @@
 
 export interface User {
     id: number;
+    wx_id: string;
     name: string;
-    password: string;
-    email: string;
-    phone: string;
-    role: string;
-    date: string;
+    sex: string;
+    race: string;
+    political_status: string;
+    id_number: string;
+    department: string;
+    points: number;
+    is_super_admin: boolean;
+    edit_text: boolean;
+    edit_question: boolean;
+    manage_departments: number[];
 }
 
 export interface Register {

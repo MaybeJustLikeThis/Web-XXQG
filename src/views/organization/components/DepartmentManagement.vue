@@ -23,17 +23,36 @@
                             <el-tag v-if="data.userCount" size="small" type="info">
                                 {{ data.userCount }}人
                             </el-tag>
+                            <el-tag v-if="data.admin && data.admin.length > 0" size="small" type="success">
+                                {{ data.admin.map(a => a.name).join(', ') }}
+                            </el-tag>
                         </div>
                         <div class="node-actions">
                             <el-button type="primary" size="small" @click="showAddDialog(data)">
                                 新增子部门
                             </el-button>
-                            <el-button type="warning" size="small" @click="showEditDialog(data)">
-                                编辑
-                            </el-button>
-                            <el-button type="danger" size="small" @click="handleDelete(data)">
-                                删除
-                            </el-button>
+                            <!-- 部门管理员专用功能 -->
+                            <template v-if="canManageDepartment(data.id)">
+                                <el-button type="success" size="small" @click="showSetAdminDialog(data)">
+                                    设置管理员
+                                </el-button>
+                                <el-button type="warning" size="small" @click="showEditDialog(data)">
+                                    编辑
+                                </el-button>
+                                <el-button type="danger" size="small" @click="handleDelete(data)">
+                                    删除
+                                </el-button>
+                            </template>
+                            <!-- 非部门管理员只能查看，但删除按钮临时可见用于测试 -->
+                            <template v-else>
+                                <el-button type="warning" size="small" @click="showEditDialog(data)">
+                                    查看详情
+                                </el-button>
+                                <!-- 临时：删除按钮始终显示，用于测试删除接口 -->
+                                <el-button type="danger" size="small" @click="handleDelete(data)">
+                                    删除
+                                </el-button>
+                            </template>
                         </div>
                     </div>
                 </template>
@@ -87,6 +106,36 @@
                 <el-button type="primary" @click="handleSubmit">确认</el-button>
             </template>
         </el-dialog>
+
+        <!-- 设置管理员弹窗 -->
+        <el-dialog
+            v-model="adminDialogVisible"
+            title="设置部门管理员"
+            width="500px"
+            @close="resetAdminForm"
+        >
+            <el-form
+                ref="adminFormRef"
+                :model="adminFormData"
+                :rules="adminFormRules"
+                label-width="100px"
+            >
+                <el-form-item label="部门名称">
+                    <el-input v-model="currentDepartmentName" readonly />
+                </el-form-item>
+                <el-form-item label="管理员ID" prop="admin_id">
+                    <el-input
+                        v-model="adminFormData.admin_id"
+                        placeholder="请输入管理员ID"
+                        type="number"
+                    />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="adminDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="handleSetAdmin">确认</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -96,13 +145,22 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department } from '@/types/organization';
-import { getAllDepartments } from '@/api/department';
+import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin } from '@/api/department';
+import { usePermissStore } from '@/store/permiss';
+import { permission } from '@/utils/permission';
 
 // 响应式数据
 const departmentTree = ref<Department[]>([]);
 const dialogVisible = ref(false);
 const isEdit = ref(false);
 const formRef = ref<FormInstance>();
+const permiss = usePermissStore();
+
+// 设置管理员弹窗相关
+const adminDialogVisible = ref(false);
+const adminFormRef = ref<FormInstance>();
+const currentDepartmentId = ref<number | null>(null);
+const currentDepartmentName = ref('');
 
 const formData = reactive({
     id: 0,
@@ -111,6 +169,10 @@ const formData = reactive({
     description: '',
     manager: '',
     phone: ''
+});
+
+const adminFormData = reactive({
+    admin_id: null as number | null
 });
 
 const treeProps = {
@@ -124,6 +186,14 @@ const formRules = {
     name: [
         { required: true, message: '请输入部门名称', trigger: 'blur' },
         { min: 2, max: 50, message: '部门名称长度在 2 到 50 个字符', trigger: 'blur' }
+    ]
+};
+
+// 管理员表单验证规则
+const adminFormRules = {
+    admin_id: [
+        { required: true, message: '请输入管理员ID', trigger: 'blur' },
+        { type: 'number', message: '管理员ID必须是数字', trigger: 'blur' }
     ]
 };
 
@@ -152,13 +222,14 @@ const getDepartmentData = async () => {
                 return {
                     id: item.id,
                     name: item.name || '未命名部门',
-                    parentId: item.parent_id || null,
+                    parentId: item.parent_department_id === -1 ? null : item.parent_department_id,
                     level: item.level || 1,
                     description: item.description || '',
                     manager: item.manager || '',
                     phone: item.phone || '',
                     createTime: item.create_time || '',
                     userCount: item.user_count || 0,
+                    admin: item.admin || [], // 添加管理员信息
                     children: [] // 先初始化为空，后面会构建树结构
                 };
             });
@@ -302,8 +373,8 @@ const handleDelete = async (department: Department) => {
             type: 'warning'
         });
 
-        // TODO: 调用删除API
-        // await deleteDepartment(department.id);
+        // 调用删除API
+        await deleteDepartment({ department_id: department.id });
 
         ElMessage.success('删除成功');
         await getDepartmentData();
@@ -321,12 +392,23 @@ const handleSubmit = async () => {
     try {
         await formRef.value.validate();
 
-        // TODO: 调用创建或更新API
-        // if (isEdit.value) {
-        //     await updateDepartment(formData.id, formData);
-        // } else {
-        //     await createDepartment(formData);
-        // }
+        // 调用创建或更新API
+        if (isEdit.value) {
+            // 构造更新接口所需的参数格式
+            const updateData = {
+                department_id: formData.id,
+                name: formData.name,
+                parent_department_id: formData.parentId || -1  // 如果没有父部门，使用-1
+            };
+            await updateDepartment(updateData);
+        } else {
+            // 构造新增接口所需的参数格式
+            const createData = {
+                name: formData.name,
+                parent_department_id: formData.parentId || -1  // 如果没有父部门，使用-1
+            };
+            await createDepartment(createData);
+        }
 
         ElMessage.success(isEdit.value ? '编辑成功' : '新增成功');
         dialogVisible.value = false;
@@ -336,6 +418,49 @@ const handleSubmit = async () => {
             ElMessage.error(isEdit.value ? '编辑失败' : '新增失败');
         }
     }
+};
+
+// 显示设置管理员对话框
+const showSetAdminDialog = (department: Department) => {
+    currentDepartmentId.value = department.id;
+    currentDepartmentName.value = department.name;
+    resetAdminForm();
+    adminDialogVisible.value = true;
+};
+
+// 处理设置管理员
+const handleSetAdmin = async () => {
+    if (!adminFormRef.value || currentDepartmentId.value === null) return;
+
+    try {
+        await adminFormRef.value.validate();
+
+        const adminData = {
+            admin_id: adminFormData.admin_id!,
+            department_id: currentDepartmentId.value
+        };
+
+        await setDepartmentAdmin(adminData);
+        ElMessage.success('设置管理员成功');
+        adminDialogVisible.value = false;
+        await getDepartmentData(); // 重新获取数据以更新显示
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('设置管理员失败');
+        }
+    }
+};
+
+// 重置管理员表单
+const resetAdminForm = () => {
+    if (adminFormRef.value) {
+        adminFormRef.value.resetFields();
+    }
+    Object.assign(adminFormData, {
+        admin_id: null
+    });
+    currentDepartmentId.value = null;
+    currentDepartmentName.value = '';
 };
 
 // 重置表单
@@ -351,6 +476,17 @@ const resetForm = () => {
         manager: '',
         phone: ''
     });
+};
+
+// 检查是否可以管理部门
+const canManageDepartment = (departmentId: number): boolean => {
+    // 检查权限工具类的权限
+    const hasPermission = permission.canManageDepartment(departmentId);
+
+    // 如果没有权限，检查是否有组织管理权限码 (10)
+    const hasOrgPermission = permission.hasPermission('10');
+
+    return hasPermission || hasOrgPermission;
 };
 
 onMounted(() => {

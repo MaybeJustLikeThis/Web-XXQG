@@ -15,14 +15,18 @@ app.use(router);
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
     app.component(key, component);
 }
-// 自定义权限指令
+// 自定义权限指令 - 使用新的权限系统
 const permiss = usePermissStore();
 app.directive('permiss', {
     mounted(el, binding) {
-        if (binding.value && !permiss.key.includes(String(binding.value))) {
-            el['hidden'] = true;
-        }
+        updatePermissionElement(el as HTMLElement, binding);
+    },
+    updated(el, binding) {
+        updatePermissionElement(el as HTMLElement, binding);
     },
 });
+
+// 导入权限工具
+import { updatePermissionElement } from './utils/permission';
 
 app.mount('#app');

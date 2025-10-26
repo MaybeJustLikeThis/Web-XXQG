@@ -26,19 +26,33 @@ export const createArticle = (data: any) => {
 };
 
 // 更新文章
-export const updateArticle = (id: string | number, data: any) => {
+export const updateArticle = (data: { id: number; text: string; title: string; head_image?: string }) => {
     return request({
-        url: `/richtext/${id}/update`,
-        method: 'put',
+        url: '/richtext/edit',
+        method: 'post',
         data
     });
 };
 
 // 删除文章
-export const deleteArticle = (id: string | number) => {
+export const deleteArticle = (rich_text_id: number) => {
     return request({
-        url: `/richtext/${id}/delete`,
-        method: 'delete'
+        url: '/richtext/delete',
+        method: 'post',
+        params: {
+            rich_text_id
+        }
+    });
+};
+
+// 根据标签ID获取文章
+export const getArticlesByTagId = (tag_id: number) => {
+    return request({
+        url: '/richtext/get_by_tag_id',
+        method: 'get',
+        params: {
+            tag_id
+        }
     });
 };
 

@@ -72,6 +72,7 @@ declare module '@vue/runtime-core' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     ElWatermark: typeof import('element-plus/es')['ElWatermark']
     Header: typeof import('./src/components/header.vue')['default']
+    PermissionDemo: typeof import('./src/components/permission-demo.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Sidebar: typeof import('./src/components/sidebar.vue')['default']

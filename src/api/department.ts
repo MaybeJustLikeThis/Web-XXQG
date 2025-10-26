@@ -19,26 +19,36 @@ export const getDepartmentById = (id: string | number) => {
 // 创建部门
 export const createDepartment = (data: any) => {
     return request({
-        url: '/department/create',
+        url: '/department/add',
         method: 'post',
         data
     });
 };
 
 // 更新部门
-export const updateDepartment = (id: string | number, data: any) => {
+export const updateDepartment = (data: { department_id: number; name: string; parent_department_id: number }) => {
     return request({
-        url: `/department/${id}/update`,
-        method: 'put',
+        url: '/department/update',
+        method: 'post',
         data
     });
 };
 
 // 删除部门
-export const deleteDepartment = (id: string | number) => {
+export const deleteDepartment = (data: { department_id: number }) => {
     return request({
-        url: `/department/${id}/delete`,
-        method: 'delete'
+        url: '/department/delete',
+        method: 'post',
+        data
+    });
+};
+
+// 设置部门管理员
+export const setDepartmentAdmin = (data: { admin_id: number; department_id: number }) => {
+    return request({
+        url: '/department/set_admin',
+        method: 'post',
+        data
     });
 };
 

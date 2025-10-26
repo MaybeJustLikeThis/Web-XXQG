@@ -1,11 +1,24 @@
 <template>
     <div class="container">
         <div class="handle-box">
-            <el-input v-model="query.title" placeholder="文章标题" class="handle-input mr10" @keyup.enter="handleSearch"></el-input>
-            <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+            <el-select v-model="selectedTagId" placeholder="请选择专栏" @change="handleTagChange" style="width: 200px;">
+                <el-option
+                    v-for="tag in tagOptions"
+                    :key="tag.id"
+                    :label="tag.name"
+                    :value="tag.id"
+                ></el-option>
+            </el-select>
+            <el-input v-model="query.title" placeholder="文章标题" class="handle-input" @keyup.enter="handleSearch"></el-input>
+            <el-button type="primary" :icon="Search" @click="handleSearch">
+                搜索
+            </el-button>
+            <el-button type="primary" :icon="Plus" @click="handleCreate" v-if="selectedTagId">
+                新增文章
+            </el-button>
         </div>
 
-        <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
+        <el-table :data="tableData" border class="table" header-cell-class-name="table-header" v-loading="loading">
             <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
             <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
             <el-table-column label="封面" width="100" align="center">
@@ -68,6 +81,9 @@
                 <el-form-item label="文章标题" prop="title">
                     <el-input v-model="form.title" placeholder="请输入文章标题"></el-input>
                 </el-form-item>
+                <el-form-item label="所属专栏">
+                    <el-input :value="getCurrentTagName()" readonly></el-input>
+                </el-form-item>
                 <el-form-item label="文章封面" prop="cover">
                     <el-upload
                         class="cover-uploader"
@@ -91,9 +107,9 @@
                     >
                         <el-option
                             v-for="item in tagOptions"
-                            :key="item"
-                            :label="item"
-                            :value="item"
+                            :key="item.id"
+                            :label="item.name"
+                            :value="item.name"
                         ></el-option>
                     </el-select>
                 </el-form-item>
@@ -120,17 +136,23 @@
     </div>
 </template>
 
-<script setup lang="ts" name="articles">
-import { ref, reactive, onMounted, shallowRef } from 'vue';
+<script setup lang="ts" name="columns">
+import { ref, reactive, onMounted, shallowRef, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search, Remove } from '@element-plus/icons-vue';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
 import type { Article, ArticleQuery } from '@/types/content';
-import { getAllArticles, deleteArticle, updateArticle, createArticle } from '@/api/article';
+import { getArticlesByTagId, deleteArticle, updateArticle, createArticle } from '@/api/article';
 
 // 编辑器实例，必须用 shallowRef
 const editorRef = shallowRef();
+
+// 加载状态
+const loading = ref(false);
+
+// 选中的专栏ID
+const selectedTagId = ref<number | null>(null);
 
 // 查询参数
 const query = reactive<ArticleQuery>({
@@ -153,7 +175,7 @@ const form = reactive<Article>({
     id: '',
     title: '',
     content: '',
-    summary: '', // 保留字段以避免类型错误，但不使用
+    summary: '',
     cover: '',
     tags: [],
     status: 'draft',
@@ -169,8 +191,18 @@ const rules = {
     content: [{ required: true, message: '请输入文章内容', trigger: 'blur' }],
 };
 
-// 标签选项
-const tagOptions = ref(['技术', '前端', '后端', '数据库', '算法', '架构', '运维']);
+// 专栏选项（8个专栏 + 全部选项）
+const tagOptions = ref([
+    { id: null, name: '全部专栏' },
+    { id: 1, name: '通知公告' },
+    { id: 2, name: '思政要闻' },
+    { id: 3, name: '政策文件' },
+    { id: 4, name: '高校风采' },
+    { id: 5, name: '工作动态' },
+    { id: 6, name: '典型经验' },
+    { id: 7, name: '案例分享' },
+    { id: 8, name: '榜样力量' }
+]);
 
 // 上传地址
 const uploadUrl = '/api/upload';
@@ -209,10 +241,70 @@ const editorConfig = {
     },
 };
 
-// 获取文章列表
-const getArticles = async () => {
+// 获取当前选中的专栏名称
+const getCurrentTagName = computed(() => {
+    if (selectedTagId.value === null) return '全部专栏';
+    const tag = tagOptions.value.find(t => t.id === selectedTagId.value);
+    return tag ? tag.name : '';
+});
+
+// 根据专栏获取文章列表
+const getArticlesByTag = async () => {
+    // 如果没有选择专栏（选择的是"全部专栏"），则获取所有文章
+    if (selectedTagId.value === null) {
+        loading.value = true;
+        try {
+            // 调用获取所有文章的接口
+            const { getAllArticles } = await import('@/api/article');
+            const res = await getAllArticles();
+
+            if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+                // 将API数据转换为前端需要的格式
+                const articles = res.data.data.map((item: any) => {
+                    return {
+                        id: item.id.toString(),
+                        title: item.title || '未命名文章',
+                        content: item.text || '',
+                        cover: item.head_image || '',
+                        tags: item.tags || [],
+                        status: 'published',
+                        author: item.creator || '未知作者',
+                        publishTime: item.update_time || '',
+                        updateTime: item.update_time || '',
+                        viewCount: item.comments ? item.comments.length : 0,
+                        commentCount: item.comments ? item.comments.length : 0,
+                        raw: item
+                    };
+                });
+
+                // 应用筛选条件
+                let filteredData = articles.filter((article: any) => {
+                    if (query.title && !article.title.includes(query.title)) return false;
+                    return true;
+                });
+
+                tableData.value = filteredData;
+                pageTotal.value = filteredData.length;
+            } else {
+                ElMessage.error('获取文章列表失败');
+                tableData.value = [];
+                pageTotal.value = 0;
+            }
+        } catch (error) {
+            ElMessage.error('获取文章列表失败');
+            console.error('获取文章列表错误:', error);
+            tableData.value = [];
+            pageTotal.value = 0;
+        } finally {
+            loading.value = false;
+        }
+        return;
+    }
+
+    // 如果选择了具体专栏，则按专栏ID获取文章
+    loading.value = true;
     try {
-        const res = await getAllArticles();
+        const res = await getArticlesByTagId(selectedTagId.value);
 
         if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
             // 将API数据转换为前端需要的格式
@@ -223,13 +315,12 @@ const getArticles = async () => {
                     content: item.text || '',
                     cover: item.head_image || '',
                     tags: item.tags || [],
-                    status: 'published', // API没有返回状态，默认为已发布
+                    status: 'published',
                     author: item.creator || '未知作者',
                     publishTime: item.update_time || '',
                     updateTime: item.update_time || '',
-                    viewCount: item.comments ? item.comments.length : 0, // 使用评论数作为浏览量
-                    commentCount: item.comments ? item.comments.length : 0, // 评论数量
-                    // 保留原始API数据
+                    viewCount: item.comments ? item.comments.length : 0,
+                    commentCount: item.comments ? item.comments.length : 0,
                     raw: item
                 };
             });
@@ -243,63 +334,38 @@ const getArticles = async () => {
             tableData.value = filteredData;
             pageTotal.value = filteredData.length;
         } else {
-            throw new Error('API返回数据格式不正确');
+            ElMessage.error('获取文章列表失败');
+            tableData.value = [];
+            pageTotal.value = 0;
         }
     } catch (error) {
         ElMessage.error('获取文章列表失败');
         console.error('获取文章列表错误:', error);
-
-        // 使用模拟数据作为fallback，与真实API数据格式一致
-        const mockData: Article[] = [
-            {
-                id: '1',
-                title: '深入学习贯彻党的二十大精神 扎实推进高校思想政治工作高质量发展',
-                content: ' <h2>引言</h2>\n<p>党的二十大是在全党全国各族人民迈上全面建设社会主义现代化国家新征程、向第二个百年奋斗目标进军的关键时刻召开的一次十分重要的大会。</p>',
-                cover: 'https://tyut-qiangguo.oss-cn-beijing.aliyuncs.com/%E6%88%AA%E5%B1%8F2025-10-13%2000.15.05.png',
-                tags: ['思想政治', '党的二十大精神', '高校发展'],
-                status: 'published',
-                author: '任博轩',
-                publishTime: '2025-10-13 23:49:09',
-                updateTime: '2025-10-13 23:49:09',
-                viewCount: 7,
-                commentCount: 7,
-            },
-            {
-                id: '2',
-                title: '这是第二个文章的标题',
-                content: '第二篇文章，第二个内容',
-                cover: 'https://tyut-qiangguo.oss-cn-beijing.aliyuncs.com/%E6%88%AA%E5%B1%8F2025-10-13%2000.15.05.png',
-                tags: ['教育', '学习'],
-                status: 'published',
-                author: '任博轩',
-                publishTime: '2025-10-13 23:53:05',
-                updateTime: '2025-10-13 23:53:05',
-                viewCount: 5,
-                commentCount: 5,
-            },
-        ];
-
-        // 应用筛选条件
-        let filteredData = mockData.filter(article => {
-            if (query.title && !article.title.includes(query.title)) return false;
-            return true;
-        });
-
-        tableData.value = filteredData;
-        pageTotal.value = filteredData.length;
+        tableData.value = [];
+        pageTotal.value = 0;
+    } finally {
+        loading.value = false;
     }
 };
 
 // 搜索
 const handleSearch = async () => {
     query.page = 1;
-    await getArticles();
+    await getArticlesByTag();
+};
+
+// 专栏切换
+const handleTagChange = () => {
+    tableData.value = [];
+    pageTotal.value = 0;
+    // 无论选择哪个专栏（包括"全部专栏"），都触发数据加载
+    getArticlesByTag();
 };
 
 // 分页切换
 const handlePageChange = async (val: number) => {
     query.page = val;
-    await getArticles();
+    await getArticlesByTag();
 };
 
 // 新增文章
@@ -307,6 +373,13 @@ const handleCreate = () => {
     dialogTitle.value = '新增文章';
     dialogVisible.value = true;
     resetForm();
+    // 设置默认专栏标签
+    if (selectedTagId.value) {
+        const currentTag = tagOptions.value.find(t => t.id === selectedTagId.value);
+        if (currentTag) {
+            form.tags = [currentTag.name];
+        }
+    }
 };
 
 // 编辑文章
@@ -327,7 +400,7 @@ const handleWithdraw = async (row: Article) => {
         // await updateArticleStatus(row.id, 'withdrawn');
 
         ElMessage.success('撤稿成功');
-        await getArticles();
+        await getArticlesByTag();
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error('撤稿失败');
@@ -346,7 +419,7 @@ const handleDelete = async (row: Article) => {
         await deleteArticle(parseInt(row.id));
 
         ElMessage.success('删除成功');
-        await getArticles();
+        await getArticlesByTag();
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error('删除失败');
@@ -375,12 +448,11 @@ const submitForm = async () => {
 
         // 调用创建或更新API
         if (form.id) {
-            // 构造编辑接口所需的参数格式
             const updateData = {
                 id: parseInt(form.id),
                 title: form.title,
                 text: form.content,
-                head_image: form.cover || undefined // 如果有封面则传递，否则不传递
+                head_image: form.cover || undefined
             };
             await updateArticle(updateData);
         } else {
@@ -389,7 +461,7 @@ const submitForm = async () => {
 
         ElMessage.success(form.id ? '更新成功' : '创建成功');
         dialogVisible.value = false;
-        await getArticles();
+        await getArticlesByTag();
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error(form.id ? '更新失败' : '创建失败');
@@ -403,7 +475,7 @@ const resetForm = () => {
         id: '',
         title: '',
         content: '',
-        summary: '', // 保留字段以避免类型错误
+        summary: '',
         cover: '',
         tags: [],
         status: 'draft',
@@ -458,14 +530,17 @@ const statusText = (status: string) => {
     return texts[status as keyof typeof texts] || '未知';
 };
 
-onMounted(async () => {
-    await getArticles();
+onMounted(() => {
+    // 页面加载时不自动加载数据，等待用户选择专栏
 });
 </script>
 
 <style scoped>
 .handle-box {
     margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
 }
 
 .handle-select {
@@ -527,5 +602,11 @@ onMounted(async () => {
     height: 178px;
     line-height: 178px;
     text-align: center;
+}
+
+.pagination {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
 }
 </style>
