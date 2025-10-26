@@ -8,7 +8,7 @@
                     </el-icon>
                     <div class="card-content">
                         <countup class="card-num color1" :end="6666" />
-                        <div>用户访问量</div>
+                        <div>活跃用户</div>
                     </div>
                 </el-card>
             </el-col>
@@ -19,7 +19,7 @@
                     </el-icon>
                     <div class="card-content">
                         <countup class="card-num color2" :end="168" />
-                        <div>系统消息</div>
+                        <div>思想文章</div>
                     </div>
                 </el-card>
             </el-col>
@@ -30,7 +30,7 @@
                     </el-icon>
                     <div class="card-content">
                         <countup class="card-num color3" :end="888" />
-                        <div>商品数量</div>
+                        <div>题目数量</div>
                     </div>
                 </el-card>
             </el-col>
@@ -41,7 +41,7 @@
                     </el-icon>
                     <div class="card-content">
                         <countup class="card-num color4" :end="234" />
-                        <div>订单数量</div>
+                        <div>积分记录</div>
                     </div>
                 </el-card>
             </el-col>
@@ -103,26 +103,26 @@ import countup from '@/components/countup.vue';
 
 const activities = [
     {
-        content: '收藏商品',
-        description: 'xxx收藏了你的商品，就是不买',
+        content: '新增文章',
+        description: '张老师发布了新的思想理论学习文章',
         timestamp: '30分钟前',
         color: '#00bcd4',
     },
     {
-        content: '用户评价',
-        description: 'xxx给了某某商品一个差评，吐血啊',
+        content: '题目审核',
+        description: '李老师审核通过了5道思政题目',
         timestamp: '55分钟前',
         color: '#1ABC9C',
     },
     {
-        content: '订单提交',
-        description: 'xxx提交了订单，快去收钱吧',
+        content: '学习活动',
+        description: '组织了"青年大学习"主题活动',
         timestamp: '1小时前',
         color: '#3f51b5',
     },
     {
-        content: '退款申请',
-        description: 'xxx申请了仅退款，又要亏钱了',
+        content: '积分发放',
+        description: '为积极参与学习的同学发放了学习积分',
         timestamp: '15小时前',
         color: '#F39C12',
     },

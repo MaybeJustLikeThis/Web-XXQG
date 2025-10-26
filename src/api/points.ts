@@ -4,7 +4,7 @@ import type { PointRule, PointRuleQuery, UserPointRecord, UserPointRecordQuery, 
 // 积分规则相关接口
 export const getPointRules = (params: PointRuleQuery) => {
     return request({
-        url: '/api/points/rules',
+        url: '/points/rules',
         method: 'get',
         params
     });
@@ -12,7 +12,7 @@ export const getPointRules = (params: PointRuleQuery) => {
 
 export const createPointRule = (data: Omit<PointRule, 'id' | 'createTime' | 'updateTime'>) => {
     return request({
-        url: '/api/points/rules',
+        url: '/points/rules',
         method: 'post',
         data
     });
@@ -20,7 +20,7 @@ export const createPointRule = (data: Omit<PointRule, 'id' | 'createTime' | 'upd
 
 export const updatePointRule = (id: string, data: Partial<PointRule>) => {
     return request({
-        url: `/api/points/rules/${id}`,
+        url: `/points/rules/${id}`,
         method: 'put',
         data
     });
@@ -28,14 +28,14 @@ export const updatePointRule = (id: string, data: Partial<PointRule>) => {
 
 export const deletePointRule = (id: string) => {
     return request({
-        url: `/api/points/rules/${id}`,
+        url: `/points/rules/${id}`,
         method: 'delete'
     });
 };
 
 export const togglePointRuleStatus = (id: string, isActive: boolean) => {
     return request({
-        url: `/api/points/rules/${id}/status`,
+        url: `/points/rules/${id}/status`,
         method: 'patch',
         data: { isActive }
     });
@@ -44,7 +44,7 @@ export const togglePointRuleStatus = (id: string, isActive: boolean) => {
 // 积分记录相关接口
 export const getPointRecords = (params: UserPointRecordQuery) => {
     return request({
-        url: '/api/points/records',
+        url: '/points/records',
         method: 'get',
         params
     });
@@ -52,14 +52,14 @@ export const getPointRecords = (params: UserPointRecordQuery) => {
 
 export const getPointRecordDetail = (id: string) => {
     return request({
-        url: `/api/points/records/${id}`,
+        url: `/points/records/${id}`,
         method: 'get'
     });
 };
 
 export const exportPointRecords = (params: UserPointRecordQuery) => {
     return request({
-        url: '/api/points/records/export',
+        url: '/points/records/export',
         method: 'get',
         params,
         responseType: 'blob'
@@ -69,14 +69,14 @@ export const exportPointRecords = (params: UserPointRecordQuery) => {
 // 积分统计相关接口
 export const getPointStatistics = () => {
     return request({
-        url: '/api/points/statistics',
+        url: '/points/statistics',
         method: 'get'
     });
 };
 
 export const getPointTrendData = (period: string) => {
     return request({
-        url: '/api/points/statistics/trend',
+        url: '/points/statistics/trend',
         method: 'get',
         params: { period }
     });
@@ -84,7 +84,7 @@ export const getPointTrendData = (period: string) => {
 
 export const getPointDistribution = (period: string) => {
     return request({
-        url: '/api/points/statistics/distribution',
+        url: '/points/statistics/distribution',
         method: 'get',
         params: { period }
     });
@@ -92,7 +92,7 @@ export const getPointDistribution = (period: string) => {
 
 export const getPointRankings = (type: 'points' | 'activity', limit?: number) => {
     return request({
-        url: '/api/points/statistics/rankings',
+        url: '/points/statistics/rankings',
         method: 'get',
         params: { type, limit }
     });
@@ -100,7 +100,7 @@ export const getPointRankings = (type: 'points' | 'activity', limit?: number) =>
 
 export const getPointEventStatistics = (params: { startDate?: string; endDate?: string }) => {
     return request({
-        url: '/api/points/statistics/events',
+        url: '/points/statistics/events',
         method: 'get',
         params
     });
@@ -108,7 +108,7 @@ export const getPointEventStatistics = (params: { startDate?: string; endDate?: 
 
 export const exportPointStatistics = (params: { startDate?: string; endDate?: string }) => {
     return request({
-        url: '/api/points/statistics/export',
+        url: '/points/statistics/export',
         method: 'get',
         params,
         responseType: 'blob'

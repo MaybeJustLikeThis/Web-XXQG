@@ -16,13 +16,7 @@
                 <el-option label="中等" value="medium"></el-option>
                 <el-option label="困难" value="hard"></el-option>
             </el-select>
-            <el-select v-model="query.status" placeholder="状态" class="handle-select mr10">
-                <el-option label="全部" value=""></el-option>
-                <el-option label="未回答" value="active"></el-option>
-                <el-option label="已回答" value="answered"></el-option>
-                <el-option label="开放题" value="inactive"></el-option>
-            </el-select>
-              <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+                <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
         </div>
 
         <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
@@ -44,14 +38,7 @@
                 </template>
             </el-table-column>
             <el-table-column prop="points" label="分值" width="80" align="center"></el-table-column>
-              <el-table-column prop="status" label="状态" width="100" align="center">
-                <template #default="scope">
-                    <el-tag :type="getStatusColor(scope.row.status)">
-                        {{ getStatusText(scope.row.status) }}
-                    </el-tag>
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="150" align="center" fixed="right">
+                  <el-table-column label="操作" width="150" align="center" fixed="right">
                 <template #default="scope">
                     <el-button type="info" size="small" @click="handleView(scope.row)">预览</el-button>
                     <el-button type="danger" size="small" @click="handleDelete(scope.row)">删除</el-button>
@@ -249,7 +236,6 @@ const query = reactive<QuestionQuery>({
     title: '',
     type: undefined,
     difficulty: undefined,
-    status: undefined,
 });
 
 // 表格数据
@@ -400,7 +386,6 @@ const getQuestions = async () => {
                 if (query.title && !question.title.includes(query.title)) return false;
                 if (query.type && question.type !== query.type) return false;
                 if (query.difficulty && question.difficulty !== query.difficulty) return false;
-                if (query.status && question.status !== query.status) return false;
                 return true;
             });
 
@@ -483,7 +468,6 @@ const getQuestions = async () => {
             if (query.title && !question.title.includes(query.title)) return false;
             if (query.type && question.type !== query.type) return false;
             if (query.difficulty && question.difficulty !== query.difficulty) return false;
-            if (query.status && question.status !== query.status) return false;
             return true;
         });
 
@@ -719,23 +703,6 @@ const getDifficultyColor = (difficulty: string) => {
     return colors[difficulty as keyof typeof colors] || 'info';
 };
 
-const getStatusText = (status: string) => {
-    const texts = {
-        active: '未回答',
-        answered: '已回答',
-        inactive: '开放题'
-    };
-    return texts[status as keyof typeof texts] || '未知';
-};
-
-const getStatusColor = (status: string) => {
-    const colors = {
-        active: 'warning',    // 未回答 - 黄色
-        answered: 'success',  // 已回答 - 绿色
-        inactive: 'info'      // 开放题 - 灰色
-    };
-    return colors[status as keyof typeof colors] || 'info';
-};
 
 onMounted(async () => {
     await getQuestions();

@@ -32,13 +32,9 @@
             <el-table-column prop="viewCount" label="浏览量" width="100" align="center"></el-table-column>
             <el-table-column prop="commentCount" label="评论数" width="100" align="center"></el-table-column>
             <el-table-column prop="publishTime" label="更新时间" width="160" align="center"></el-table-column>
-            <el-table-column label="操作" width="220" align="center">
+            <el-table-column label="操作" width="150" align="center">
                 <template #default="scope">
                     <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button v-if="scope.row.status === 'published'" type="warning" :icon="Remove"
-                        @click="handleWithdraw(scope.row)">
-                        撤稿
-                    </el-button>
                     <el-button type="danger" :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
                 </template>
             </el-table-column>
@@ -93,7 +89,7 @@
 <script setup lang="ts" name="articles">
 import { ref, reactive, onMounted, shallowRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search, Remove } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
 import type { Article, ArticleQuery } from '@/types/content';
@@ -331,24 +327,6 @@ const handleEdit = (row: Article) => {
     Object.assign(form, row);
 };
 
-// 撤稿
-const handleWithdraw = async (row: Article) => {
-    try {
-        await ElMessageBox.confirm('确定要撤稿这篇文章吗？', '提示', {
-            type: 'warning',
-        });
-
-        // TODO: 调用撤稿API
-        // await updateArticleStatus(row.id, 'withdrawn');
-
-        ElMessage.success('撤稿成功');
-        await getArticles();
-    } catch (error) {
-        if (error !== 'cancel') {
-            ElMessage.error('撤稿失败');
-        }
-    }
-};
 
 // 删除文章
 const handleDelete = async (row: Article) => {
@@ -473,7 +451,6 @@ const statusType = (status: string) => {
     const types = {
         published: 'success',
         draft: 'info',
-        withdrawn: 'warning',
     };
     return types[status as keyof typeof types] || 'info';
 };
@@ -483,7 +460,6 @@ const statusText = (status: string) => {
     const texts = {
         published: '已发布',
         draft: '草稿',
-        withdrawn: '已撤稿',
     };
     return texts[status as keyof typeof texts] || '未知';
 };

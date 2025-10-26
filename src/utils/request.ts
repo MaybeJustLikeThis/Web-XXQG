@@ -6,7 +6,7 @@ const getBaseURL = () => {
         return '/api';
     }
     // 生产环境使用完整URL
-    return import.meta.env.VITE_API_BASE_URL || 'https://wx.frp.geekyuu.com';
+    return import.meta.env.VITE_API_BASE_URL || 'https://api.xuexi.geekyuu.com';
 };
 
 const service: AxiosInstance = axios.create({
