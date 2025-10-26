@@ -1,10 +1,11 @@
 import request from '@/utils/request';
 
 // 获取全部题目
-export const getAllQuestions = () => {
+export const getAllQuestions = (params?: { page?: number; size?: number }) => {
     return request({
-        url: '/question/all/get_list',
-        method: 'get'
+      url: "/question/all/get_list_for_admin",
+      method: "get",
+      params
     });
 };
 
@@ -20,6 +21,47 @@ export const getQuestionById = (id: string | number) => {
 export const createQuestion = (data: any) => {
     return request({
         url: '/question/create',
+        method: 'post',
+        data
+    });
+};
+
+// 新增题目接口 (使用 /question/add)
+export const addQuestion = (data: {
+    type: number;
+    detail: {
+        title: string;
+        options?: string[];
+        fixed_answer: boolean;
+        standard_answer: string[];
+        reference_answer?: string;
+    };
+    public?: boolean;
+    status?: number;
+}) => {
+    return request({
+        url: '/question/add',
+        method: 'post',
+        data
+    });
+};
+
+// 编辑题目接口 (使用 /question/edit)
+export const editQuestion = (data: {
+    id: number;
+    type: number;
+    detail: {
+        title: string;
+        options?: string[];
+        fixed_answer: boolean;
+        standard_answer: string[];
+        reference_answer?: string;
+    };
+    public?: boolean;
+    status?: number;
+}) => {
+    return request({
+        url: '/question/edit',
         method: 'post',
         data
     });

@@ -17,16 +17,27 @@ export interface Department {
 
 export interface DepartmentUser {
     id: number;
+    wx_id: string;
     name: string;
-    email: string;
-    phone: string;
-    invitationCode: string;
-    status: 'active' | 'disabled';
-    departmentId: number;
-    departmentName: string;
-    groupIds: number[];
-    groups: string[];
-    createTime: string;
+    sex: string;
+    race: string;
+    political_status: string;
+    id_number: string;
+    department: string;
+    points: number;
+    is_super_admin: boolean;
+    edit_text: boolean;
+    edit_question: boolean;
+    manage_departments: any[];
+    // 兼容旧字段
+    email?: string;
+    phone?: string;
+    status?: 'active' | 'disabled';
+    departmentId?: number;
+    departmentName?: string;
+    groupIds?: number[];
+    groups?: string[];
+    createTime?: string;
     lastLoginTime?: string;
 }
 

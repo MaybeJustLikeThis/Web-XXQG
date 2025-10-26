@@ -9,37 +9,20 @@
                             <span>组织管理</span>
                         </div>
                     </template>
-                    <el-menu
-                        :default-active="activeMenu"
-                        class="org-menu"
-                        @select="handleMenuSelect"
-                    >
-                        <el-menu-item index="department">
+                    <div class="org-menu">
+                        <div class="menu-item active">
                             <el-icon><OfficeBuilding /></el-icon>
                             <span>部门管理</span>
-                        </el-menu-item>
-                        <el-menu-item index="user">
-                            <el-icon><User /></el-icon>
-                            <span>用户管理</span>
-                        </el-menu-item>
-                                            </el-menu>
+                        </div>
+                    </div>
                 </el-card>
             </el-col>
 
             <!-- 右侧内容区 -->
             <el-col :span="20">
                 <div class="content-area">
-                    <!-- 部门管理 -->
-                    <div v-show="activeMenu === 'department'">
-                        <DepartmentManagement />
-                    </div>
-
-                    <!-- 用户管理 -->
-                    <div v-show="activeMenu === 'user'">
-                        <UserManagement />
-                    </div>
-
-                                    </div>
+                    <DepartmentManagement />
+                </div>
             </el-col>
         </el-row>
     </div>
@@ -47,15 +30,10 @@
 
 <script setup lang="ts" name="organization">
 import { ref } from 'vue';
-import { OfficeBuilding, User } from '@element-plus/icons-vue';
+import { OfficeBuilding } from '@element-plus/icons-vue';
 import DepartmentManagement from './components/DepartmentManagement.vue';
-import UserManagement from './components/UserManagement.vue';
 
-const activeMenu = ref('department');
-
-const handleMenuSelect = (key: string) => {
-    activeMenu.value = key;
-};
+// 由于只有部门管理，移除菜单切换逻辑
 </script>
 
 <style scoped>
