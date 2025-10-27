@@ -454,7 +454,7 @@ const memberPagination = reactive({
 const formData = reactive({
     id: 0,
     name: '',
-    parentId: null as number | null,
+    parentId: 0 as number,
     description: '',
     manager: '',
     phone: ''
@@ -515,7 +515,7 @@ const departmentOptions = computed(() => {
     };
 
     return [
-        { id: null, name: '根部门', children: filterDepartments(departmentTree.value, isEdit.value ? formData.id : undefined) }
+        { id: 0, name: '根部门', children: filterDepartments(departmentTree.value, isEdit.value ? formData.id : undefined) }
     ];
 });
 
@@ -710,14 +710,14 @@ const handleSubmit = async () => {
             const updateData = {
                 department_id: formData.id,
                 name: formData.name,
-                parent_department_id: formData.parentId || -1  // 如果没有父部门，使用-1
+                parent_department_id: formData.parentId === 0 ? -1 : formData.parentId || -1  // 根部门(id=0)转换为-1
             };
             await updateDepartment(updateData);
         } else {
             // 构造新增接口所需的参数格式
             const createData = {
                 name: formData.name,
-                parent_department_id: formData.parentId || -1  // 如果没有父部门，使用-1
+                parent_department_id: formData.parentId === 0 ? -1 : formData.parentId || -1  // 根部门(id=0)转换为-1
             };
             await createDepartment(createData);
         }
@@ -955,7 +955,7 @@ const resetForm = () => {
         Object.assign(formData, {
             id: 0,
             name: '',
-            parentId: null,
+            parentId: 0,
             description: '',
             manager: '',
             phone: ''

@@ -72,6 +72,7 @@
                 <el-table-column prop="political_status" label="政治面貌" width="100" />
                 <el-table-column prop="department" label="部门" width="120" />
                 <el-table-column prop="wx_id" label="微信ID" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="invite_code" label="邀请码" width="120" show-overflow-tooltip />
                 <el-table-column prop="is_super_admin" label="超级管理员" width="100">
                     <template #default="{ row }">
                         <el-tag :type="row.is_super_admin ? 'warning' : 'info'" size="small">
@@ -181,16 +182,79 @@
                 <el-button type="primary" @click="handleMemberSubmit">确认</el-button>
             </template>
         </el-dialog>
+
+        <!-- 批量导入弹窗 -->
+        <el-dialog
+            v-model="importDialogVisible"
+            title="批量导入成员"
+            width="500px"
+        >
+            <div class="import-content">
+                <el-alert
+                    title="导入说明"
+                    type="info"
+                    :closable="false"
+                    show-icon
+                >
+                    <template #default>
+                        <div>
+                            <p>1. 请上传 Excel 文件（.xlsx 或 .xls 格式）</p>
+                            <p>2. 文件应包含以下字段：姓名、性别、民族、政治面貌、身份证号、部门</p>
+                            <p>3. 导入成功后会自动刷新成员列表</p>
+                            <p>4. 如果有导入失败的记录，系统会自动下载错误报告</p>
+                        </div>
+                    </template>
+                </el-alert>
+
+                <el-upload
+                    ref="importFileRef"
+                    class="import-upload"
+                    drag
+                    :auto-upload="false"
+                    :on-change="handleFileChange"
+                    :before-upload="beforeFileUpload"
+                    :limit="1"
+                    accept=".xlsx,.xls"
+                >
+                    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                    <div class="el-upload__text">
+                        将文件拖到此处，或<em>点击上传</em>
+                    </div>
+                    <template #tip>
+                        <div class="el-upload__tip">
+                            只能上传 xlsx/xls 文件，且不超过 10MB
+                        </div>
+                    </template>
+                </el-upload>
+
+                <div v-if="importFile" class="file-info">
+                    <p><strong>已选择文件：</strong>{{ importFile.name }}</p>
+                    <p><strong>文件大小：</strong>{{ formatFileSize(importFile.size) }}</p>
+                </div>
+            </div>
+
+            <template #footer>
+                <el-button @click="importDialogVisible = false">取消</el-button>
+                <el-button
+                    type="primary"
+                    :loading="importUploading"
+                    :disabled="!importFile"
+                    @click="handleImportSubmit"
+                >
+                    {{ importUploading ? '导入中...' : '开始导入' }}
+                </el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Upload } from '@element-plus/icons-vue';
+import { Plus, Upload, UploadFilled } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { DepartmentUser, UserGroup, Department } from '@/types/organization';
-import { getUsersByDepartment, getAllUsers, removeUserFromDepartment, toggleUserStatus } from '@/api/user';
+import { getUsersByDepartment, getAllUsers, removeUserFromDepartment, toggleUserStatus, addUsersByFile } from '@/api/user';
 import { getAllDepartments } from '@/api/department';
 
 // 响应式数据
@@ -201,6 +265,12 @@ const groupOptions = ref<UserGroup[]>([]);
 const memberFormDialogVisible = ref(false);
 const memberFormRef = ref<FormInstance>();
 const isEditMember = ref(false);
+
+// 导入相关
+const importDialogVisible = ref(false);
+const importFileRef = ref<any>();
+const importFile = ref<File | null>(null);
+const importUploading = ref(false);
 
 // 搜索表单
 const searchForm = reactive({
@@ -330,6 +400,7 @@ const getMemberData = async () => {
                 political_status: item.political_status || '',
                 id_number: item.id_number || '',
                 department: item.department || '未分配',
+                invite_code: item.invite_code || '',
                 points: item.points || 0,
                 is_super_admin: item.is_super_admin || false,
                 edit_text: item.edit_text || false,
@@ -455,7 +526,8 @@ const showEditMemberDialog = (user: DepartmentUser) => {
 
 // 显示导入成员对话框
 const showImportMemberDialog = () => {
-    ElMessage.info('批量导入功能开发中...');
+    importDialogVisible.value = true;
+    resetImportForm();
 };
 
 // 切换成员权限
@@ -540,6 +612,137 @@ const resetMemberForm = () => {
     });
 };
 
+// 文件导入相关函数
+const resetImportForm = () => {
+    importFile.value = null;
+    importUploading.value = false;
+    if (importFileRef.value) {
+        importFileRef.value.clearFiles();
+    }
+};
+
+const handleFileChange = (file: any) => {
+    importFile.value = file.raw;
+};
+
+const beforeFileUpload = (file: File) => {
+    const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                   file.type === 'application/vnd.ms-excel';
+    const isLt10M = file.size / 1024 / 1024 < 10;
+
+    if (!isExcel) {
+        ElMessage.error('只能上传 Excel 文件!');
+        return false;
+    }
+    if (!isLt10M) {
+        ElMessage.error('上传文件大小不能超过 10MB!');
+        return false;
+    }
+    return false; // 阻止自动上传
+};
+
+const formatFileSize = (size: number) => {
+    if (size < 1024) {
+        return size + ' B';
+    } else if (size < 1024 * 1024) {
+        return (size / 1024).toFixed(2) + ' KB';
+    } else {
+        return (size / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+};
+
+const handleImportSubmit = async () => {
+    if (!importFile.value) {
+        ElMessage.error('请选择要导入的文件');
+        return;
+    }
+
+    importUploading.value = true;
+    try {
+        // 获取当前选中的部门ID，如果没有选中则使用0（根部门）
+        const departmentId = searchForm.departmentId || 0;
+
+        const response = await addUsersByFile(departmentId, importFile.value);
+
+        // 检查 x-import-success 响应头判断导入是否成功
+        const importSuccess = response.headers?.['x-import-success'] === 'true';
+
+        if (importSuccess) {
+            // 导入成功
+            ElMessage.success('导入成功！');
+            getMemberData(); // 刷新列表
+            importDialogVisible.value = false;
+        } else {
+            // 导入失败，下载错误报告
+            let errorMessage = '导入失败';
+
+            // 如果返回的是Blob，下载错误报告文件
+            if (response.data instanceof Blob) {
+                const blob = new Blob([response.data], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `导入错误报告_${new Date().getTime()}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                errorMessage = '导入失败，已下载错误报告';
+            } else if (response.data && response.data.message) {
+                // 如果返回的是普通对象且包含错误信息
+                errorMessage = `导入失败：${response.data.message}`;
+            }
+
+            ElMessage.error(errorMessage);
+        }
+
+    } catch (error: any) {
+        console.error('导入失败:', error);
+
+        // 检查错误响应是否包含 x-import-success 响应头
+        const importSuccess = error.response?.headers?.['x-import-success'] === 'true';
+
+        if (importSuccess) {
+            // 即使有异常，但响应头显示成功
+            ElMessage.success('导入成功！');
+            getMemberData(); // 刷新列表
+            importDialogVisible.value = false;
+            return;
+        }
+
+        // 检查错误响应是否包含有用的信息
+        if (error.response && error.response.data) {
+            const errorData = error.response.data;
+
+            if (errorData instanceof Blob) {
+                // 如果是Blob，下载错误报告
+                const blob = new Blob([errorData], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `导入错误报告_${new Date().getTime()}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                ElMessage.error('导入失败，已下载错误报告');
+            } else {
+                ElMessage.error(`导入失败：${errorData.message || error.message || '网络错误'}`);
+            }
+        } else {
+            ElMessage.error('导入失败：网络连接错误');
+        }
+    } finally {
+        importUploading.value = false;
+    }
+};
+
 onMounted(() => {
     getDepartmentOptions();
     getMemberData();
@@ -590,5 +793,34 @@ onMounted(() => {
 .pagination {
     margin-top: 20px;
     text-align: right;
+}
+
+.import-content {
+    padding: 10px 0;
+}
+
+.import-upload {
+    margin: 20px 0;
+}
+
+.file-info {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f5f7fa;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.file-info p {
+    margin: 5px 0;
+}
+
+.el-alert {
+    margin-bottom: 20px;
+}
+
+.el-alert p {
+    margin: 5px 0;
+    line-height: 1.4;
 }
 </style>

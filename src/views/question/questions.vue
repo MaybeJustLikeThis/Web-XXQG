@@ -241,7 +241,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue';
 import type { QuestionQuery } from '@/types/question';
-import { getAllQuestions, addQuestion, editQuestion } from '@/api/question';
+import { getAllQuestions, addQuestion, editQuestion, deleteQuestion } from '@/api/question';
 import { transformQuestionData } from '@/types/question';
 
 // 查询参数
@@ -599,13 +599,14 @@ const handleDelete = async (row: any) => {
             type: 'warning',
         });
 
-        // TODO: 调用删除API
-        // await deleteQuestion(row.id);
+        // 调用删除API
+        await deleteQuestion(row.id);
 
         ElMessage.success('删除成功');
         await getQuestions();
     } catch (error) {
         if (error !== 'cancel') {
+            console.error('删除题目失败:', error);
             ElMessage.error('删除失败');
         }
     }

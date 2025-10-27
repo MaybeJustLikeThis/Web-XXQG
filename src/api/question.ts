@@ -77,10 +77,11 @@ export const updateQuestion = (id: string | number, data: any) => {
 };
 
 // 删除题目
-export const deleteQuestion = (id: string | number) => {
+export const deleteQuestion = (question_id: string | number) => {
     return request({
-        url: `/question/${id}/delete`,
-        method: 'delete'
+        url: '/question/delete',
+        method: 'post',
+        data: { question_id }
     });
 };
 
