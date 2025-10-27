@@ -19,6 +19,7 @@ export interface UserProfile {
     edit_text: boolean;
     edit_question: boolean;
     manage_departments: number[];
+    invite_code?: string;
 }
 
 // 清理无效的localStorage数据
@@ -175,18 +176,15 @@ export const usePermissStore = defineStore('permiss', {
                     return JSON.parse(profileStr);
                 } catch (e) {
                     console.error('Failed to parse user profile:', e);
-                    // 清除无效数据
+                    // 清理无效数据
                     localStorage.removeItem('userProfile');
                 }
             }
             return null;
         };
 
-        const profile = getUserProfile();
-        const username = localStorage.getItem('vuems_name');
-
         // 根据用户数据确定权限
-        const getUserPermissions = (): string[] => {
+        const getUserPermissions = (profile: UserProfile | null, username: string | null): string[] => {
             if (profile) {
                 const permissions: string[] = [];
 
@@ -220,11 +218,19 @@ export const usePermissStore = defineStore('permiss', {
             }
 
             // 向后兼容：使用原有的用户名判断逻辑
-            return username === 'admin' ? defaultList.admin : defaultList.user;
+            if (username) {
+                return username === 'admin' ? defaultList.admin : defaultList.user;
+            }
+
+            // 没有登录信息，返回空权限
+            return [];
         };
 
+        const profile = getUserProfile();
+        const username = localStorage.getItem('vuems_name');
+
         return {
-            key: getUserPermissions(),
+            key: getUserPermissions(profile, username),
             userProfile: profile,
             defaultList,
             ROLE_PERMISSIONS,
