@@ -40,25 +40,14 @@
             >
                 <el-tabs tab-position="left" v-model="activeName">
                     <el-tab-pane name="label1" label="消息通知" class="user-tabpane">
-                        <TabsComp />
+                        <div class="notification-content">
+                            <el-empty description="暂无消息通知" />
+                        </div>
                     </el-tab-pane>
                     <el-tab-pane name="label2" label="我的头像" class="user-tabpane">
-                        <div class="crop-wrap" v-if="activeName === 'label2'">
-                            <vueCropper
-                                ref="cropper"
-                                :img="imgSrc"
-                                :autoCrop="true"
-                                :centerBox="true"
-                                :full="true"
-                                mode="contain"
-                            >
-                            </vueCropper>
+                        <div class="avatar-content">
+                            <p>头像上传功能暂时不可用</p>
                         </div>
-                        <el-button class="crop-demo-btn" type="primary"
-                            >选择图片
-                            <input class="crop-input" type="file" name="image" accept="image/*" @change="setImage" />
-                        </el-button>
-                        <el-button type="success" @click="saveAvatar">上传并保存</el-button>
                     </el-tab-pane>
                     <el-tab-pane name="label3" label="修改密码" class="user-tabpane">
                         <el-form class="w500" label-position="top">
@@ -99,10 +88,10 @@
 
 <script setup lang="ts" name="ucenter">
 import { reactive, ref } from 'vue';
-import { VueCropper } from 'vue-cropper';
-import 'vue-cropper/dist/index.css';
+// import { VueCropper } from 'vue-cropper';
+// import 'vue-cropper/dist/index.css';
 import avatar from '@/assets/img/img.jpg';
-import TabsComp from '../element/tabs.vue';
+// import TabsComp from '../element/tabs.vue';
 
 const name = localStorage.getItem('vuems_name');
 const form = reactive({
@@ -119,26 +108,26 @@ const imgSrc = ref(avatar);
 const cropImg = ref('');
 const cropper: any = ref();
 
-const setImage = (e: any) => {
-    const file = e.target.files[0];
-    if (!file.type.includes('image/')) {
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = (event: any) => {
-        imgSrc.value = event.target.result;
-        cropper.value && cropper.value.replace(event.target.result);
-    };
-    reader.readAsDataURL(file);
-};
+// const setImage = (e: any) => {
+//     const file = e.target.files[0];
+//     if (!file.type.includes('image/')) {
+//         return;
+//     }
+//     const reader = new FileReader();
+//     reader.onload = (event: any) => {
+//         imgSrc.value = event.target.result;
+//         cropper.value && cropper.value.replace(event.target.result);
+//     };
+//     reader.readAsDataURL(file);
+// };
 
-const cropImage = () => {
-    cropImg.value = cropper.value?.getCroppedCanvas().toDataURL();
-};
+// const cropImage = () => {
+//     cropImg.value = cropper.value?.getCroppedCanvas().toDataURL();
+// };
 
-const saveAvatar = () => {
-    avatarImg.value = cropImg.value;
-};
+// const saveAvatar = () => {
+//     avatarImg.value = cropImg.value;
+// };
 </script>
 
 <style scoped>

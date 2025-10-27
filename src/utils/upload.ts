@@ -1,5 +1,5 @@
-import axios from 'axios';
 import { ElMessage } from 'element-plus';
+import { getOssUploadUrl } from '@/api/upload';
 import { getAccessibleUrl } from './download';
 
 // 文件上传函数 - OSS预签名URL上传模式
@@ -14,7 +14,7 @@ export const uploadFile = async (file: File): Promise<string> => {
 
         // 1. 获取签名地址，传入文件后缀参数
         console.log('🔄 请求预签名URL...');
-        const response = await axios.get(`/api/richtext/upload_file?suffix=${fileExtension}`);
+        const response = await getOssUploadUrl(fileExtension);
         console.log('获取签名地址响应:', response.data);
 
         if (!response.data || !response.data.data) {

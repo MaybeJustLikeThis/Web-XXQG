@@ -45,11 +45,12 @@ service.interceptors.response.use(
     (error: AxiosError) => {
         console.log('Response Error:', error);
         if (error.response) {
-            console.log('Error Status:', error.response.status);
+            const status = error.response.status;
+            console.log('Error Status:', status);
             console.log('Error Data:', error.response.data);
             console.log('Error Headers:', error.response.headers);
 
-            // 如果返回401或403，说明认证失败，清除本地存储的用户信息
+          // 如果返回401或403，说明认证失败，清除本地存储的用户信息
             if (error.response.status === 401 || error.response.status === 403) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('userProfile');
@@ -58,6 +59,7 @@ service.interceptors.response.use(
                 // window.location.href = '/login';
             }
         }
+
         return Promise.reject(error);
     }
 );
