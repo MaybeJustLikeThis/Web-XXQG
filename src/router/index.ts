@@ -72,28 +72,10 @@ const routes: RouteRecordRaw[] = [
                 path: '/points/rules',
                 name: 'points-rules',
                 meta: {
-                    title: '积分规则',
-                    permiss: '171',
+                    title: '积分管理',
+                    permiss: '17',
                 },
                 component: () => import(/* webpackChunkName: "points-rules" */ '../views/points/rules.vue'),
-            },
-            {
-                path: '/points/records',
-                name: 'points-records',
-                meta: {
-                    title: '积分记录',
-                    permiss: '172',
-                },
-                component: () => import(/* webpackChunkName: "points-records" */ '../views/points/records.vue'),
-            },
-            {
-                path: '/points/statistics',
-                name: 'points-statistics',
-                meta: {
-                    title: '积分统计',
-                    permiss: '173',
-                },
-                component: () => import(/* webpackChunkName: "points-statistics" */ '../views/points/statistics.vue'),
             },
             {
                 path: '/system-menu',
