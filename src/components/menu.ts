@@ -54,32 +54,9 @@ export const menuData: Menus[] = [
     {
         id: '17',
         title: '积分管理',
-        index: '17',
+        index: '/points/rules',
         icon: 'Medal',
         permiss: '17',
-        children: [
-            {
-                id: '171',
-                pid: '17',
-                index: '/points/rules',
-                title: '积分规则',
-                permiss: '171',
-            },
-            {
-                id: '172',
-                pid: '17',
-                index: '/points/records',
-                title: '积分记录',
-                permiss: '172',
-            },
-            {
-                id: '173',
-                pid: '17',
-                index: '/points/statistics',
-                title: '积分统计',
-                permiss: '173',
-            },
-        ],
     },
     {
         id: '1',

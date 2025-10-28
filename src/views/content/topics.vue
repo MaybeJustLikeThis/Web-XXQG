@@ -1,91 +1,99 @@
 <template>
     <div class="container">
-        <div class="handle-box">
-            <el-button type="primary" :icon="Plus" @click="handleCreate">新增专题</el-button>
-            <el-input v-model="query.name" placeholder="专题名称" class="handle-input mr10" @keyup.enter="handleSearch"></el-input>
-            <el-select v-model="query.status" placeholder="状态" class="handle-select mr10">
-                <el-option label="全部" value=""></el-option>
-                <el-option label="活跃" value="active"></el-option>
-                <el-option label="已过期" value="expired"></el-option>
-                <el-option label="已隐藏" value="hidden"></el-option>
-            </el-select>
-            <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+        <!-- 搜索操作区 -->
+        <div class="main-card">
+            <div class="handle-box">
+                <div class="handle-left">
+                    <el-button type="primary" :icon="Plus" @click="handleCreate">新增专题</el-button>
+                </div>
+                <div class="handle-right">
+                    <el-input v-model="query.name" placeholder="专题名称" class="handle-input" clearable
+                        @keyup.enter="handleSearch">
+                        <template #prefix>
+                            <el-icon>
+                                <Search />
+                            </el-icon>
+                        </template>
+                    </el-input>
+                    <el-select v-model="query.status" placeholder="状态" class="handle-select">
+                        <el-option label="全部" value=""></el-option>
+                        <el-option label="未开始" :value="0"></el-option>
+                        <el-option label="进行中" :value="1"></el-option>
+                        <el-option label="已过期" :value="2"></el-option>
+                    </el-select>
+                    <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+                </div>
+            </div>
+
+            <el-table :data="filteredTableData" border class="table" header-cell-class-name="table-header" stripe>
+                <el-table-column prop="id" label="ID" width="70" align="center">
+                    <template #default="scope">
+                        <span style="font-weight: 600; color: #409eff;">{{ scope.row.id }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="name" label="专题名称" width="180" show-overflow-tooltip>
+                    <template #default="scope">
+                        <span style="font-weight: 500;">{{ scope.row.name }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="creator" label="创建者" width="100" align="center"></el-table-column>
+                <el-table-column label="文章数量" width="100" align="center">
+                    <template #default="scope">
+                        <el-tag type="info" size="small">{{ scope.row.texts?.length || 0 }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="题目数量" width="100" align="center">
+                    <template #default="scope">
+                        <el-tag type="warning" size="small">{{ scope.row.question_list?.length || 0 }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="status" label="状态" width="100" align="center">
+                    <template #default="scope">
+                        <el-tag :type="statusType(scope.row.status)" effect="dark">
+                            {{ statusText(scope.row.status) }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="有效期" width="280" align="center">
+                    <template #default="scope">
+                        <span v-if="scope.row.begin_time || scope.row.end_time" class="time-range">
+                            {{ formatTimeRange(scope.row.begin_time, scope.row.end_time) }}
+                        </span>
+                        <span v-else class="text-muted">未设置</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作" width="240" align="center" fixed="right">
+                    <template #default="scope">
+                        <el-button-group>
+                            <el-button type="primary" size="small" :icon="Edit"
+                                @click="handleEdit(scope.row)">编辑</el-button>
+                            <el-button type="success" size="small" :icon="Document"
+                                @click="handleManageContent(scope.row)">管理</el-button>
+                            <el-button type="danger" size="small" :icon="Delete"
+                                @click="handleDelete(scope.row)">删除</el-button>
+                        </el-button-group>
+                    </template>
+                </el-table-column>
+            </el-table>
+
+            <div class="pagination">
+                <el-pagination background layout="total, prev, pager, next" :current-page="query.page"
+                    :page-size="query.pageSize" :total="filteredPageTotal"
+                    @current-change="handlePageChange"></el-pagination>
+            </div>
         </div>
 
-        <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
-            <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
-            <el-table-column prop="name" label="专题名称" show-overflow-tooltip></el-table-column>
-            <el-table-column prop="creator" label="创建者" width="100" align="center"></el-table-column>
-            <el-table-column label="文章数量" width="100" align="center">
-                <template #default="scope">
-                    {{ scope.row.texts?.length || 0 }}
-                </template>
-            </el-table-column>
-            <el-table-column label="题目数量" width="100" align="center">
-                <template #default="scope">
-                    {{ scope.row.question_list?.length || 0 }}
-                </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100" align="center">
-                <template #default="scope">
-                    <el-tag :type="statusType(scope.row.status)">
-                        {{ statusText(scope.row.status) }}
-                    </el-tag>
-                </template>
-            </el-table-column>
-            <el-table-column label="有效期" width="200" align="center">
-                <template #default="scope">
-                    <div v-if="scope.row.begin_time || scope.row.end_time">
-                        <div v-if="scope.row.begin_time">开始：{{ scope.row.begin_time }}</div>
-                        <div v-if="scope.row.end_time">结束：{{ scope.row.end_time }}</div>
-                    </div>
-                    <span v-else class="text-muted">未设置</span>
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220" align="center">
-                <template #default="scope">
-                    <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button type="info" :icon="Document" @click="handleManageArticles(scope.row)">管理文章</el-button>
-                    <el-button type="danger" :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
-
-        <div class="pagination">
-            <el-pagination
-                background
-                layout="total, prev, pager, next"
-                :current-page="query.page"
-                :page-size="query.pageSize"
-                :total="pageTotal"
-                @current-change="handlePageChange"
-            ></el-pagination>
-        </div>
-
-        <!-- 新增/编辑弹窗 -->
+        <!-- 新增/编辑专题弹窗 -->
         <el-dialog :title="dialogTitle" v-model="dialogVisible" width="50%" destroy-on-close>
             <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
                 <el-form-item label="专题名称" prop="name">
                     <el-input v-model="form.name" placeholder="请输入专题名称"></el-input>
                 </el-form-item>
                 <el-form-item label="有效期设置">
-                    <el-date-picker
-                        v-model="dateRange"
-                        type="datetimerange"
-                        range-separator="至"
-                        start-placeholder="开始时间"
-                        end-placeholder="结束时间"
-                        format="YYYY-MM-DD HH:mm:ss"
-                        value-format="YYYY-MM-DD HH:mm:ss"
-                        @change="handleDateChange"
-                    />
-                </el-form-item>
-                <el-form-item label="专题状态">
-                    <el-radio-group v-model="form.status">
-                        <el-radio :label="0">未开始</el-radio>
-                        <el-radio :label="1">进行中</el-radio>
-                        <el-radio :label="2">已过期</el-radio>
-                    </el-radio-group>
+                    <el-date-picker v-model="dateRange" type="datetimerange" range-separator="至"
+                        start-placeholder="开始时间" end-placeholder="结束时间" format="YYYY-MM-DD HH:mm:ss"
+                        value-format="YYYY-MM-DD HH:mm:ss" @change="handleDateChange" style="width: 100%;" />
+                    <div class="form-tip">设置专题的有效时间范围</div>
                 </el-form-item>
             </el-form>
             <template #footer>
@@ -96,191 +104,97 @@
             </template>
         </el-dialog>
 
-        <!-- 文章管理弹窗 -->
-        <!-- 专题内容管理弹窗 -->
-        <el-dialog title="专题内容管理" v-model="articleDialogVisible" width="90%" destroy-on-close>
+        <!-- 内容管理弹窗 -->
+        <el-dialog title="专题内容管理" v-model="contentDialogVisible" width="80%" destroy-on-close>
             <el-tabs v-model="activeTab" type="border-card">
                 <!-- 文章管理 -->
                 <el-tab-pane label="文章管理" name="articles">
-                    <div class="article-management">
-                        <el-row :gutter="20">
-                            <!-- 左侧：可选文章列表 -->
-                            <el-col :span="12">
-                                <el-card header="可选文章">
-                                    <el-input v-model="articleSearch" placeholder="搜索文章" class="mb10" @keyup.enter="searchArticles"></el-input>
-                                    <el-table
-                                        :data="availableArticles"
-                                        @selection-change="handleSelectionChange"
-                                        max-height="400"
-                                    >
-                                        <el-table-column type="selection" width="55"></el-table-column>
-                                        <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
-                                        <el-table-column prop="status" label="状态" width="80">
-                                            <template #default="scope">
-                                                <el-tag size="small" :type="articleStatusType(scope.row.status)">
-                                                    {{ articleStatusText(scope.row.status) }}
-                                                </el-tag>
-                                            </template>
-                                        </el-table-column>
-                                    </el-table>
-                                </el-card>
-                            </el-col>
-
-                            <!-- 右侧：已选文章管理 -->
-                            <el-col :span="12">
-                                <el-card header="专题文章">
-                                    <div class="article-actions">
-                                        <el-button type="primary" size="small" @click="addSelectedArticles">添加选中文章</el-button>
-                                        <el-button type="success" size="small" @click="saveArticleOrder">保存排序</el-button>
-                                    </div>
-                                    <el-table :data="topicArticles" row-key="id" max-height="400">
-                                        <el-table-column prop="title" label="标题" show-overflow-tooltip></el-table-column>
-                                        <el-table-column label="置顶" width="80" align="center">
-                                            <template #default="scope">
-                                                <el-switch
-                                                    v-model="scope.row.isPinned"
-                                                    @change="handlePinChange(scope.row)"
-                                                ></el-switch>
-                                            </template>
-                                        </el-table-column>
-                                        <el-table-column label="操作" width="80" align="center">
-                                            <template #default="scope">
-                                                <el-button type="danger" size="small" @click="removeArticle(scope.row)">移除</el-button>
-                                            </template>
-                                        </el-table-column>
-                                    </el-table>
-                                </el-card>
-                            </el-col>
-                        </el-row>
+                    <div class="content-management">
+                        <div class="search-box">
+                            <el-input v-model="articleSearch" placeholder="搜索文章" class="search-input"
+                                @keyup.enter="searchArticles" clearable>
+                                <template #prefix>
+                                    <el-icon>
+                                        <Search />
+                                    </el-icon>
+                                </template>
+                            </el-input>
+                        </div>
+                        <el-table :data="availableArticles" @selection-change="handleArticleSelectionChange"
+                            max-height="500" ref="articleTableRef">
+                            <el-table-column type="selection" width="55"></el-table-column>
+                            <el-table-column prop="title" label="标题" show-overflow-tooltip
+                                min-width="200"></el-table-column>
+                            <el-table-column label="已包含" width="80" align="center">
+                                <template #default="scope">
+                                    <el-tag v-if="isArticleInTopic(scope.row)" type="success" size="small">已添加</el-tag>
+                                    <el-tag v-else type="info" size="small">未添加</el-tag>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <div class="pagination">
+                            <el-pagination background layout="total, prev, pager, next" :current-page="articlePage"
+                                :page-size="articlePageSize" :total="articleTotal"
+                                @current-change="handleArticlePageChange" />
+                        </div>
                     </div>
                 </el-tab-pane>
 
                 <!-- 题目管理 -->
                 <el-tab-pane label="题目管理" name="questions">
-                    <div class="question-management">
-                        <el-row :gutter="20">
-                            <!-- 左侧：可选题目列表 -->
-                            <el-col :span="12">
-                                <el-card header="可选题目">
-                                    <div class="mb10">
-                                        <el-input v-model="questionSearch" placeholder="搜索题目" @keyup.enter="searchQuestions"></el-input>
-                                        <div class="filter-bar">
-                                            <el-select v-model="questionFilter.type" placeholder="题型" size="small" style="width: 100px; margin-right: 5px;">
-                                                <el-option label="全部" value=""></el-option>
-                                                <el-option label="单选" value="single_choice"></el-option>
-                                                <el-option label="多选" value="multiple_choice"></el-option>
-                                                <el-option label="填空" value="fill_blank"></el-option>
-                                                <el-option label="判断" value="judge"></el-option>
-                                                <el-option label="简答" value="essay"></el-option>
-                                            </el-select>
-                                            <el-select v-model="questionFilter.difficulty" placeholder="难度" size="small" style="width: 80px;">
-                                                <el-option label="全部" value=""></el-option>
-                                                <el-option label="简单" value="easy"></el-option>
-                                                <el-option label="中等" value="medium"></el-option>
-                                                <el-option label="困难" value="hard"></el-option>
-                                            </el-select>
-                                        </div>
-                                    </div>
-                                    <el-table
-                                        :data="availableQuestions"
-                                        @selection-change="handleQuestionSelectionChange"
-                                        max-height="400"
-                                    >
-                                        <el-table-column type="selection" width="55"></el-table-column>
-                                        <el-table-column prop="title" label="题目标题" show-overflow-tooltip></el-table-column>
-                                        <el-table-column prop="type" label="题型" width="80" align="center">
-                                            <template #default="scope">
-                                                <el-tag size="small" :type="getQuestionTypeColor(scope.row.type)">
-                                                    {{ getQuestionTypeText(scope.row.type) }}
-                                                </el-tag>
-                                            </template>
-                                        </el-table-column>
-                                        <el-table-column prop="difficulty" label="难度" width="70" align="center">
-                                            <template #default="scope">
-                                                <el-tag size="small" :type="getDifficultyColor(scope.row.difficulty)">
-                                                    {{ getDifficultyText(scope.row.difficulty) }}
-                                                </el-tag>
-                                            </template>
-                                        </el-table-column>
-                                        <el-table-column prop="points" label="分值" width="60" align="center"></el-table-column>
-                                    </el-table>
-                                </el-card>
-                            </el-col>
-
-                            <!-- 右侧：已选题目配置 -->
-                            <el-col :span="12">
-                                <el-card header="专题题目">
-                                    <div class="question-actions">
-                                        <el-button type="primary" size="small" @click="addSelectedQuestions">添加选中题目</el-button>
-                                        <el-button type="warning" size="small" @click="configureScoringStrategy">配置积分策略</el-button>
-                                        <el-button type="info" size="small" @click="removeAllQuestions">清空所有</el-button>
-                                    </div>
-                                    <el-table :data="topicQuestions" max-height="400">
-                                        <el-table-column prop="title" label="题目标题" show-overflow-tooltip></el-table-column>
-                                        <el-table-column prop="type" label="题型" width="80" align="center">
-                                            <template #default="scope">
-                                                <el-tag size="small" :type="getQuestionTypeColor(scope.row.type)">
-                                                    {{ getQuestionTypeText(scope.row.type) }}
-                                                </el-tag>
-                                            </template>
-                                        </el-table-column>
-                                        <el-table-column prop="points" label="分值" width="60" align="center"></el-table-column>
-                                        <el-table-column label="操作" width="80" align="center">
-                                            <template #default="scope">
-                                                <el-button type="danger" size="small" @click="removeQuestion(scope)">移除</el-button>
-                                            </template>
-                                        </el-table-column>
-                                    </el-table>
-                                </el-card>
-                            </el-col>
-                        </el-row>
+                    <div class="content-management">
+                        <div class="search-box">
+                            <el-input v-model="questionSearch" placeholder="搜索题目" class="search-input"
+                                @keyup.enter="searchQuestions" clearable>
+                                <template #prefix>
+                                    <el-icon>
+                                        <Search />
+                                    </el-icon>
+                                </template>
+                            </el-input>
+                            <el-select v-model="questionFilter.type" placeholder="题型"
+                                style="width: 120px; margin-left: 10px;">
+                                <el-option label="全部" value=""></el-option>
+                                <el-option label="单选" :value="1"></el-option>
+                                <el-option label="多选" :value="2"></el-option>
+                                <el-option label="简答" :value="3"></el-option>
+                            </el-select>
+                        </div>
+                        <el-table :data="availableQuestions" @selection-change="handleQuestionSelectionChange"
+                            max-height="500" ref="questionTableRef">
+                            <el-table-column type="selection" width="55"></el-table-column>
+                            <el-table-column label="题目标题" show-overflow-tooltip min-width="200">
+                                <template #default="scope">
+                                    {{ scope.row.detail?.title || '无标题' }}
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="题型" width="100" align="center">
+                                <template #default="scope">
+                                    <el-tag size="small" :type="getQuestionTypeColor(scope.row.type)">
+                                        {{ getQuestionTypeText(scope.row.type) }}
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="已包含" width="80" align="center">
+                                <template #default="scope">
+                                    <el-tag v-if="isQuestionInTopic(scope.row.id)" type="success"
+                                        size="small">已添加</el-tag>
+                                    <el-tag v-else type="info" size="small">未添加</el-tag>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <div class="pagination">
+                            <el-pagination background layout="total, prev, pager, next" :current-page="questionPage"
+                                :page-size="questionPageSize" :total="questionTotal"
+                                @current-change="handleQuestionPageChange" />
+                        </div>
                     </div>
                 </el-tab-pane>
             </el-tabs>
             <template #footer>
                 <span class="dialog-footer">
-                    <el-button @click="articleDialogVisible = false">取 消</el-button>
+                    <el-button @click="contentDialogVisible = false">取 消</el-button>
                     <el-button type="primary" @click="saveTopicContent">保 存</el-button>
-                </span>
-            </template>
-        </el-dialog>
-
-        <!-- 积分策略配置弹窗 -->
-        <el-dialog title="积分策略配置" v-model="scoringDialogVisible" width="60%">
-            <el-form :model="scoringForm" label-width="120px">
-                <el-form-item label="正确得分">
-                    <el-input-number v-model="scoringForm.correctPoints" :min="0" :max="100"></el-input-number>
-                    <span class="ml5">分</span>
-                </el-form-item>
-                <el-form-item label="错误扣分">
-                    <el-input-number v-model="scoringForm.wrongPoints" :min="-100" :max="0"></el-input-number>
-                    <span class="ml5">分</span>
-                </el-form-item>
-                <el-form-item label="时间奖励">
-                    <el-switch v-model="scoringForm.timeBonus" active-text="启用" inactive-text="禁用"></el-switch>
-                    <div class="form-tip">启用后，答题速度越快获得的奖励分值越高</div>
-                </el-form-item>
-                <el-form-item label="每日挑战限制">
-                    <el-input-number v-model="scoringForm.dailyLimit" :min="0" :max="100"></el-input-number>
-                    <span class="ml5">次（0表示不限制）</span>
-                </el-form-item>
-                <el-form-item label="时间窗口">
-                    <el-date-picker
-                        v-model="scoringTimeRange"
-                        type="datetimerange"
-                        range-separator="至"
-                        start-placeholder="开始时间"
-                        end-placeholder="结束时间"
-                        format="YYYY-MM-DD HH:mm:ss"
-                        value-format="YYYY-MM-DD HH:mm:ss"
-                    />
-                    <div class="form-tip">设置专题挑战的有效时间范围</div>
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="scoringDialogVisible = false">取 消</el-button>
-                    <el-button type="primary" @click="saveScoringStrategy">确 定</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -288,315 +202,140 @@
 </template>
 
 <script setup lang="ts" name="topics">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search, Document } from '@element-plus/icons-vue';
-import type { Topic, TopicQuery, Article } from '@/types/content';
-import type { Question, TopicQuestionConfig } from '@/types/question';
-import { getSubjects } from '@/api/subject';
+import { Plus, Edit, Delete, Search, Document, Clock } from '@element-plus/icons-vue';
+import type { Topic } from '@/types/content';
+import { getSubjects, updateSubject, addSubject, deleteSubject } from '@/api/subject';
+import { getAllArticles } from '@/api/article';
+import { getAllQuestions } from '@/api/question';
 
 // 查询参数
-const query = reactive<TopicQuery>({
+const query = reactive<{
+    page: number;
+    pageSize: number;
+    name: string;
+    status: number | string | undefined;
+}>({
     page: 1,
     pageSize: 10,
     name: '',
-    status: undefined,
+    status: '',
 });
 
 // 表格数据
-const tableData = ref<Topic[]>([]);
+const tableData = ref<any[]>([]);
 const pageTotal = ref(0);
+
+// 筛选后的数据
+const filteredTableData = computed(() => {
+    let result = tableData.value;
+
+    // 按名称筛选
+    if (query.name) {
+        result = result.filter(item => item.name.includes(query.name));
+    }
+
+    // 按状态筛选（空字符串表示全部）
+    if (query.status !== '' && query.status !== undefined && query.status !== null) {
+        result = result.filter(item => item.status === query.status);
+    }
+
+    return result;
+});
+
+// 筛选后的总数
+const filteredPageTotal = computed(() => filteredTableData.value.length);
 
 // 弹窗控制
 const dialogVisible = ref(false);
-const articleDialogVisible = ref(false);
+const contentDialogVisible = ref(false);
+const activeTab = ref('articles');
 const dialogTitle = ref('新增专题');
 const formRef = ref();
 
 // 表单数据
-const form = reactive<Topic>({
+const form = reactive<any>({
     id: '',
     name: '',
-    description: '',
-    cover: '',
-    articleIds: [],
-    pinnedArticles: [],
-    status: 1, // 默认进行中
-    startTime: '',
-    endTime: '',
-    createTime: '',
-    updateTime: '',
+    begin_time: '',
+    end_time: '',
 });
 
 // 表单验证规则
-const rules = {
+const rules: any = {
     name: [{ required: true, message: '请输入专题名称', trigger: 'blur' }],
 };
-
 
 // 日期范围
 const dateRange = ref<[string, string]>(['', '']);
 
-// 文章管理相关
-const currentTopic = ref<Topic | null>(null);
+// 当前专题
+const currentTopic = ref<any>(null);
+const originalTopicArticles = ref<number[]>([]);
+const originalTopicQuestions = ref<number[]>([]);
+
+// 文章管理
 const articleSearch = ref('');
-const availableArticles = ref<Article[]>([]);
-const selectedArticles = ref<Article[]>([]);
-const topicArticles = ref<(Article & { isPinned: boolean })[]>([]);
+const articlePage = ref(1);
+const articlePageSize = ref(10);
+const articleTotal = ref(0);
+const availableArticles = ref<any[]>([]);
+const selectedArticles = ref<any[]>([]);
+const articleTableRef = ref();
 
-// 题目管理相关
-const activeTab = ref('articles');
+// 题目管理
 const questionSearch = ref('');
-const availableQuestions = ref<Question[]>([]);
-const selectedQuestions = ref<Question[]>([]);
-const topicQuestions = ref<Question[]>([]);
-
-// 积分策略相关
-const scoringDialogVisible = ref(false);
-const scoringForm = reactive({
-    correctPoints: 10,
-    wrongPoints: 0,
-    timeBonus: true,
-    dailyLimit: 3
-});
-const scoringTimeRange = ref<[string, string]>(['', '']);
-
-// 专题题目配置
-const topicQuestionConfig = ref<TopicQuestionConfig | null>(null);
-
-// 题目筛选条件
+const questionPage = ref(1);
+const questionPageSize = ref(10);
+const questionTotal = ref(0);
+const availableQuestions = ref<any[]>([]);
+const selectedQuestions = ref<any[]>([]);
+const questionTableRef = ref();
 const questionFilter = reactive({
-    type: '',
-    difficulty: ''
+    type: undefined as number | undefined,
 });
 
 // 获取专题列表
 const getTopics = async () => {
     try {
         const res = await getSubjects();
+        const data = res.data.data || res.data;
 
-        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-            // 将API数据转换为前端需要的格式
-            const topics = res.data.data.map((item: any) => ({
+        if (data && Array.isArray(data)) {
+            // 按ID排序，保持顺序稳定
+            const mappedData = data.map((item: any) => ({
                 id: item.id.toString(),
                 name: item.name,
-                description: '', // API没有返回描述字段
-                creator: item.creator,
-                creator_id: item.creator_id,
+                creator: item.creator_name || '未知',
                 texts: item.texts || [],
                 question_list: item.question_list || [],
-                status: item.status, // 直接使用API返回的状态（0:未开始，1:进行中，2:已过期）
+                status: item.status,
                 begin_time: item.begin_time,
                 end_time: item.end_time,
-                // 兼容原有字段
-                articleIds: item.texts?.map(text => text.id.toString()) || [],
-                pinnedArticles: [], // API没有返回置顶信息
-                startTime: item.begin_time,
-                endTime: item.end_time,
-                createTime: '', // API没有返回创建时间
-                updateTime: '', // API没有返回更新时间
             }));
 
-            // 根据查询条件过滤数据
-            let filteredData = topics.filter((topic: any) => {
-                if (query.name && !topic.name.includes(query.name)) return false;
-                if (query.status && topic.status !== query.status) return false;
-                return true;
-            });
+            // 按ID倒序排列（最新在前）
+            mappedData.sort((a: any, b: any) => Number(b.id) - Number(a.id));
 
-            tableData.value = filteredData;
-            pageTotal.value = filteredData.length;
-        } else {
-            throw new Error('API返回数据格式不正确');
+            tableData.value = mappedData;
+            pageTotal.value = data.length;
         }
     } catch (error) {
         ElMessage.error('获取专题列表失败');
-        console.error('获取专题列表错误:', error);
-
-        // 开发阶段使用模拟数据作为fallback
-        const mockData = [
-            {
-                id: '1',
-                name: '10月专项学习',
-                creator: '研发部',
-                creator_id: 1,
-                texts: [
-                    { id: 2, title: '深入学习贯彻党的二十大精神', is_read: false },
-                    { id: 3, title: '这是第二个文章的标题', is_read: false }
-                ],
-                question_list: [
-                    { id: 36, title: '下列哪个是正确的？1', options: ['选项一', '选项二', '选项三', '选项四'], type: 1, fixed_answer: true, answered: false },
-                    { id: 37, title: '下列哪些是正确的？13', options: ['选项一', '选项二', '选项三', '选项四'], type: 2, fixed_answer: true, answered: false }
-                ],
-                status: 1,
-                begin_time: '2025-05-19 22:53:37',
-                end_time: '2025-12-19 22:53:47',
-                articleIds: ['2', '3'],
-                pinnedArticles: [],
-            },
-        ];
-
-        // 根据查询条件过滤模拟数据
-        let filteredData = mockData.filter((topic: any) => {
-            if (query.name && !topic.name.includes(query.name)) return false;
-            if (query.status && topic.status !== query.status) return false;
-            return true;
-        });
-
-        tableData.value = filteredData;
-        pageTotal.value = filteredData.length;
+        console.error('获取专题列表失败:', error);
     }
 };
 
-// 获取可选文章列表
-const getAvailableArticles = () => {
-    // 模拟文章数据
-    const mockArticles: Article[] = [
-        {
-            id: '1',
-            title: 'Vue3 基础教程',
-            content: '',
-            summary: 'Vue3基础教程',
-            cover: '',
-            tags: ['Vue3'],
-            status: 'published',
-            author: 'admin',
-            publishTime: '2024-01-01 10:00:00',
-            updateTime: '2024-01-01 10:00:00',
-            viewCount: 1500,
-        },
-        {
-            id: '2',
-            title: 'Vue3 Composition API',
-            content: '',
-            summary: 'Composition API详解',
-            cover: '',
-            tags: ['Vue3', 'Composition API'],
-            status: 'published',
-            author: 'admin',
-            publishTime: '2024-01-02 10:00:00',
-            updateTime: '2024-01-02 10:00:00',
-            viewCount: 800,
-        },
-    ];
-
-    availableArticles.value = mockArticles.filter(article =>
-        !currentTopic.value?.articleIds.includes(article.id)
-    );
-};
-
-// 获取可选题目列表
-const getAvailableQuestions = () => {
-    // 模拟题目数据
-    const mockQuestions: Question[] = [
-        {
-            id: '1',
-            title: 'JavaScript中typeof null的结果是什么？',
-            type: 'single_choice',
-            difficulty: 'easy',
-            status: 'active',
-            content: '请选择typeof null的返回值',
-            options: [
-                { id: '1', text: '"null"', isCorrect: false },
-                { id: '2', text: '"undefined"', isCorrect: false },
-                { id: '3', text: '"object"', isCorrect: true },
-                { id: '4', text: '"number"', isCorrect: false }
-            ],
-            correctAnswer: '3',
-            explanation: '这是JavaScript的一个历史遗留问题，typeof null会返回"object"',
-            points: 5,
-            creatorId: 'admin',
-            createTime: '2024-01-01 10:00:00',
-            updateTime: '2024-01-01 10:00:00'
-        },
-        {
-            id: '2',
-            title: '请简述闭包的概念',
-            type: 'essay',
-            difficulty: 'medium',
-            status: 'active',
-            content: '请详细解释什么是闭包，以及它的应用场景',
-            correctAnswer: '闭包是指函数可以访问其外部作用域的变量...',
-            explanation: '闭包是JavaScript中的重要概念...',
-            points: 10,
-            creatorId: 'admin',
-            createTime: '2024-01-01 11:00:00',
-            updateTime: '2024-01-01 11:00:00'
-        },
-        {
-            id: '3',
-            title: '2 + 2 = ?',
-            type: 'fill_blank',
-            difficulty: 'easy',
-            status: 'active',
-            content: '请计算：2 + 2 = ____',
-            correctAnswer: '4',
-            explanation: '基础加法运算',
-            points: 2,
-            creatorId: 'admin',
-            createTime: '2024-01-02 09:00:00',
-            updateTime: '2024-01-02 09:00:00'
-        },
-        {
-            id: '4',
-            title: 'Vue3的生命周期钩子有哪些？',
-            type: 'multiple_choice',
-            difficulty: 'medium',
-            status: 'active',
-            content: '请选择Vue3中的生命周期钩子',
-            options: [
-                { id: '1', text: 'beforeCreate', isCorrect: false },
-                { id: '2', text: 'onMounted', isCorrect: true },
-                { id: '3', text: 'onUpdated', isCorrect: true },
-                { id: '4', text: 'onUnmounted', isCorrect: true },
-                { id: '5', text: 'beforeDestroy', isCorrect: false }
-            ],
-            correctAnswer: ['2', '3', '4'],
-            explanation: 'Vue3中使用的生命周期钩子是onMounted、onUpdated、onUnmounted等',
-            points: 8,
-            creatorId: 'admin',
-            createTime: '2024-01-03 14:00:00',
-            updateTime: '2024-01-03 14:00:00'
-        },
-        {
-            id: '5',
-            title: 'CSS中display:none和visibility:hidden的区别',
-            type: 'judge',
-            difficulty: 'medium',
-            status: 'active',
-            content: 'display:none和visibility:hidden都会使元素不可见，但它们的区别是什么？',
-            correctAnswer: 'false',
-            explanation: 'display:none会完全移除元素，visibility:hidden只是隐藏元素但保留空间',
-            points: 3,
-            creatorId: 'admin',
-            createTime: '2024-01-04 16:00:00',
-            updateTime: '2024-01-04 16:00:00'
-        }
-    ];
-
-    // 应用筛选条件
-    let filteredData = mockQuestions.filter(question => {
-        if (questionSearch.value && !question.title.includes(questionSearch.value)) return false;
-        if (questionFilter.type && question.type !== questionFilter.type) return false;
-        if (questionFilter.difficulty && question.difficulty !== questionFilter.difficulty) return false;
-        // 过滤掉已选择的题目
-        if (topicQuestions.value.find(tq => tq.id === question.id)) return false;
-        return true;
-    });
-
-    availableQuestions.value = filteredData;
-};
-
-// 搜索
-const handleSearch = async () => {
+// 搜索（前端筛选）
+const handleSearch = () => {
     query.page = 1;
-    await getTopics();
+    // 筛选功能由computed自动处理
 };
 
-// 分页切换
-const handlePageChange = async (val: number) => {
+// 分页切换（前端处理）
+const handlePageChange = (val: number) => {
     query.page = val;
-    await getTopics();
 };
 
 // 新增专题
@@ -606,271 +345,55 @@ const handleCreate = () => {
     resetForm();
 };
 
+// 保存当前编辑的行数据
+const editingRow = ref<any>(null);
+
 // 编辑专题
-const handleEdit = (row: Topic) => {
+const handleEdit = (row: any) => {
     dialogTitle.value = '编辑专题';
     dialogVisible.value = true;
-    Object.assign(form, row);
-
-    // 设置日期范围
-    if (row.startTime && row.endTime) {
-        dateRange.value = [row.startTime, row.endTime];
-    } else {
-        dateRange.value = ['', ''];
+    form.id = row.id;
+    form.name = row.name;
+    // 保存当前行的完整数据
+    editingRow.value = row;
+    if (row.begin_time && row.end_time) {
+        dateRange.value = [row.begin_time, row.end_time];
     }
 };
 
 // 删除专题
-const handleDelete = async (row: Topic) => {
+const handleDelete = async (row: any) => {
     try {
-        await ElMessageBox.confirm('确定要删除这个专题吗？', '提示', {
+        await ElMessageBox.confirm(`确定要删除专题"${row.name}"吗？删除后无法恢复！`, '警告', {
             type: 'warning',
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            confirmButtonClass: 'el-button--danger'
         });
 
-        // TODO: 这里应该调用删除API
-        // await deleteSubject(row.id);
+        // 调用删除接口
+        await deleteSubject(row.id);
 
         ElMessage.success('删除成功');
-        await getTopics();
+
+        // 从列表中移除该行，而不是刷新整个列表
+        const index = tableData.value.findIndex((item: any) => item.id === row.id);
+        if (index !== -1) {
+            tableData.value.splice(index, 1);
+        }
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error('删除失败');
+            console.error('删除专题失败:', error);
         }
-    }
-};
-
-// 管理文章
-const handleManageArticles = (row: any) => {
-    currentTopic.value = row;
-    articleDialogVisible.value = true;
-    activeTab.value = 'articles';
-
-    // 设置已选文章 - 使用新的texts数据
-    topicArticles.value = row.texts?.map((text: any) => {
-        return {
-            id: text.id.toString(),
-            title: text.title,
-            content: '',
-            summary: '',
-            cover: '',
-            tags: [],
-            status: text.is_read ? 'read' : 'unread', // 根据阅读状态设置
-            author: '',
-            publishTime: '',
-            updateTime: '',
-            viewCount: 0,
-            isPinned: false, // API没有返回置顶信息
-        };
-    }) || [];
-
-    // 设置已选题目 - 使用新的question_list数据
-    topicQuestions.value = row.question_list?.map((question: any) => {
-        return {
-            id: question.id.toString(),
-            title: question.title,
-            type: question.type === 1 ? 'single_choice' : question.type === 2 ? 'multiple_choice' : 'essay',
-            difficulty: 'medium', // API没有返回难度信息
-            status: question.answered ? 'answered' : 'unanswered',
-            content: question.title,
-            options: question.options?.map((option: string, index: number) => ({
-                id: (index + 1).toString(),
-                text: option,
-                isCorrect: false // API没有返回正确答案
-            })) || [],
-            correctAnswer: '',
-            explanation: '',
-            points: 10, // 默认分值
-            creatorId: '',
-            createTime: '',
-            updateTime: ''
-        };
-    }) || [];
-
-    getAvailableArticles();
-    getAvailableQuestions();
-};
-
-// 搜索文章
-const searchArticles = () => {
-    getAvailableArticles();
-};
-
-// 选择文章变化
-const handleSelectionChange = (selection: Article[]) => {
-    selectedArticles.value = selection;
-};
-
-// 添加选中文章
-const addSelectedArticles = () => {
-    selectedArticles.value.forEach(article => {
-        if (!topicArticles.value.find(t => t.id === article.id)) {
-            topicArticles.value.push({
-                ...article,
-                isPinned: false,
-            });
-        }
-    });
-    ElMessage.success('文章添加成功');
-};
-
-// 移除文章
-const removeArticle = (article: Article & { isPinned: boolean }) => {
-    const index = topicArticles.value.findIndex(t => t.id === article.id);
-    if (index > -1) {
-        topicArticles.value.splice(index, 1);
-        ElMessage.success('文章移除成功');
-    }
-};
-
-// 置顶变化
-const handlePinChange = (article: Article & { isPinned: boolean }) => {
-    if (article.isPinned) {
-        ElMessage.success(`${article.title} 已置顶`);
-    } else {
-        ElMessage.success(`${article.title} 已取消置顶`);
-    }
-};
-
-// 保存文章排序
-const saveArticleOrder = () => {
-    ElMessage.success('文章排序保存成功');
-};
-
-// 保存专题文章
-const saveTopicArticles = () => {
-    if (!currentTopic.value) return;
-
-    const articleIds = topicArticles.value.map(t => t.id);
-    const pinnedArticles = topicArticles.value.filter(t => t.isPinned).map(t => t.id);
-
-    // 这里应该调用API保存
-    ElMessage.success('专题文章保存成功');
-    articleDialogVisible.value = false;
-    getTopics();
-};
-
-// 题目搜索
-const searchQuestions = () => {
-    getAvailableQuestions();
-};
-
-// 题目选择变化
-const handleQuestionSelectionChange = (selection: Question[]) => {
-    selectedQuestions.value = selection;
-};
-
-// 添加选中题目
-const addSelectedQuestions = () => {
-    selectedQuestions.value.forEach(question => {
-        if (!topicQuestions.value.find(tq => tq.id === question.id)) {
-            topicQuestions.value.push(question);
-        }
-    });
-    ElMessage.success('题目添加成功');
-    getAvailableQuestions();
-};
-
-// 移除题目
-const removeQuestion = (question: Question) => {
-    const index = topicQuestions.value.findIndex(tq => tq.id === question.id);
-    if (index > -1) {
-        topicQuestions.value.splice(index, 1);
-        ElMessage.success('题目移除成功');
-        getAvailableQuestions();
-    }
-};
-
-// 清空所有题目
-const removeAllQuestions = () => {
-    ElMessageBox.confirm('确定要清空所有题目吗？', '提示', {
-        type: 'warning',
-    }).then(() => {
-        topicQuestions.value = [];
-        ElMessage.success('已清空所有题目');
-        getAvailableQuestions();
-    });
-};
-
-// 配置积分策略
-const configureScoringStrategy = () => {
-    scoringDialogVisible.value = true;
-    // 重置表单为默认值
-    Object.assign(scoringForm, {
-        correctPoints: 10,
-        wrongPoints: 0,
-        timeBonus: true,
-        dailyLimit: 3
-    });
-    scoringTimeRange.value = ['', ''];
-};
-
-// 保存积分策略
-const saveScoringStrategy = () => {
-    // 更新专题题目配置
-    if (!topicQuestionConfig.value) {
-        topicQuestionConfig.value = {
-            id: Date.now().toString(),
-            topicId: currentTopic.value?.id || '',
-            questionIds: topicQuestions.value.map(q => q.id),
-            timeWindow: {
-                startTime: scoringTimeRange.value[0] || '',
-                endTime: scoringTimeRange.value[1] || ''
-            },
-            scoringStrategy: { ...scoringForm },
-            status: 'active',
-            createTime: new Date().toISOString(),
-            updateTime: new Date().toISOString()
-        };
-    } else {
-        topicQuestionConfig.value.scoringStrategy = { ...scoringForm };
-        topicQuestionConfig.value.questionIds = topicQuestions.value.map(q => q.id);
-        if (scoringTimeRange.value[0] && scoringTimeRange.value[1]) {
-            topicQuestionConfig.value.timeWindow = {
-                startTime: scoringTimeRange.value[0],
-                endTime: scoringTimeRange.value[1]
-            };
-        }
-    }
-
-    ElMessage.success('积分策略配置成功');
-    scoringDialogVisible.value = false;
-};
-
-// 保存专题内容（包括文章和题目）
-const saveTopicContent = async () => {
-    if (!currentTopic.value) return;
-
-    try {
-        // 保存文章
-        const articleIds = topicArticles.value.map(t => t.id);
-        const pinnedArticles = topicArticles.value.filter(t => t.isPinned).map(t => t.id);
-
-        // 保存题目配置
-        if (topicQuestions.value.length > 0 && !topicQuestionConfig.value) {
-            saveScoringStrategy();
-        }
-
-        // TODO: 这里应该调用API保存专题内容
-        // await updateSubjectContent(currentTopic.value.id, {
-        //     articleIds,
-        //     pinnedArticles,
-        //     questions: topicQuestions.value,
-        //     config: topicQuestionConfig.value
-        // });
-
-        ElMessage.success('专题内容保存成功');
-        articleDialogVisible.value = false;
-        await getTopics();
-    } catch (error) {
-        ElMessage.error('保存失败');
     }
 };
 
 // 日期变化
 const handleDateChange = (dates: [string, string]) => {
     if (dates) {
-        form.startTime = dates[0];
-        form.endTime = dates[1];
+        form.begin_time = dates[0];
+        form.end_time = dates[1];
     }
 };
 
@@ -881,149 +404,337 @@ const handleSubmit = async () => {
     try {
         await formRef.value.validate();
 
-        // TODO: 这里应该调用创建或更新API
-        // if (form.id) {
-        //     await updateSubject(form.id, form);
-        // } else {
-        //     await createSubject(form);
-        // }
+        // 时间格式转换（转换为秒级时间戳）
+        const beginTime = form.begin_time ? Math.floor(new Date(form.begin_time).getTime() / 1000) : 0;
+        const endTime = form.end_time ? Math.floor(new Date(form.end_time).getTime() / 1000) : 0;
 
-        ElMessage.success(form.id ? '更新成功' : '创建成功');
+        if (!form.id) {
+            // 新增专题
+            await addSubject({
+                name: form.name,
+                begin_time: beginTime,
+                end_time: endTime,
+                question_list: [],
+                text_list: []
+            });
+            ElMessage.success('新增成功');
+            await getTopics();
+        } else {
+            // 更新专题
+            const questionList = editingRow.value?.question_list?.map((q: any) => Number(q.id)) || [];
+            const textList = editingRow.value?.texts?.map((t: any) => Number(t.id)) || [];
+
+            await updateSubject({
+                id: Number(form.id),
+                name: form.name,
+                begin_time: beginTime,
+                end_time: endTime,
+                question_list: questionList,
+                text_list: textList
+            });
+
+            // 更新当前行数据
+            const topicIndex = tableData.value.findIndex((item: any) => item.id === form.id);
+            if (topicIndex !== -1) {
+                tableData.value[topicIndex].name = form.name;
+                tableData.value[topicIndex].begin_time = form.begin_time;
+                tableData.value[topicIndex].end_time = form.end_time;
+            }
+            ElMessage.success('更新成功');
+        }
+
         dialogVisible.value = false;
-        await getTopics();
+        editingRow.value = null;
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error(form.id ? '更新失败' : '创建失败');
+            ElMessage.error(form.id ? '更新失败' : '新增失败');
+            console.error('提交失败:', error);
         }
     }
 };
 
 // 重置表单
 const resetForm = () => {
-    Object.assign(form, {
-        id: '',
-        name: '',
-        description: '',
-        cover: '',
-        articleIds: [],
-        pinnedArticles: [],
-        status: 1, // 默认进行中
-        startTime: '',
-        endTime: '',
-        createTime: '',
-        updateTime: '',
-    });
+    form.id = '';
+    form.name = '';
+    form.begin_time = '';
+    form.end_time = '';
     dateRange.value = ['', ''];
+    editingRow.value = null;
 };
 
+// 管理内容
+const handleManageContent = async (row: any) => {
+    currentTopic.value = row;
+    contentDialogVisible.value = true;
+    activeTab.value = 'articles';
+
+    // 保存原始数据
+    originalTopicArticles.value = (row.texts || []).map((text: any) => text.id);
+    originalTopicQuestions.value = (row.question_list || []).map((question: any) => question.id);
+
+    // 获取文章和题目列表
+    await getAvailableArticles();
+    await getAvailableQuestions();
+
+    // 设置已选状态
+    await nextTick();
+    setArticleSelection();
+    setQuestionSelection();
+};
+
+// 获取可选文章列表
+const getAvailableArticles = async () => {
+    try {
+        const res = await getAllArticles();
+        const data = res.data.data || res.data;
+        availableArticles.value = data || [];
+        articleTotal.value = data?.length || 0;
+    } catch (error) {
+        ElMessage.error('获取文章列表失败');
+        console.error('获取文章列表失败:', error);
+    }
+};
+
+// 获取可选题目列表
+const getAvailableQuestions = async () => {
+    try {
+        const res = await getAllQuestions({
+            page: questionPage.value - 1,
+            size: questionPageSize.value
+        });
+        const data = res.data.data || res.data;
+        availableQuestions.value = data?.list || [];
+        questionTotal.value = data?.total || 0;
+    } catch (error) {
+        ElMessage.error('获取题目列表失败');
+        console.error('获取题目列表失败:', error);
+    }
+};
+
+// 判断文章是否在专题内
+const isArticleInTopic = (article: any) => {
+    if (!currentTopic.value) return false;
+    return currentTopic.value.texts?.some((text: any) => text.id === article.id);
+};
+
+// 判断题目是否在专题内
+const isQuestionInTopic = (questionId: number) => {
+    if (!currentTopic.value) return false;
+    return currentTopic.value.question_list?.some((question: any) => question.id === questionId);
+};
+
+// 设置文章选择状态
+const setArticleSelection = () => {
+    if (!articleTableRef.value) return;
+    const rows = availableArticles.value.filter(article => isArticleInTopic(article));
+    rows.forEach((row: any) => {
+        articleTableRef.value.toggleRowSelection(row, true);
+    });
+};
+
+// 设置题目选择状态
+const setQuestionSelection = () => {
+    if (!questionTableRef.value) return;
+    const rows = availableQuestions.value.filter(question => isQuestionInTopic(question.id));
+    rows.forEach((row: any) => {
+        questionTableRef.value.toggleRowSelection(row, true);
+    });
+};
+
+// 搜索文章
+const searchArticles = () => {
+    getAvailableArticles();
+};
+
+// 文章选择变化
+const handleArticleSelectionChange = (selection: any[]) => {
+    selectedArticles.value = selection;
+};
+
+// 题目搜索
+const searchQuestions = () => {
+    questionPage.value = 1;
+    getAvailableQuestions();
+};
+
+// 题目选择变化
+const handleQuestionSelectionChange = (selection: any[]) => {
+    selectedQuestions.value = selection;
+};
+
+// 文章分页
+const handleArticlePageChange = async (val: number) => {
+    articlePage.value = val;
+    await getAvailableArticles();
+};
+
+// 题目分页
+const handleQuestionPageChange = async (val: number) => {
+    questionPage.value = val;
+    await getAvailableQuestions();
+};
+
+// 格式化时间范围
+const formatTimeRange = (beginTime?: string, endTime?: string) => {
+    const format = (time: string) => {
+        if (!time) return '';
+        // 如果格式是 "2025-05-19 22:53:37"，只取日期部分
+        return time.split(' ')[0];
+    };
+
+    const begin = format(beginTime || '');
+    const end = format(endTime || '');
+
+    if (begin && end) {
+        return `${begin} - ${end}`;
+    } else if (begin) {
+        return `${begin} - 无限制`;
+    } else if (end) {
+        return `无限制 - ${end}`;
+    }
+    return '未设置';
+};
+
+// 保存专题内容
+const saveTopicContent = async () => {
+    if (!currentTopic.value) return;
+
+    try {
+        // 获取选中的文章和题目ID
+        const textList = selectedArticles.value.map(a => Number(a.id));
+        const questionList = selectedQuestions.value.map(q => Number(q.id));
+
+        // 获取当前专题的开始和结束时间戳（转换为秒级时间戳）
+        const beginTime = currentTopic.value.begin_time
+            ? Math.floor(new Date(currentTopic.value.begin_time).getTime() / 1000)
+            : 0;
+        const endTime = currentTopic.value.end_time
+            ? Math.floor(new Date(currentTopic.value.end_time).getTime() / 1000)
+            : 0;
+
+        // 调用API保存
+        await updateSubject({
+            id: Number(currentTopic.value.id),
+            name: currentTopic.value.name,
+            begin_time: beginTime,
+            end_time: endTime,
+            question_list: questionList,
+            text_list: textList
+        });
+
+        // 更新当前行数据，而不是刷新整个列表
+        const topicIndex = tableData.value.findIndex((item: any) => item.id === currentTopic.value.id);
+        if (topicIndex !== -1) {
+            // 更新文章和题目列表（用于显示数量）
+            tableData.value[topicIndex].texts = selectedArticles.value.map((a: any) => ({ id: a.id }));
+            tableData.value[topicIndex].question_list = selectedQuestions.value.map((q: any) => ({ id: q.id }));
+
+            // 同时更新currentTopic，以便下次打开时显示最新的数据
+            currentTopic.value.texts = tableData.value[topicIndex].texts;
+            currentTopic.value.question_list = tableData.value[topicIndex].question_list;
+        }
+
+        ElMessage.success('内容保存成功');
+        contentDialogVisible.value = false;
+    } catch (error) {
+        ElMessage.error('保存失败');
+        console.error('保存专题内容失败:', error);
+    }
+};
 
 // 状态类型
-const statusType = (status: number) => {
-    const types = {
+const statusType = (status: any) => {
+    const types: Record<number, string> = {
         0: 'info',    // 未开始
         1: 'success', // 进行中
         2: 'warning', // 已过期
     };
-    return types[status as keyof typeof types] || 'info';
+    return types[status] || 'info';
 };
 
 // 状态文本
-const statusText = (status: number) => {
-    const texts = {
+const statusText = (status: any) => {
+    const texts: Record<number, string> = {
         0: '未开始',
         1: '进行中',
         2: '已过期'
     };
-    return texts[status as keyof typeof texts] || '未知状态';
+    return texts[status] || '未知状态';
 };
 
-// 文章状态类型
-const articleStatusType = (status: string) => {
-    const types = {
-        published: 'success',
-        draft: 'info',
-        withdrawn: 'warning',
+// 题目类型文本
+const getQuestionTypeText = (type: number) => {
+    const types: Record<number, string> = {
+        1: '单选',
+        2: '多选',
+        3: '简答'
     };
-    return types[status as keyof typeof types] || 'info';
+    return types[type] || '未知';
 };
 
-// 文章状态文本
-const articleStatusText = (status: string) => {
-    const texts = {
-        published: '已发布',
-        draft: '草稿',
-        withdrawn: '已撤稿',
+// 题目类型颜色
+const getQuestionTypeColor = (type: number) => {
+    const colors: Record<number, string> = {
+        1: 'primary',
+        2: 'success',
+        3: 'warning'
     };
-    return texts[status as keyof typeof texts] || '未知';
-};
-
-// 题目类型和难度辅助方法
-const getQuestionTypeText = (type: string) => {
-    const types = {
-        single_choice: '单选',
-        multiple_choice: '多选',
-        fill_blank: '填空',
-        judge: '判断',
-        essay: '简答'
-    };
-    return types[type as keyof typeof types] || '未知';
-};
-
-const getQuestionTypeColor = (type: string) => {
-    const colors = {
-        single_choice: 'primary',
-        multiple_choice: 'success',
-        fill_blank: 'warning',
-        judge: 'info',
-        essay: 'danger'
-    };
-    return colors[type as keyof typeof colors] || 'info';
-};
-
-const getDifficultyText = (difficulty: string) => {
-    const texts = {
-        easy: '简单',
-        medium: '中等',
-        hard: '困难'
-    };
-    return texts[difficulty as keyof typeof texts] || '未知';
-};
-
-const getDifficultyColor = (difficulty: string) => {
-    const colors = {
-        easy: 'success',
-        medium: 'warning',
-        hard: 'danger'
-    };
-    return colors[difficulty as keyof typeof colors] || 'info';
+    return colors[type] || 'info';
 };
 
 onMounted(async () => {
     await getTopics();
-    getAvailableArticles();
 });
 </script>
 
 <style scoped>
-.handle-box {
-    margin-bottom: 20px;
+.container {
+    padding: 20px;
+    background-color: #f5f7fa;
+    min-height: calc(100vh - 84px);
 }
 
-.handle-select {
-    width: 120px;
+/* 主卡片容器 */
+.main-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+/* 操作区域 */
+.handle-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #ebeef5;
+}
+
+.handle-left {
+    flex: 0 0 auto;
+}
+
+.handle-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    justify-content: flex-end;
 }
 
 .handle-input {
-    width: 300px;
-    display: inline-block;
+    width: 250px;
 }
 
-.mr10 {
-    margin-right: 10px;
+.handle-select {
+    width: 130px;
 }
 
-.mb10 {
-    margin-bottom: 10px;
+/* 表格区域 */
+.el-table {
+    border: none;
 }
 
 .table {
@@ -1031,51 +742,107 @@ onMounted(async () => {
     font-size: 14px;
 }
 
+:deep(.table-header) {
+    background-color: #fafafa;
+    color: #333;
+    font-weight: 600;
+}
+
+:deep(.el-table th) {
+    padding: 16px 0;
+}
+
+:deep(.el-table td) {
+    padding: 12px 0;
+}
+
+:deep(.el-table__cell) {
+    border-bottom: 1px solid #ebeef5;
+}
+
+/* 表格操作按钮 */
+:deep(.el-button + .el-button) {
+    margin-left: 8px;
+}
+
+:deep(.el-button--small) {
+    padding: 7px 12px;
+}
+
+/* 表格内文本 */
 .text-muted {
     color: #999;
     font-size: 12px;
 }
 
-.article-management {
-    min-height: 400px;
-}
-
-.article-actions {
-    margin-bottom: 10px;
-}
-
-.question-management {
-    min-height: 400px;
-}
-
-.question-actions {
-    margin-bottom: 10px;
-    display: flex;
-    gap: 10px;
-}
-
-.filter-bar {
-    margin-top: 10px;
-    display: flex;
-    gap: 5px;
-}
-
-.text-muted {
-    color: #999;
+/* 时间范围 */
+.time-range {
     font-size: 12px;
+    color: #606266;
 }
 
-.ml5 {
-    margin-left: 5px;
+/* 按钮组优化 */
+:deep(.el-button-group) {
+    display: flex;
+    gap: 0;
 }
 
-.mb10 {
-    margin-bottom: 10px;
+:deep(.el-button-group .el-button) {
+    margin-left: 0;
+    border-radius: 0;
+}
+
+:deep(.el-button-group .el-button:first-child) {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+:deep(.el-button-group .el-button:last-child) {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* 内容管理区域 */
+.content-management {
+    min-height: 300px;
+}
+
+.search-box {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-input {
+    width: 300px;
+}
+
+/* 分页 */
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    padding: 15px 20px;
+    border-top: 1px solid #ebeef5;
+}
+
+/* 弹窗表单优化 */
+:deep(.el-dialog__body) {
+    padding: 25px;
+}
+
+:deep(.el-form-item) {
+    margin-bottom: 20px;
+}
+
+:deep(.el-form-item__label) {
+    font-weight: 500;
+    color: #606266;
 }
 
 .form-tip {
     font-size: 12px;
-    color: #999;
+    color: #909399;
     margin-top: 5px;
 }
 </style>

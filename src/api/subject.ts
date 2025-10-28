@@ -26,11 +26,33 @@ export const createSubject = (data: Omit<Topic, 'id' | 'createTime' | 'updateTim
     });
 };
 
-// 更新专题
-export const updateSubject = (id: string, data: Partial<Topic>) => {
+// 新增专题
+export const addSubject = (data: {
+    name: string;
+    begin_time?: number;
+    end_time?: number;
+    question_list: number[];
+    text_list: number[];
+}) => {
     return request({
-        url: `/subject/update/${id}`,
-        method: 'put',
+        url: '/subject/add',
+        method: 'post',
+        data
+    });
+};
+
+// 更新专题内容
+export const updateSubject = (data: {
+    id: number;
+    name: string;
+    begin_time?: number | string;
+    end_time?: number | string;
+    question_list: number[];
+    text_list: number[];
+}) => {
+    return request({
+        url: '/subject/update',
+        method: 'post',
         data
     });
 };
