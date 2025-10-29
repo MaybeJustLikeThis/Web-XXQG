@@ -41,6 +41,12 @@
             </el-form>
         </div>
     </div>
+
+    <!-- 修改密码弹窗 -->
+    <UpdatePasswordDialog
+        v-model="showUpdatePasswordDialog"
+        @success="handlePasswordUpdateSuccess"
+    />
 </template>
 
 <script setup lang="ts">
@@ -52,6 +58,8 @@ import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { login as loginApi } from '@/api/auth';
+import UpdatePasswordDialog from '@/components/UpdatePasswordDialog.vue';
+import { isInitialPassword } from '@/utils/password';
 
 // 加载状态
 const loading = ref(false);
@@ -88,6 +96,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
     console.log('登录点击', param);
     formEl.validate(async (valid: boolean) => {
+        console.log('表单验证结果:', valid);
         if (valid) {
             loading.value = true;
             try {
@@ -95,8 +104,13 @@ const submitForm = (formEl: FormInstance | undefined) => {
                     id_number: param.id_number,
                     password: param.password
                 });
-                console.log('response', response);
+                console.log('登录响应结构:', response);
+                console.log('response.data:', response.data);
+                console.log('response.data.code:', response.data?.code);
+
+                console.log('开始检查登录响应...');
                 if (response.data && response.data.code === 200) {
+                    console.log('登录成功，开始处理用户数据...');
                     ElMessage.success('登录成功');
 
                     // 保存完整的用户信息到permiss store
@@ -139,7 +153,25 @@ const submitForm = (formEl: FormInstance | undefined) => {
                         loading.value = false;
                         return;
                     }
-                    router.push('/');
+                    // 检测是否为初始密码
+                    const isInitial = isInitialPassword(param.id_number, param.password);
+                    console.log('是否初始密码检测:', {
+                        idNumber: param.id_number,
+                        password: param.password,
+                        isInitial: isInitial
+                    });
+
+                    if (isInitial) {
+                        console.log('检测到初始密码，显示修改密码弹窗');
+                        // 显示修改密码弹窗前先重置loading状态
+                        loading.value = false;
+                        // 显示修改密码弹窗
+                        showUpdatePasswordDialog.value = true;
+                    } else {
+                        console.log('非初始密码，跳转到首页');
+                        // 直接跳转到首页
+                        router.push('/');
+                    }
 
                     if (checked.value) {
                         localStorage.setItem('login-param', JSON.stringify(param));
@@ -147,6 +179,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
                         localStorage.removeItem('login-param');
                     }
                 } else {
+                    console.log('登录失败，响应数据:', response.data);
                     ElMessage.error(response.data?.msg || '登录失败');
                 }
             } catch (error) {
@@ -172,6 +205,19 @@ const handleEnterSubmit = () => {
 
 const tabs = useTabsStore();
 tabs.clearTabs();
+
+// 密码修改弹窗相关
+const showUpdatePasswordDialog = ref(false);
+
+// 密码修改成功后的处理
+const handlePasswordUpdateSuccess = () => {
+    ElMessage.success('密码修改成功，请重新登录');
+    showUpdatePasswordDialog.value = false;
+    // 清空记住的密码
+    param.password = '';
+    checked.value = false;
+    localStorage.removeItem('login-param');
+};
 </script>
 
 <style scoped>
