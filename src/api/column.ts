@@ -92,3 +92,14 @@ export const getArticleDetail = (articleId: number) => {
         method: 'get'
     });
 };
+
+// 根据标签ID获取文章列表（用于专栏管理）
+export const getArticlesByTagId = (tag_id: number) => {
+    return request({
+        url: '/richtext/get_by_tag_id',
+        method: 'get',
+        params: {
+            tag_id
+        }
+    });
+};

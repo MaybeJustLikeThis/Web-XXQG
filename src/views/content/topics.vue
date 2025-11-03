@@ -25,56 +25,58 @@
                 </div>
             </div>
 
-            <el-table :data="filteredTableData" border class="table" header-cell-class-name="table-header" stripe>
-                <el-table-column prop="id" label="ID" width="70" align="center">
-                    <template #default="scope">
-                        <span style="font-weight: 600; color: #409eff;">{{ scope.row.id }}</span>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="name" label="专题名称" width="180" show-overflow-tooltip>
-                    <template #default="scope">
-                        <span style="font-weight: 500;">{{ scope.row.name }}</span>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="creator" label="创建者" width="100" align="center"></el-table-column>
-                <el-table-column label="文章数量" width="100" align="center">
-                    <template #default="scope">
-                        <el-tag type="info" size="small">{{ scope.row.texts?.length || 0 }}</el-tag>
-                    </template>
-                </el-table-column>
-                <el-table-column label="题目数量" width="100" align="center">
-                    <template #default="scope">
-                        <el-tag type="warning" size="small">{{ scope.row.question_list?.length || 0 }}</el-tag>
-                    </template>
-                </el-table-column>
-                <el-table-column prop="status" label="状态" width="100" align="center">
-                    <template #default="scope">
-                        <el-tag :type="statusType(scope.row.status)" effect="dark">
-                            {{ statusText(scope.row.status) }}
-                        </el-tag>
-                    </template>
-                </el-table-column>
-                <el-table-column label="有效期" width="280" align="center">
-                    <template #default="scope">
-                        <span v-if="scope.row.begin_time || scope.row.end_time" class="time-range">
-                            {{ formatTimeRange(scope.row.begin_time, scope.row.end_time) }}
-                        </span>
-                        <span v-else class="text-muted">未设置</span>
-                    </template>
-                </el-table-column>
-                <el-table-column label="操作" width="240" align="center" fixed="right">
-                    <template #default="scope">
-                        <el-button-group>
-                            <el-button type="primary" size="small" :icon="Edit"
-                                @click="handleEdit(scope.row)">编辑</el-button>
-                            <el-button type="success" size="small" :icon="Document"
-                                @click="handleManageContent(scope.row)">管理</el-button>
-                            <el-button type="danger" size="small" :icon="Delete"
-                                @click="handleDelete(scope.row)">删除</el-button>
-                        </el-button-group>
-                    </template>
-                </el-table-column>
-            </el-table>
+            <div class="table-wrapper">
+                <el-table :data="filteredTableData" border class="table" header-cell-class-name="table-header" stripe>
+                    <el-table-column prop="id" label="ID" width="70" align="center">
+                        <template #default="scope">
+                            <span style="font-weight: 600; color: #409eff;">{{ scope.row.id }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="name" label="专题名称" min-width="180" show-overflow-tooltip>
+                        <template #default="scope">
+                            <span style="font-weight: 500;">{{ scope.row.name }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="creator" label="创建者" width="100" align="center"></el-table-column>
+                    <el-table-column label="文章数量" width="100" align="center">
+                        <template #default="scope">
+                            <el-tag type="info" size="small">{{ scope.row.texts?.length || 0 }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="题目数量" width="100" align="center">
+                        <template #default="scope">
+                            <el-tag type="warning" size="small">{{ scope.row.question_list?.length || 0 }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="status" label="状态" width="100" align="center">
+                        <template #default="scope">
+                            <el-tag :type="statusType(scope.row.status)" effect="dark">
+                                {{ statusText(scope.row.status) }}
+                            </el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="有效期" min-width="280" align="center">
+                        <template #default="scope">
+                            <span v-if="scope.row.begin_time || scope.row.end_time" class="time-range">
+                                {{ formatTimeRange(scope.row.begin_time, scope.row.end_time) }}
+                            </span>
+                            <span v-else class="text-muted">未设置</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="240" align="center" fixed="right">
+                        <template #default="scope">
+                            <el-button-group>
+                                <el-button type="primary" size="small" :icon="Edit"
+                                    @click="handleEdit(scope.row)">编辑</el-button>
+                                <el-button type="success" size="small" :icon="Document"
+                                    @click="handleManageContent(scope.row)">管理</el-button>
+                                <el-button type="danger" size="small" :icon="Delete"
+                                    @click="handleDelete(scope.row)">删除</el-button>
+                            </el-button-group>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
 
             <div class="pagination">
                 <el-pagination background layout="total, prev, pager, next" :current-page="query.page"
@@ -153,8 +155,8 @@
                                 </template>
                             </el-input>
                             <el-select v-model="questionFilter.type" placeholder="题型"
-                                style="width: 120px; margin-left: 10px;">
-                                <el-option label="全部" value=""></el-option>
+                                style="width: 120px; margin-left: 10px;" @change="searchQuestions">
+                                <el-option label="全部" :value="undefined"></el-option>
                                 <el-option label="单选" :value="1"></el-option>
                                 <el-option label="多选" :value="2"></el-option>
                                 <el-option label="简答" :value="3"></el-option>
@@ -446,27 +448,14 @@ const handleEdit = (row: any) => {
 // 删除专题
 const handleDelete = async (row: any) => {
     try {
-        await ElMessageBox.confirm(`确定要删除专题"${row.name}"吗？删除后无法恢复！`, '警告', {
+        await ElMessageBox.confirm('确定要删除这个专题吗？', '提示', {
             type: 'warning',
-            confirmButtonText: '确定删除',
-            cancelButtonText: '取消',
-            confirmButtonClass: 'el-button--danger'
         });
-
-        // 调用删除接口
-        await deleteSubject(row.id);
-
-        ElMessage.success('删除成功');
-
-        // 从列表中移除该行，而不是刷新整个列表
-        const index = tableData.value.findIndex((item: any) => item.id === row.id);
-        if (index !== -1) {
-            tableData.value.splice(index, 1);
-        }
+        ElMessage.success('删除成功（功能待实现）');
+        await getTopics();
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error('删除失败');
-            console.error('删除专题失败:', error);
         }
     }
 };
@@ -583,10 +572,22 @@ const getAvailableArticles = async () => {
 // 获取可选题目列表
 const getAvailableQuestions = async () => {
     try {
-        const res = await getAllQuestions({
+        const params: any = {
             page: questionPage.value - 1,
             size: questionPageSize.value
-        });
+        };
+
+        // 添加搜索关键词
+        if (questionSearch.value) {
+            params.key_word = questionSearch.value;
+        }
+
+        // 添加题型筛选
+        if (questionFilter.type !== undefined && questionFilter.type !== null) {
+            params.type = questionFilter.type;
+        }
+
+        const res = await getAllQuestions(params);
         const data = res.data.data || res.data;
         availableQuestions.value = data?.list || [];
         questionTotal.value = data?.total || 0;
@@ -916,9 +917,21 @@ onMounted(async () => {
     width: 130px;
 }
 
+/* 表格包装器 */
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
 /* 表格区域 */
 .el-table {
     border: none;
+    width: 100%;
+    min-width: 100%;
+}
+
+:deep(.el-table__inner-wrapper) {
+    width: 100% !important;
 }
 
 .table {

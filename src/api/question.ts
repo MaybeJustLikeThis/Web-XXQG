@@ -1,11 +1,11 @@
 import request from '@/utils/request';
 
 // 获取全部题目
-export const getAllQuestions = (params?: { page?: number; size?: number }) => {
+export const getAllQuestions = (params?: { page?: number; size?: number; key_word?: string }) => {
     return request({
-      url: "/question/all/get_list_for_admin",
-      method: "get",
-      params
+        url: "/question/all/get_list_for_admin",
+        method: "get",
+        params
     });
 };
 

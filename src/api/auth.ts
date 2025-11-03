@@ -34,3 +34,21 @@ export const login = (params: LoginParams) => {
         data: params
     });
 };
+
+export interface UpdatePasswordParams {
+    password: string;
+}
+
+export interface UpdatePasswordResponse {
+    code: number;
+    msg: string;
+    data: null;
+}
+
+export const updatePassword = (params: UpdatePasswordParams) => {
+    return request<UpdatePasswordResponse>({
+        url: '/user/update_password',
+        method: 'post',
+        data: params
+    });
+};
