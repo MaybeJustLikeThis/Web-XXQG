@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import type { Topic, TopicQuery } from '@/types/content';
+import type { Topic, TopicQuery, AddSubjectDepartmentParams, DeleteSubjectDepartmentParams } from '@/types/content';
 
 // 获取所有专题
 export const getSubjects = () => {
@@ -94,5 +94,23 @@ export const searchSubjects = (params: TopicQuery) => {
         url: '/subject/search',
         method: 'get',
         params
+    });
+};
+
+// 专题添加部门关系
+export const addSubjectDepartment = (data: AddSubjectDepartmentParams) => {
+    return request({
+        url: '/subject/add_department',
+        method: 'post',
+        data
+    });
+};
+
+// 专题删除部门关系
+export const deleteSubjectDepartment = (data: DeleteSubjectDepartmentParams) => {
+    return request({
+        url: '/subject/delete_department',
+        method: 'delete',
+        data
     });
 };

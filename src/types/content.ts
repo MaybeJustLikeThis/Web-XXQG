@@ -60,3 +60,21 @@ export interface TopicQuery {
     name?: string;
     status?: Topic['status'];
 }
+
+// 专题部门关系相关类型
+export interface SubjectDepartmentRelation {
+    subject_id: number;
+    department_id: number;
+}
+
+// 专题添加部门请求参数
+export interface AddSubjectDepartmentParams {
+    subject_id: number;
+    department_id: number;
+}
+
+// 专题删除部门请求参数
+export interface DeleteSubjectDepartmentParams {
+    subject_id: number;
+    department_id: number;
+}

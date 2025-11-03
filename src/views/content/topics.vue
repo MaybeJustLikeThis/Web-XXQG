@@ -190,11 +190,77 @@
                         </div>
                     </div>
                 </el-tab-pane>
+
+                <!-- 部门管理 -->
+                <el-tab-pane label="部门管理" name="departments">
+                    <div class="content-management">
+                        <div class="search-box">
+                            <el-input v-model="departmentSearch" placeholder="搜索部门" class="search-input"
+                                @keyup.enter="searchDepartments" clearable>
+                                <template #prefix>
+                                    <el-icon>
+                                        <Search />
+                                    </el-icon>
+                                </template>
+                            </el-input>
+                            <el-button type="primary" @click="showAddDepartmentDialog" style="margin-left: 10px;">
+                                添加部门
+                            </el-button>
+                        </div>
+                        <el-table :data="availableDepartments" max-height="500">
+                            <el-table-column prop="name" label="部门名称" show-overflow-tooltip min-width="200"></el-table-column>
+                            <el-table-column prop="description" label="描述" show-overflow-tooltip min-width="150"></el-table-column>
+                            <el-table-column label="状态" width="100" align="center">
+                                <template #default="scope">
+                                    <el-tag type="success" size="small">已关联</el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="操作" width="120" align="center">
+                                <template #default="scope">
+                                    <el-button type="danger" size="small" @click="handleRemoveDepartment(scope.row)">
+                                        移除
+                                    </el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <div class="pagination">
+                            <el-pagination background layout="total, prev, pager, next" :current-page="departmentPage"
+                                :page-size="departmentPageSize" :total="departmentTotal"
+                                @current-change="handleDepartmentPageChange" />
+                        </div>
+                    </div>
+                </el-tab-pane>
             </el-tabs>
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="contentDialogVisible = false">取 消</el-button>
                     <el-button type="primary" @click="saveTopicContent">保 存</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 添加部门弹窗 -->
+        <el-dialog title="添加部门到专题" v-model="addDepartmentDialogVisible" width="40%" destroy-on-close>
+            <el-form ref="addDepartmentFormRef" :model="addDepartmentForm" label-width="100px">
+                <el-form-item label="选择部门" prop="department_id"
+                    :rules="[{ required: true, message: '请选择部门', trigger: 'change' }]">
+                    <el-select v-model="addDepartmentForm.department_id" placeholder="请选择部门"
+                        style="width: 100%;" filterable>
+                        <el-option
+                            v-for="dept in allDepartments"
+                            :key="dept.id"
+                            :label="dept.name"
+                            :value="dept.id">
+                            <span style="float: left">{{ dept.name }}</span>
+                            <span style="float: right; color: #8492a6; font-size: 13px">{{ dept.description || '无描述' }}</span>
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="addDepartmentDialogVisible = false">取 消</el-button>
+                    <el-button type="primary" @click="handleAddDepartment">确 定</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -206,9 +272,10 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search, Document, Clock } from '@element-plus/icons-vue';
 import type { Topic } from '@/types/content';
-import { getSubjects, updateSubject, addSubject, deleteSubject } from '@/api/subject';
+import { getSubjects, updateSubject, addSubject, deleteSubject, addSubjectDepartment, deleteSubjectDepartment } from '@/api/subject';
 import { getAllArticles } from '@/api/article';
 import { getAllQuestions } from '@/api/question';
+import { getAllDepartments } from '@/api/department';
 
 // 查询参数
 const query = reactive<{
@@ -295,6 +362,21 @@ const questionTableRef = ref();
 const questionFilter = reactive({
     type: undefined as number | undefined,
 });
+
+// 部门管理
+const departmentSearch = ref('');
+const departmentPage = ref(1);
+const departmentPageSize = ref(10);
+const departmentTotal = ref(0);
+const availableDepartments = ref<any[]>([]);
+
+// 添加部门弹窗
+const addDepartmentDialogVisible = ref(false);
+const addDepartmentForm = reactive({
+    department_id: null as number | null,
+});
+const addDepartmentFormRef = ref();
+const allDepartments = ref<any[]>([]);
 
 // 获取专题列表
 const getTopics = async () => {
@@ -473,9 +555,11 @@ const handleManageContent = async (row: any) => {
     originalTopicArticles.value = (row.texts || []).map((text: any) => text.id);
     originalTopicQuestions.value = (row.question_list || []).map((question: any) => question.id);
 
-    // 获取文章和题目列表
+    // 获取文章、题目和部门列表
     await getAvailableArticles();
     await getAvailableQuestions();
+    await getAvailableDepartments();
+    await getAllDepartmentsList();
 
     // 设置已选状态
     await nextTick();
@@ -573,6 +657,106 @@ const handleArticlePageChange = async (val: number) => {
 const handleQuestionPageChange = async (val: number) => {
     questionPage.value = val;
     await getAvailableQuestions();
+};
+
+// 获取专题关联的部门列表
+const getAvailableDepartments = async () => {
+    try {
+        // 这里应该调用获取专题关联部门的接口，暂时模拟数据
+        availableDepartments.value = currentTopic.value?.departments || [];
+        departmentTotal.value = availableDepartments.value.length;
+    } catch (error) {
+        ElMessage.error('获取部门列表失败');
+        console.error('获取部门列表失败:', error);
+    }
+};
+
+// 获取所有部门列表（用于添加）
+const getAllDepartmentsList = async () => {
+    try {
+        const res = await getAllDepartments();
+        const data = res.data.data || res.data;
+        allDepartments.value = data || [];
+    } catch (error) {
+        ElMessage.error('获取所有部门列表失败');
+        console.error('获取所有部门列表失败:', error);
+    }
+};
+
+// 搜索部门
+const searchDepartments = () => {
+    getAvailableDepartments();
+};
+
+// 部门分页
+const handleDepartmentPageChange = async (val: number) => {
+    departmentPage.value = val;
+    await getAvailableDepartments();
+};
+
+// 显示添加部门弹窗
+const showAddDepartmentDialog = () => {
+    addDepartmentDialogVisible.value = true;
+    addDepartmentForm.department_id = null;
+};
+
+// 添加部门到专题
+const handleAddDepartment = async () => {
+    if (!addDepartmentForm.department_id) {
+        ElMessage.warning('请选择部门');
+        return;
+    }
+
+    if (!currentTopic.value) return;
+
+    try {
+        await addSubjectDepartment({
+            subject_id: Number(currentTopic.value.id),
+            department_id: addDepartmentForm.department_id
+        });
+
+        ElMessage.success('部门添加成功');
+        addDepartmentDialogVisible.value = false;
+
+        // 刷新部门列表
+        await getAvailableDepartments();
+    } catch (error) {
+        ElMessage.error('添加部门失败');
+        console.error('添加部门失败:', error);
+    }
+};
+
+// 移除部门
+const handleRemoveDepartment = async (department: any) => {
+    if (!currentTopic.value) return;
+
+    try {
+        await ElMessageBox.confirm(`确定要将部门"${department.name}"从专题中移除吗？`, '警告', {
+            type: 'warning',
+            confirmButtonText: '确定移除',
+            cancelButtonText: '取消'
+        });
+
+        // 调用删除部门关系的接口
+        await deleteSubjectDepartment({
+            subject_id: Number(currentTopic.value.id),
+            department_id: department.id
+        });
+
+        ElMessage.success('部门移除成功');
+
+        // 从列表中移除
+        const index = availableDepartments.value.findIndex((dept: any) => dept.id === department.id);
+        if (index !== -1) {
+            availableDepartments.value.splice(index, 1);
+            departmentTotal.value = availableDepartments.value.length;
+        }
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('移除部门失败');
+            console.error('移除部门失败:', error);
+        }
+    }
 };
 
 // 格式化时间范围
