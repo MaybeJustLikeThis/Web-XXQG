@@ -42,18 +42,44 @@
                         </div>
                     </el-tab-pane>
                     <el-tab-pane name="label3" label="修改密码" class="user-tabpane">
-                        <el-form class="w500" label-position="top">
+                        <el-form class="w500" label-position="top" :model="form">
                             <el-form-item label="旧密码：">
-                                <el-input type="password" v-model="form.old"></el-input>
+                                <el-input
+                                    type="password"
+                                    v-model="form.old"
+                                    placeholder="请输入当前密码"
+                                    show-password
+                                    @keyup.enter="onSubmit"
+                                />
                             </el-form-item>
                             <el-form-item label="新密码：">
-                                <el-input type="password" v-model="form.new"></el-input>
+                                <el-input
+                                    type="password"
+                                    v-model="form.new"
+                                    placeholder="请输入新密码（至少6位）"
+                                    show-password
+                                    @keyup.enter="onSubmit"
+                                />
                             </el-form-item>
                             <el-form-item label="确认新密码：">
-                                <el-input type="password" v-model="form.new1"></el-input>
+                                <el-input
+                                    type="password"
+                                    v-model="form.new1"
+                                    placeholder="请再次输入新密码"
+                                    show-password
+                                    @keyup.enter="onSubmit"
+                                />
                             </el-form-item>
                             <el-form-item>
-                                <el-button type="primary" @click="onSubmit">保存</el-button>
+                                <el-button
+                                    type="primary"
+                                    @click="onSubmit"
+                                    :loading="loading"
+                                    :disabled="!form.old || !form.new || !form.new1"
+                                >
+                                    {{ loading ? '修改中...' : '修改密码' }}
+                                </el-button>
+                                <el-button @click="resetForm">重置</el-button>
                             </el-form-item>
                         </el-form>
                     </el-tab-pane>
@@ -72,18 +98,76 @@
 
 <script setup lang="ts" name="ucenter">
 import { reactive, ref } from 'vue';
+import { ElMessage } from 'element-plus';
+import { updatePassword } from '@/api/auth';
 // import { VueCropper } from 'vue-cropper';
 // import 'vue-cropper/dist/index.css';
 import avatar from '@/assets/img/img.jpg';
 // import TabsComp from '../element/tabs.vue';
 
 const name = localStorage.getItem('vuems_name');
+const loading = ref(false);
+
 const form = reactive({
     new1: '',
     new: '',
     old: '',
 });
-const onSubmit = () => {};
+
+// 重置表单
+const resetForm = () => {
+    form.old = '';
+    form.new = '';
+    form.new1 = '';
+};
+
+const onSubmit = async () => {
+    // 表单验证
+    if (!form.old) {
+        ElMessage.warning('请输入旧密码');
+        return;
+    }
+
+    if (!form.new) {
+        ElMessage.warning('请输入新密码');
+        return;
+    }
+
+    if (form.new.length < 6) {
+        ElMessage.warning('新密码长度不能少于6位');
+        return;
+    }
+
+    if (form.new !== form.new1) {
+        ElMessage.warning('两次输入的新密码不一致');
+        return;
+    }
+
+    if (form.old === form.new) {
+        ElMessage.warning('新密码不能与旧密码相同');
+        return;
+    }
+
+    loading.value = true;
+    try {
+        const response = await updatePassword({
+            password: form.new
+        });
+
+        if (response.data && response.data.code === 200) {
+            ElMessage.success('密码修改成功');
+            // 清空表单
+            resetForm();
+        } else {
+            ElMessage.error(response.data?.msg || '密码修改失败');
+        }
+    } catch (error) {
+        console.error('修改密码错误:', error);
+        ElMessage.error('修改密码失败，请稍后重试');
+    } finally {
+        loading.value = false;
+    }
+};
 
 const activeName = ref('label1');
 
