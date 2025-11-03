@@ -4,8 +4,8 @@ import type { Topic, TopicQuery, AddSubjectDepartmentParams, DeleteSubjectDepart
 // 获取所有专题
 export const getSubjects = () => {
     return request({
-        url: '/subject/get_all',
-        method: 'get'
+      url: "/subject/get_for_admin",
+      method: "get",
     });
 };
 
