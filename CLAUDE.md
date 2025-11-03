@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is a Vue 3 admin dashboard system built with modern tools and patterns:
+This is the 山西省高校网络思政中心小程序后台管理系统, a Vue 3 admin dashboard system built with modern tools and patterns:
 
 ### Tech Stack
 - **Frontend Framework**: Vue 3 + TypeScript + Composition API

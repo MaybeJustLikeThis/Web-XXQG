@@ -24,6 +24,7 @@ export interface DepartmentUser {
     political_status: string;
     id_number: string;
     department: string;
+    invite_code: string;
     points: number;
     is_super_admin: boolean;
     edit_text: boolean;

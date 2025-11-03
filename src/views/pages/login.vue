@@ -3,7 +3,7 @@
         <div class="login-container">
             <div class="login-header">
                 <img class="logo mr10" src="../../assets/img/logo.svg" alt="" />
-                <div class="login-title">后台管理系统</div>
+                <div class="login-title">山西省高校网络思政中心小程序后台管理系统</div>
             </div>
             <el-form :model="param" :rules="rules" ref="loginForm" size="large">
                 <el-form-item prop="id_number">

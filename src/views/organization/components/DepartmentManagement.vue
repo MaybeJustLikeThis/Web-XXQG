@@ -24,7 +24,7 @@
                                 {{ data.userCount }}人
                             </el-tag>
                             <el-tag v-if="data.admin && data.admin.length > 0" size="small" type="success">
-                                {{ data.admin.map(a => a.name).join(', ') }}
+                                部门管理员：{{ data.admin.map(a => a.name).join('，') }}
                             </el-tag>
                         </div>
                         <div class="node-actions">
@@ -246,6 +246,19 @@
                         <el-table-column prop="id_number" label="身份证号" width="180" show-overflow-tooltip />
                         <el-table-column prop="department" label="部门" width="120" />
                         <el-table-column prop="wx_id" label="微信ID" min-width="150" show-overflow-tooltip />
+                        <el-table-column prop="invite_code" label="邀请码" width="120" show-overflow-tooltip>
+                            <template #default="{ row }">
+                                <span
+                                    v-if="row.invite_code"
+                                    class="invite-code"
+                                    @click="copyInvitationCode(row.invite_code)"
+                                    title="点击复制邀请码"
+                                >
+                                    {{ row.invite_code }}
+                                </span>
+                                <span v-else class="no-invite-code">无邀请码</span>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="is_super_admin" label="超级管理员" width="100">
                             <template #default="{ row }">
                                 <el-tag :type="row.is_super_admin ? 'warning' : 'info'" size="small">
@@ -253,17 +266,17 @@
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="权限" width="150">
+                        <el-table-column label="权限（内容管理，题库管理等）" width="200">
                             <template #default="{ row }">
                                 <el-tag v-if="row.edit_text" type="success" size="small" class="permission-tag">
-                                    编辑文本
+                                    内容管理
                                 </el-tag>
                                 <el-tag v-if="row.edit_question" type="primary" size="small" class="permission-tag">
-                                    编辑题目
+                                    题库管理
                                 </el-tag>
-                                <el-tag v-if="!row.edit_text && !row.edit_question" type="info" size="small">
-                                    无权限
-                                </el-tag>
+                                <span v-if="!row.edit_text && !row.edit_question" class="no-permission">
+                                    暂无权限
+                                </span>
                             </template>
                         </el-table-column>
                         <el-table-column label="操作" width="100" fixed="right">
@@ -993,6 +1006,7 @@ const getMemberData = async () => {
                 political_status: item.political_status || '',
                 id_number: item.id_number || '',
                 department: item.department || currentDepartment.value!.name,
+                invite_code: item.invite_code || '',
                 points: item.points || 0,
                 is_super_admin: item.is_super_admin || false,
                 edit_text: item.edit_text || false,
@@ -1297,14 +1311,6 @@ const removeMember = async (user: DepartmentUser) => {
     }
 };
 
-// 复制邀请码
-const copyInvitationCode = (code: string) => {
-    navigator.clipboard.writeText(code).then(() => {
-        ElMessage.success('邀请码已复制到剪贴板');
-    }).catch(() => {
-        ElMessage.error('复制失败');
-    });
-};
 
 // 提交成员表单
 const handleMemberSubmit = async () => {
@@ -1358,6 +1364,19 @@ const resetMemberForm = () => {
         phone: '',
         groupIds: [],
         password: ''
+    });
+};
+
+// 复制邀请码
+const copyInvitationCode = (code: string) => {
+    if (!code) {
+        ElMessage.warning('邀请码为空');
+        return;
+    }
+    navigator.clipboard.writeText(code).then(() => {
+        ElMessage.success('邀请码已复制到剪贴板');
+    }).catch(() => {
+        ElMessage.error('复制失败');
     });
 };
 
@@ -1496,6 +1515,33 @@ onUnmounted(() => {
 .group-tag {
     margin-right: 5px;
     margin-bottom: 2px;
+}
+
+.permission-tag {
+    margin-right: 5px;
+    margin-bottom: 2px;
+}
+
+.no-permission {
+    color: #909399;
+    font-size: 12px;
+}
+
+.invite-code {
+    color: #409eff;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: monospace;
+    font-weight: 500;
+}
+
+.invite-code:hover {
+    color: #66b1ff;
+}
+
+.no-invite-code {
+    color: #c0c4cc;
+    font-style: italic;
 }
 
 .pagination {

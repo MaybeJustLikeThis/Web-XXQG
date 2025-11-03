@@ -80,14 +80,26 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column label="权限" width="150">
+                <el-table-column label="权限（如内容管理，题库管理等）" width="250">
+                    <template #header>
+                        <div class="permission-header">
+                            <span>权限（如内容管理，题库管理等）</span>
+                            <div class="permission-legend">
+                                <el-tag type="success" size="small">内容管理</el-tag>
+                                <el-tag type="primary" size="small">题库管理</el-tag>
+                            </div>
+                        </div>
+                    </template>
                     <template #default="{ row }">
                         <el-tag v-if="row.edit_text" type="success" size="small" class="permission-tag">
-                            编辑文本
+                            内容管理
                         </el-tag>
                         <el-tag v-if="row.edit_question" type="primary" size="small" class="permission-tag">
-                            编辑题目
+                            题库管理
                         </el-tag>
+                        <span v-if="!row.edit_text && !row.edit_question" class="no-permission">
+                            暂无权限
+                        </span>
                     </template>
                 </el-table-column>
                 <el-table-column label="操作" width="180" fixed="right">
@@ -173,8 +185,8 @@
                     <el-switch v-model="memberFormData.is_super_admin" />
                 </el-form-item>
                 <el-form-item label="权限设置">
-                    <el-checkbox v-model="memberFormData.edit_text">编辑文本权限</el-checkbox>
-                    <el-checkbox v-model="memberFormData.edit_question">编辑题目权限</el-checkbox>
+                    <el-checkbox v-model="memberFormData.edit_text">内容管理权限</el-checkbox>
+                    <el-checkbox v-model="memberFormData.edit_question">题库管理权限</el-checkbox>
                 </el-form-item>
             </el-form>
             <template #footer>
@@ -788,6 +800,24 @@ onMounted(() => {
 .permission-tag {
     margin-right: 5px;
     margin-bottom: 2px;
+}
+
+.no-permission {
+    color: #909399;
+    font-size: 12px;
+}
+
+.permission-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.permission-legend {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .pagination {
