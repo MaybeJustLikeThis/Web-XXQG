@@ -111,6 +111,12 @@ watch(
     overflow: hidden;
     background: #fff;
     padding: 2px 120px 0 0;
+    transition: background-color 0.3s ease;
+}
+
+/* 暗色模式下的标签页容器 */
+:root.dark .tabs-container {
+    background: var(--card-bg, #1a1a1a);
 }
 
 .tabs {
@@ -122,6 +128,10 @@ watch(
         height: 28px;
     }
 
+    .el-tabs__nav-scroll {
+        background-color: transparent;
+    }
+
     .el-tabs__nav-next,
     .el-tabs__nav-prev {
         line-height: 32px;
@@ -130,6 +140,18 @@ watch(
     &.el-tabs {
         --el-tabs-header-height: 28px;
     }
+}
+
+/* 暗色模式下的标签页按钮 */
+:root.dark .tabs .el-button--primary.is-plain {
+    background-color: var(--el-fill-color-light, #262727) !important;
+    border-color: var(--el-color-primary) !important;
+    color: var(--el-color-primary) !important;
+}
+
+:root.dark .tabs .el-button--primary.is-plain:hover {
+    background-color: var(--el-color-primary) !important;
+    color: #fff !important;
 }
 
 .Tabs-close-box {
@@ -144,5 +166,23 @@ watch(
     background: #fff;
     box-shadow: -3px 0 15px 3px rgba(0, 0, 0, 0.1);
     z-index: 10;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的关闭按钮区域 */
+:root.dark .Tabs-close-box {
+    background: var(--card-bg, #1a1a1a);
+    box-shadow: -3px 0 15px 3px rgba(0, 0, 0, 0.3);
+    border-left: 1px solid var(--card-border, #2d2d2d);
+}
+
+/* 暗色模式下的标签页关闭图标 */
+:root.dark .el-tabs__item .el-icon-close {
+    color: var(--text-secondary, #a3a6ad) !important;
+}
+
+:root.dark .el-tabs__item .el-icon-close:hover {
+    color: var(--text-primary, #e5eaf3) !important;
+    background-color: var(--el-fill-color-light, #262727) !important;
 }
 </style>

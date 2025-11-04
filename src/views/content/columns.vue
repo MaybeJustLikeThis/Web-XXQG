@@ -557,6 +557,12 @@ onMounted(async () => {
     padding: 20px;
     background-color: #f5f7fa;
     min-height: calc(100vh - 84px);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的容器 */
+:root.dark .container {
+    background-color: var(--dashboard-bg, #0f0f0f);
 }
 
 /* 专栏网格布局 */
@@ -579,6 +585,13 @@ onMounted(async () => {
     overflow: hidden;
 }
 
+/* 暗色模式下的专栏卡片 */
+:root.dark .column-card {
+    background: var(--card-bg, #1a1a1a);
+    border-color: var(--card-border, #2d2d2d);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 .column-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
@@ -587,6 +600,16 @@ onMounted(async () => {
 .column-card.active {
     border-color: #409eff;
     box-shadow: 0 8px 25px rgba(64, 158, 255, 0.2);
+}
+
+/* 暗色模式下的专栏卡片hover和active状态 */
+:root.dark .column-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+:root.dark .column-card.active {
+    border-color: var(--el-color-primary, #409eff);
+    box-shadow: 0 8px 25px rgba(64, 158, 255, 0.3);
 }
 
 .column-header {
@@ -660,6 +683,14 @@ onMounted(async () => {
     border-radius: 12px;
     padding: 25px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的文章列表区域 */
+:root.dark .articles-section {
+    background: var(--card-bg, #1a1a1a);
+    border: 1px solid var(--card-border, #2d2d2d);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .section-header {
@@ -669,6 +700,12 @@ onMounted(async () => {
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid #ebeef5;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的section header */
+:root.dark .section-header {
+    border-bottom-color: var(--card-border, #2d2d2d);
 }
 
 .section-header h3 {
@@ -676,6 +713,12 @@ onMounted(async () => {
     font-size: 20px;
     font-weight: 600;
     color: #303133;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的section标题 */
+:root.dark .section-header h3 {
+    color: var(--text-primary, #e5eaf3);
 }
 
 .section-actions {
@@ -702,6 +745,12 @@ onMounted(async () => {
 .no-cover {
     color: #999;
     font-size: 12px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的无封面文字 */
+:root.dark .no-cover {
+    color: var(--text-regular, #a3a6ad);
 }
 
 .pagination {
@@ -713,6 +762,12 @@ onMounted(async () => {
 /* 内容管理区域 */
 .content-management {
     min-height: 300px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的内容管理区域 */
+:root.dark .content-management {
+    color: var(--text-primary, #e5eaf3);
 }
 
 .search-box {
@@ -726,5 +781,120 @@ onMounted(async () => {
 /* 弹窗样式优化 */
 :deep(.el-dialog__body) {
     padding: 25px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的弹窗内容 */
+:root.dark :deep(.el-dialog__body) {
+    background: var(--card-bg, #1a1a1a);
+    color: var(--text-primary, #e5eaf3);
+}
+
+/* 暗色模式下的表格样式 */
+:root.dark :deep(.el-table) {
+    background: var(--card-bg, #1a1a1a);
+    color: var(--text-primary, #e5eaf3);
+}
+
+:root.dark :deep(.el-table th.el-table__cell) {
+    background: var(--table-header-bg, #262727);
+    color: var(--text-primary, #e5eaf3);
+    border-bottom-color: var(--card-border, #2d2d2d);
+}
+
+:root.dark :deep(.el-table td.el-table__cell) {
+    border-bottom-color: var(--card-border, #2d2d2d);
+}
+
+:root.dark :deep(.el-table--border .el-table__cell) {
+    border-right-color: var(--card-border, #2d2d2d);
+}
+
+:root.dark :deep(.el-table--border) {
+    border-color: var(--card-border, #2d2d2d);
+}
+
+/* 暗色模式下的输入框 */
+:root.dark :deep(.el-input__wrapper) {
+    background: var(--input-bg, #262727);
+    border-color: var(--input-border, #2d2d2d);
+    box-shadow: 0 0 0 1px var(--input-border, #2d2d2d) inset;
+}
+
+:root.dark :deep(.el-input__inner) {
+    color: var(--text-primary, #e5eaf3);
+    background: transparent;
+}
+
+:root.dark :deep(.el-input__prefix-inner) {
+    color: var(--text-regular, #a3a6ad);
+}
+
+/* 暗色模式下的按钮 */
+:root.dark :deep(.el-button) {
+    color: var(--text-primary, #e5eaf3);
+    border-color: var(--border-color, #4c4d4f);
+    background: var(--button-bg, #262727);
+}
+
+:root.dark :deep(.el-button--primary) {
+    background: var(--el-color-primary, #409eff);
+    border-color: var(--el-color-primary, #409eff);
+    color: #fff;
+}
+
+:root.dark :deep(.el-button--danger) {
+    background: var(--el-color-danger, #f56c6c);
+    border-color: var(--el-color-danger, #f56c6c);
+    color: #fff;
+}
+
+/* 暗色模式下的标签 */
+:root.dark :deep(.el-tag) {
+    background: var(--tag-bg, #373739);
+    border-color: var(--tag-border, #4c4d4f);
+    color: var(--text-regular, #a3a6ad);
+}
+
+:root.dark :deep(.el-tag--success) {
+    background: var(--el-color-success-light-8, #1a4c2a);
+    border-color: var(--el-color-success-light-6, #53a868);
+    color: var(--el-color-success, #67c23a);
+}
+
+:root.dark :deep(.el-tag--info) {
+    background: var(--el-color-info-light-8, #2c2c2e);
+    border-color: var(--el-color-info-light-6, #6c6e71);
+    color: var(--el-color-info, #909399);
+}
+
+/* 暗色模式下的分页器 */
+:root.dark :deep(.el-pagination) {
+    color: var(--text-primary, #e5eaf3);
+}
+
+:root.dark :deep(.el-pagination .el-pagination__total),
+:root.dark :deep(.el-pagination .el-pagination__jump) {
+    color: var(--text-primary, #e5eaf3);
+}
+
+:root.dark :deep(.el-pagination button:disabled) {
+    background: var(--button-disabled-bg, #262727);
+    color: var(--text-disabled, #6c6e71);
+}
+
+:root.dark :deep(.el-pager li) {
+    background: var(--button-bg, #262727);
+    color: var(--text-primary, #e5eaf3);
+    border-color: var(--border-color, #4c4d4f);
+}
+
+:root.dark :deep(.el-pager li:hover) {
+    background: var(--el-color-primary-light-9, #1d3a5a);
+}
+
+:root.dark :deep(.el-pager li.is-active) {
+    background: var(--el-color-primary, #409eff);
+    color: #fff;
 }
 </style>

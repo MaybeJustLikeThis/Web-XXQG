@@ -15,9 +15,12 @@
         </div>
         <div class="header-right">
             <div class="header-user-con">
-                <div class="btn-icon" @click="router.push('/theme')">
-                    <el-tooltip effect="dark" content="设置主题" placement="bottom">
-                        <i class="el-icon-lx-skin"></i>
+                <div class="btn-icon" @click="toggleDarkMode">
+                    <el-tooltip effect="dark" :content="themeStore.darkMode ? '切换到日间模式' : '切换到夜间模式'" placement="bottom">
+                        <el-icon>
+                            <Sunny v-if="themeStore.darkMode" />
+                            <Moon v-else />
+                        </el-icon>
                     </el-tooltip>
                 </div>
                 <div class="btn-icon" @click="router.push('/ucenter')">
@@ -57,19 +60,34 @@
     </div>
 </template>
 <script setup lang="ts">
+import { computed } from 'vue';
 import { onMounted } from 'vue';
 import { useSidebarStore } from '../store/sidebar';
+import { useThemeStore } from '../store/theme';
 import { useRouter } from 'vue-router';
+import { Expand, Fold, Sunny, Moon } from '@element-plus/icons-vue';
 import imgurl from '../assets/img/img.jpg';
 
 const username: string | null = localStorage.getItem('vuems_name');
 const message: number = 2;
 
 const sidebar = useSidebarStore();
+const themeStore = useThemeStore();
+
 // 侧边栏折叠
 const collapseChage = () => {
     sidebar.handleCollapse();
 };
+
+// 切换夜间模式
+const toggleDarkMode = () => {
+    themeStore.toggleDarkMode();
+};
+
+// 计算当前模式图标
+const darkModeIcon = computed(() => {
+    return themeStore.darkMode ? 'el-icon-sunny' : 'el-icon-moon';
+});
 
 onMounted(() => {
     if (document.body.clientWidth < 1500) {
@@ -106,7 +124,8 @@ const setFullScreen = () => {
     height: 70px;
     color: var(--header-text-color);
     background-color: var(--header-bg-color);
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--el-border-color-light);
+    transition: all 0.3s ease;
 }
 
 .header-left {

@@ -14,4 +14,5 @@ theme.initTheme();
 </script>
 <style>
 @import './assets/css/main.css';
+@import './assets/css/dark-mode.css';
 </style>

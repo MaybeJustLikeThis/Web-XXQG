@@ -31,6 +31,12 @@ const tabs = useTabsStore();
 .wrapper {
     height: 100vh;
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的主背景 */
+:root.dark .wrapper {
+    background-color: var(--dashboard-bg, #0f0f0f);
 }
 .content-box {
     position: absolute;
@@ -43,6 +49,12 @@ const tabs = useTabsStore();
     transition: left 0.3s ease-in-out;
     background: #eef0fc;
     overflow: hidden;
+    transition: background-color 0.3s ease;
+}
+
+/* 暗色模式下的内容区域 */
+:root.dark .content-box {
+    background: var(--dashboard-bg, #0f0f0f);
 }
 
 .content {

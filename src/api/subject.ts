@@ -57,8 +57,17 @@ export const updateSubject = (data: {
     });
 };
 
-// 删除专题
-export const deleteSubject = (id: string) => {
+// 删除专题（使用POST方法）
+export const deleteSubject = (id: number) => {
+    return request({
+        url: '/subject/delete',
+        method: 'post',
+        data: { id }
+    });
+};
+
+// 删除专题（使用DELETE方法，备用）
+export const deleteSubjectById = (id: string) => {
     return request({
         url: `/subject/delete/${id}`,
         method: 'delete'

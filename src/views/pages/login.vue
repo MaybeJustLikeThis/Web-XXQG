@@ -228,6 +228,12 @@ const handlePasswordUpdateSuccess = () => {
     width: 100%;
     height: 100vh;
     background: url(../../assets/img/login-bg.jpg) center/cover no-repeat;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的登录背景 */
+:root.dark .login-bg {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
 }
 
 .login-header {
@@ -245,6 +251,12 @@ const handlePasswordUpdateSuccess = () => {
     font-size: 22px;
     color: #333;
     font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的标题 */
+:root.dark .login-title {
+    color: #e5eaf3;
 }
 
 .login-container {
@@ -253,6 +265,15 @@ const handlePasswordUpdateSuccess = () => {
     background: #fff;
     padding: 40px 50px;
     box-sizing: border-box;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的登录容器 */
+:root.dark .login-container {
+    background: #1a1a1a;
+    border: 1px solid #2d2d2d;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .pwd-tips {
@@ -262,6 +283,12 @@ const handlePasswordUpdateSuccess = () => {
     font-size: 14px;
     margin: -10px 0 10px;
     color: #787878;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的提示文字 */
+:root.dark .pwd-tips {
+    color: #a3a6ad;
 }
 
 .pwd-checkbox {
@@ -276,6 +303,12 @@ const handlePasswordUpdateSuccess = () => {
 .login-tips {
     font-size: 12px;
     color: #999;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的提示信息 */
+:root.dark .login-tips {
+    color: #6c6e72;
 }
 
 .login-text {
@@ -284,5 +317,11 @@ const handlePasswordUpdateSuccess = () => {
     margin-top: 20px;
     font-size: 14px;
     color: #787878;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的注册链接文字 */
+:root.dark .login-text {
+    color: #a3a6ad;
 }
 </style>

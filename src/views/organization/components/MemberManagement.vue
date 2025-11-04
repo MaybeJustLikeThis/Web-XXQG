@@ -765,6 +765,12 @@ onMounted(() => {
 <style scoped>
 .member-management {
     padding: 20px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的成员管理容器 */
+:root.dark .member-management {
+    background-color: var(--dashboard-bg, #0f0f0f);
 }
 
 .header {
@@ -784,12 +790,26 @@ onMounted(() => {
     padding: 20px;
     border-radius: 4px;
     margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的筛选区域 */
+:root.dark .filter-section {
+    background: var(--el-fill-color-light, #262727);
+    border: 1px solid var(--card-border, #2d2d2d);
 }
 
 .table-section {
     background: #fff;
     border-radius: 4px;
     padding: 20px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的表格区域 */
+:root.dark .table-section {
+    background: var(--card-bg, #1a1a1a);
+    border: 1px solid var(--card-border, #2d2d2d);
 }
 
 .group-tag {
@@ -805,6 +825,12 @@ onMounted(() => {
 .no-permission {
     color: #909399;
     font-size: 12px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的权限提示 */
+:root.dark .no-permission {
+    color: var(--text-muted, #6c6e72);
 }
 
 .permission-header {
@@ -839,6 +865,14 @@ onMounted(() => {
     background: #f5f7fa;
     border-radius: 4px;
     font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的文件信息区域 */
+:root.dark .file-info {
+    background: var(--el-fill-color-light, #262727);
+    border: 1px solid var(--card-border, #2d2d2d);
+    color: var(--text-primary, #e5eaf3);
 }
 
 .file-info p {

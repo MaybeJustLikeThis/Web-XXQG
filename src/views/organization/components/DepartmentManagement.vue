@@ -1441,6 +1441,12 @@ onUnmounted(() => {
 <style scoped>
 .department-management {
     padding: 20px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的部门管理容器 */
+:root.dark .department-management {
+    background-color: var(--dashboard-bg, #0f0f0f);
 }
 
 .header {
@@ -1454,6 +1460,13 @@ onUnmounted(() => {
     background: #fff;
     border-radius: 4px;
     padding: 20px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的内容区域 */
+:root.dark .content {
+    background: var(--card-bg, #1a1a1a);
+    border: 1px solid var(--card-border, #2d2d2d);
 }
 
 .tree-node {
@@ -1472,6 +1485,13 @@ onUnmounted(() => {
 
 .node-name {
     font-weight: 500;
+    color: var(--text-primary, #1f2937);
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的节点名称 */
+:root.dark .node-name {
+    color: var(--text-primary, #e5eaf3);
 }
 
 .node-actions {
@@ -1487,6 +1507,28 @@ onUnmounted(() => {
 
 :deep(.el-tree-node__content:hover) {
     background-color: #f5f7fa;
+}
+
+/* 暗色模式下的树形控件 */
+:root.dark :deep(.el-tree-node__content) {
+    background-color: transparent;
+    color: var(--text-primary, #e5eaf3);
+}
+
+:root.dark :deep(.el-tree-node__content:hover) {
+    background-color: var(--el-fill-color-light, #262727);
+}
+
+:root.dark :deep(.el-tree-node__expand-icon) {
+    color: var(--text-secondary, #a3a6ad);
+}
+
+:root.dark :deep(.el-tree-node__expand-icon:hover) {
+    color: var(--text-primary, #e5eaf3);
+}
+
+:root.dark :deep(.el-tree-node__label) {
+    color: var(--text-primary, #e5eaf3);
 }
 
 /* 成员管理样式 */
@@ -1506,10 +1548,23 @@ onUnmounted(() => {
     padding: 20px;
     border-radius: 4px;
     margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的搜索区域 */
+:root.dark .member-search {
+    background: var(--el-fill-color-light, #262727);
+    border: 1px solid var(--card-border, #2d2d2d);
 }
 
 .member-table {
     background: #fff;
+    transition: background-color 0.3s ease;
+}
+
+/* 暗色模式下的成员表格 */
+:root.dark .member-table {
+    background: var(--card-bg, #1a1a1a);
 }
 
 .group-tag {
@@ -1525,6 +1580,12 @@ onUnmounted(() => {
 .no-permission {
     color: #909399;
     font-size: 12px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的权限提示 */
+:root.dark .no-permission {
+    color: var(--text-muted, #6c6e72);
 }
 
 .invite-code {
@@ -1542,6 +1603,12 @@ onUnmounted(() => {
 .no-invite-code {
     color: #c0c4cc;
     font-style: italic;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的无邀请码提示 */
+:root.dark .no-invite-code {
+    color: var(--text-muted, #6c6e72);
 }
 
 .pagination {

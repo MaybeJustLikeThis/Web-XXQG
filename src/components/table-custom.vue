@@ -202,10 +202,26 @@ const getIndex = (index: number) => {
     font-size: 18px;
     cursor: pointer;
     color: #676767;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的图标颜色 */
+:root.dark .columns-setting-icon {
+    color: #a3a6ad;
+}
+
+:root.dark .columns-setting-icon:hover {
+    color: var(--el-color-primary);
 }
 </style>
 <style>
 .table-header .cell {
     color: #333;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的表头文字 */
+:root.dark .table-header .cell {
+    color: #e5eaf3;
 }
 </style>

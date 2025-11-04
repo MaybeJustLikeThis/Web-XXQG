@@ -71,7 +71,11 @@
                                 <el-button type="success" size="small" :icon="Document"
                                     @click="handleManageContent(scope.row)">管理</el-button>
                                 <el-button type="danger" size="small" :icon="Delete"
-                                    @click="handleDelete(scope.row)">删除</el-button>
+                                    @click="handleDelete(scope.row)"
+                                    :loading="deletingIds.has(Number(scope.row.id))"
+                                    :disabled="deletingIds.has(Number(scope.row.id))">
+                                    {{ deletingIds.has(Number(scope.row.id)) ? '删除中...' : '删除' }}
+                                </el-button>
                             </el-button-group>
                         </template>
                     </el-table-column>
@@ -323,6 +327,9 @@ const activeTab = ref('articles');
 const dialogTitle = ref('新增专题');
 const formRef = ref();
 
+// 删除操作状态
+const deletingIds = ref<Set<number>>(new Set());
+
 // 表单数据
 const form = reactive<any>({
     id: '',
@@ -448,15 +455,35 @@ const handleEdit = (row: any) => {
 // 删除专题
 const handleDelete = async (row: any) => {
     try {
-        await ElMessageBox.confirm('确定要删除这个专题吗？', '提示', {
-            type: 'warning',
-        });
-        ElMessage.success('删除成功（功能待实现）');
+        await ElMessageBox.confirm(
+            `确定要删除专题"${row.name}"吗？删除后将无法恢复。`,
+            '删除确认',
+            {
+                type: 'warning',
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消',
+                confirmButtonClass: 'el-button--danger'
+            }
+        );
+
+        // 添加到删除中状态
+        deletingIds.value.add(Number(row.id));
+
+        // 调用删除API
+        await deleteSubject(Number(row.id));
+
+        ElMessage.success('专题删除成功');
+
+        // 重新获取专题列表
         await getTopics();
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error('删除失败');
+            console.error('删除专题失败:', error);
+            ElMessage.error('删除专题失败，请稍后重试');
         }
+    } finally {
+        // 移除删除中状态
+        deletingIds.value.delete(Number(row.id));
     }
 };
 
@@ -878,6 +905,12 @@ onMounted(async () => {
     padding: 20px;
     background-color: #f5f7fa;
     min-height: calc(100vh - 84px);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的容器 */
+:root.dark .container {
+    background-color: var(--dashboard-bg, #0f0f0f);
 }
 
 /* 主卡片容器 */
@@ -886,6 +919,14 @@ onMounted(async () => {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的主卡片 */
+:root.dark .main-card {
+    background: var(--card-bg, #1a1a1a);
+    border: 1px solid var(--card-border, #2d2d2d);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 操作区域 */
@@ -895,6 +936,12 @@ onMounted(async () => {
     align-items: center;
     padding: 20px;
     border-bottom: 1px solid #ebeef5;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的操作区域 */
+:root.dark .handle-box {
+    border-bottom-color: var(--el-border-color, #4c4d4f);
 }
 
 .handle-left {
@@ -943,6 +990,13 @@ onMounted(async () => {
     background-color: #fafafa;
     color: #333;
     font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的表格头部 */
+:root.dark :deep(.table-header) {
+    background-color: var(--el-fill-color-light, #262727);
+    color: var(--text-primary, #e5eaf3);
 }
 
 :deep(.el-table th) {
@@ -955,6 +1009,12 @@ onMounted(async () => {
 
 :deep(.el-table__cell) {
     border-bottom: 1px solid #ebeef5;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的表格单元格 */
+:root.dark :deep(.el-table__cell) {
+    border-bottom-color: var(--el-border-color-light, #414243);
 }
 
 /* 表格操作按钮 */
@@ -970,12 +1030,24 @@ onMounted(async () => {
 .text-muted {
     color: #999;
     font-size: 12px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的表格内文本 */
+:root.dark .text-muted {
+    color: var(--text-muted, #6c6e72);
 }
 
 /* 时间范围 */
 .time-range {
     font-size: 12px;
     color: #606266;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的时间范围 */
+:root.dark .time-range {
+    color: var(--text-secondary, #a3a6ad);
 }
 
 /* 按钮组优化 */
@@ -1021,6 +1093,12 @@ onMounted(async () => {
     justify-content: flex-end;
     padding: 15px 20px;
     border-top: 1px solid #ebeef5;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的分页 */
+:root.dark .pagination {
+    border-top-color: var(--el-border-color, #4c4d4f);
 }
 
 /* 弹窗表单优化 */
@@ -1035,11 +1113,23 @@ onMounted(async () => {
 :deep(.el-form-item__label) {
     font-weight: 500;
     color: #606266;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的表单标签 */
+:root.dark :deep(.el-form-item__label) {
+    color: var(--text-primary, #e5eaf3);
 }
 
 .form-tip {
     font-size: 12px;
     color: #909399;
     margin-top: 5px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的表单提示 */
+:root.dark .form-tip {
+    color: var(--text-muted, #6c6e72);
 }
 </style>
