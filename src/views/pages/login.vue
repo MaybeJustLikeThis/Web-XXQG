@@ -7,7 +7,7 @@
             </div>
             <el-form :model="param" :rules="rules" ref="loginForm" size="large">
                 <el-form-item prop="id_number">
-                    <el-input v-model="param.id_number" placeholder="身份证号">
+                    <el-input v-model="param.id_number" placeholder="手机号">
                         <template #prepend>
                             <el-icon>
                                 <User />
@@ -34,7 +34,7 @@
                     <span v-if="!loading">登录</span>
                     <span v-else>登录中...</span>
                 </el-button>
-                <p class="login-tips">Tips : 请输入有效的身份证号和密码。</p>
+                <p class="login-tips">Tips : 请输入有效的手机号和密码。</p>
                 <p class="login-text">
                     没有账号？<el-link type="primary" @click="$router.push('/register')">立即注册</el-link>
                 </p>
@@ -75,7 +75,7 @@ const checked = ref(lgStr ? true : false);
 
 const router = useRouter();
 const param = reactive<LoginInfo>({
-    id_number: defParam ? defParam.id_number || defParam.username : '',
+    id_number: defParam ? defParam.id_number || defParam.username || defParam.phone : '',
     password: defParam ? defParam.password || defParam.code : '',
 });
 
@@ -83,7 +83,12 @@ const rules: FormRules = {
     id_number: [
         {
             required: true,
-            message: '请输入身份证号',
+            message: '请输入手机号',
+            trigger: 'blur',
+        },
+        {
+            pattern: /^1[3-9]\d{9}$/,
+            message: '请输入正确的手机号格式',
             trigger: 'blur',
         },
     ],
@@ -156,7 +161,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
                     // 检测是否为初始密码
                     const isInitial = isInitialPassword(param.id_number, param.password);
                     console.log('是否初始密码检测:', {
-                        idNumber: param.id_number,
+                        id_number: param.id_number,
                         password: param.password,
                         isInitial: isInitial
                     });
@@ -184,13 +189,13 @@ const submitForm = (formEl: FormInstance | undefined) => {
                 }
             } catch (error) {
                 console.error('登录错误:', error);
-                ElMessage.error('登录失败，请检查身份证号和密码');
+                ElMessage.error('登录失败，请检查手机号和密码');
                 return false;
             } finally {
                 loading.value = false;
             }
         } else {
-            ElMessage.error('请填写完整的登录信息');
+            console.log('表单验证失败');
             return false;
         }
     });

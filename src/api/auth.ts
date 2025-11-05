@@ -1,8 +1,8 @@
-import request from '../utils/request';
+import request, { authService } from '../utils/request';
 
 export interface LoginParams {
-    id_number: string;
-    password: string;
+  id_number: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -28,7 +28,7 @@ export interface LoginResponse {
 }
 
 export const login = (params: LoginParams) => {
-    return request<LoginResponse>({
+    return authService<LoginResponse>({
         url: '/user/login_with_password',
         method: 'post',
         data: params
