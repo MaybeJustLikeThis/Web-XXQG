@@ -10,7 +10,8 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(powershell:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npx vite build:*)"
     ],
     "deny": [],
     "ask": []

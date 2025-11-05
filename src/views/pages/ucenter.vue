@@ -13,17 +13,6 @@
                     </div>
                     <div class="info-desc">山西省高校网络思政中心</div>
                 </div>
-                <div class="user-footer">
-                    <div class="user-footer-item">
-                        <el-statistic title="Follower" :value="1800" />
-                    </div>
-                    <div class="user-footer-item">
-                        <el-statistic title="Following" :value="666" />
-                    </div>
-                    <div class="user-footer-item">
-                        <el-statistic title="Total Post" :value="888" />
-                    </div>
-                </div>
             </el-card>
             <el-card
                 class="user-content"
@@ -82,13 +71,6 @@
                                 <el-button @click="resetForm">重置</el-button>
                             </el-form-item>
                         </el-form>
-                    </el-tab-pane>
-                    <el-tab-pane name="label4" label="关于系统" class="user-tabpane">
-                        <div class="plugins-tips">
-                            山西省高校网络思政中心小程序后台管理系统
-                            <br />
-                            基于 Vue3 + TypeScript + Element Plus 构建
-                        </div>
                     </el-tab-pane>
                 </el-tabs>
             </el-card>
@@ -302,21 +284,6 @@ const cropper: any = ref();
 
 .w500 {
     width: 500px;
-}
-
-.user-footer {
-    display: flex;
-    border-top: 1px solid rgba(83, 70, 134, 0.1);
-}
-
-.user-footer-item {
-    padding: 20px 0;
-    width: 33.3333333333%;
-    text-align: center;
-}
-
-.user-footer > div + div {
-    border-left: 1px solid rgba(83, 70, 134, 0.1);
 }
 </style>
 

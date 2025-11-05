@@ -446,7 +446,8 @@ const memberTableData = ref<DepartmentUser[]>([]);
 const groupOptions = ref<UserGroup[]>([]);
 
 const memberSearchForm = reactive({
-    name: ''
+    name: '',
+    status: ''
 });
 
 const memberFormData = reactive({
@@ -1011,13 +1012,15 @@ const getMemberData = async () => {
                 is_super_admin: item.is_super_admin || false,
                 edit_text: item.edit_text || false,
                 edit_question: item.edit_question || false,
-                manage_departments: item.manage_departments || []
+                manage_departments: item.manage_departments || [],
+                // 兼容字段
+                status: item.status || 'active'
             }));
 
             // 应用筛选条件
-            let filteredData = apiData.filter(user => {
-                if (memberSearchForm.name && !user.name.includes(memberSearchForm.name)) return false;
-                if (memberSearchForm.status && user.status !== memberSearchForm.status) return false;
+            let filteredData = apiData.filter((user) => {
+                if (memberSearchForm.name && !user.name?.includes(memberSearchForm.name)) return false;
+                if (memberSearchForm.status && (user.status || 'active') !== memberSearchForm.status) return false;
                 return true;
             });
 
@@ -1043,6 +1046,7 @@ const getMemberData = async () => {
                 political_status: '中共党员',
                 id_number: '223456781234567810',
                 department: currentDepartment.value.name || '技术部',
+                invite_code: 'INV2010',
                 points: 85,
                 is_super_admin: false,
                 edit_text: true,
@@ -1058,6 +1062,7 @@ const getMemberData = async () => {
                 political_status: '共青团员',
                 id_number: '223456781234567811',
                 department: currentDepartment.value.name || '技术部',
+                invite_code: 'INV2011',
                 points: 92,
                 is_super_admin: false,
                 edit_text: true,
@@ -1073,6 +1078,7 @@ const getMemberData = async () => {
                 political_status: '群众',
                 id_number: '223456781234567812',
                 department: currentDepartment.value.name || '技术部',
+                invite_code: 'INV2012',
                 points: 0,
                 is_super_admin: false,
                 edit_text: false,
@@ -1082,8 +1088,9 @@ const getMemberData = async () => {
         ];
 
         // 应用筛选条件
-        let filteredData = mockData.filter(user => {
-            if (memberSearchForm.name && !user.name.includes(memberSearchForm.name)) return false;
+        let filteredData = mockData.filter((user) => {
+            if (memberSearchForm.name && !user.name?.includes(memberSearchForm.name)) return false;
+            if (memberSearchForm.status && (user.status || 'active') !== memberSearchForm.status) return false;
             return true;
         });
 
@@ -1326,10 +1333,22 @@ const handleMemberSubmit = async () => {
             // 生成新的邀请码
             const newUser: DepartmentUser = {
                 id: Date.now(),
+                wx_id: '',
                 name: memberFormData.name,
+                sex: '男',
+                race: '汉族',
+                political_status: '群众',
+                id_number: '',
+                department: currentDepartment.value!.name,
+                invite_code: 'INV' + Date.now().toString().slice(-6),
+                points: 0,
+                is_super_admin: false,
+                edit_text: false,
+                edit_question: false,
+                manage_departments: [],
+                // 兼容字段
                 email: memberFormData.email,
                 phone: memberFormData.phone,
-                invitationCode: 'INV' + Date.now().toString().slice(-6),
                 status: 'active',
                 departmentId: currentDepartment.value!.id,
                 departmentName: currentDepartment.value!.name,

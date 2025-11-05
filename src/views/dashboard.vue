@@ -49,7 +49,8 @@
                                     </div>
                                     <el-radio-group v-model="chartView" size="small">
                                         <el-radio-button value="both">全部显示</el-radio-button>
-                                        <el-radio-button value="ranking">排行榜</el-radio-button>
+                                        <el-radio-button value="ranking">用户排行</el-radio-button>
+                                        <el-radio-button value="schools">学校排行</el-radio-button>
                                         <el-radio-button value="trend">趋势图</el-radio-button>
                                     </el-radio-group>
                                 </div>
@@ -65,6 +66,19 @@
                                         </el-button>
                                     </div>
                                     <div ref="rankingChart" class="chart-container ranking-chart"></div>
+                                </div>
+                            </div>
+
+                            <div class="chart-content" v-show="chartView === 'both' || chartView === 'schools'">
+                                <div class="chart-item">
+                                    <div class="chart-item-header">
+                                        <h3>学校积分排行榜</h3>
+                                        <el-button type="primary" size="small" @click="refreshSchoolRanking" :loading="schoolRankingLoading">
+                                            <el-icon><Refresh /></el-icon>
+                                            刷新
+                                        </el-button>
+                                    </div>
+                                    <div ref="schoolRankingChart" class="chart-container school-ranking-chart"></div>
                                 </div>
                             </div>
 
@@ -189,7 +203,7 @@ import { User, ChatDotRound, Goods, ShoppingBag, TrendCharts, Refresh } from '@e
 import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts';
 import countup from '@/components/countup.vue';
-import { getTopUsers, getRecentPointRecords, getQuestionNum, getRichTextNum, getUserNum } from '@/api/dashboard';
+import { getTopUsers, getRecentPointRecords, getQuestionNum, getRichTextNum, getUserNum, getTopSchools } from '@/api/dashboard';
 
 const activities = [
     {
@@ -222,6 +236,11 @@ const activities = [
 const rankingChart = ref();
 let chartInstance: echarts.ECharts | null = null;
 const rankingLoading = ref(false);
+
+// 学校积分排名图相关
+const schoolRankingChart = ref();
+let schoolRankingChartInstance: echarts.ECharts | null = null;
+const schoolRankingLoading = ref(false);
 
 // 积分趋势图相关
 const trendChart = ref();
@@ -730,11 +749,212 @@ const refreshTrend = () => {
     fetchTrendData();
 };
 
+// 获取学校积分排行榜数据
+const fetchSchoolRankingData = async () => {
+    schoolRankingLoading.value = true;
+    try {
+        const response = await getTopSchools();
+        const data = response.data?.data || response.data || [];
+
+        if (Array.isArray(data) && data.length > 0) {
+            // 处理数据，按积分降序排列
+            const sortedData = data.sort((a: any, b: any) => b.total_points - a.total_points);
+
+            // 提取学校名和积分
+            const schoolRankingData = sortedData.map((item: any) => ({
+                name: item.school?.name || '未知学校',
+                points: item.total_points || 0
+            }));
+
+            initSchoolRankingChart(schoolRankingData);
+        } else {
+            // 如果没有数据，显示空数据图表
+            initEmptySchoolChart();
+        }
+    } catch (error) {
+        console.error('获取学校排行榜数据失败:', error);
+        ElMessage.error('获取学校排行榜数据失败');
+        initEmptySchoolChart();
+    } finally {
+        schoolRankingLoading.value = false;
+    }
+};
+
+// 初始化学校排行榜图表
+const initSchoolRankingChart = (data: Array<{ name: string; points: number }>) => {
+    if (!schoolRankingChart.value) return;
+
+    // 如果已存在图表实例，先销毁
+    if (schoolRankingChartInstance) {
+        schoolRankingChartInstance.dispose();
+    }
+
+    // 创建图表实例
+    schoolRankingChartInstance = echarts.init(schoolRankingChart.value);
+
+    // 准备图表数据
+    const names = data.map(item => item.name);
+    const points = data.map(item => item.points);
+
+    // 图表配置
+    const option = {
+        title: {
+            text: '学校积分排行榜',
+            left: 'center',
+            textStyle: {
+                fontSize: 18,
+                fontWeight: 'bold',
+                color: '#333'
+            }
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'shadow'
+            },
+            formatter: function(params: any) {
+                const data = params[0];
+                return `<div style="font-weight: bold;">${data.name}</div>
+                        <div style="color: #409eff;">积分：${data.value} 分</div>
+                        <div style="color: #909399;">排名：第 ${data.dataIndex + 1} 名</div>`;
+            }
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            top: '15%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'category',
+            data: names,
+            axisLabel: {
+                interval: 0,
+                rotate: 45,
+                fontSize: 12,
+                color: '#666'
+            },
+            axisLine: {
+                lineStyle: {
+                    color: '#ddd'
+                }
+            }
+        },
+        yAxis: {
+            type: 'value',
+            name: '积分',
+            nameTextStyle: {
+                color: '#666',
+                fontSize: 14
+            },
+            axisLabel: {
+                color: '#666',
+                fontSize: 12
+            },
+            splitLine: {
+                lineStyle: {
+                    color: '#f0f0f0',
+                    type: 'dashed'
+                }
+            }
+        },
+        series: [
+            {
+                name: '积分',
+                type: 'bar',
+                data: points,
+                itemStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#87CEEB' },
+                        { offset: 0.5, color: '#4682B4' },
+                        { offset: 1, color: '#4682B4' }
+                    ]),
+                    borderRadius: [4, 4, 0, 0]
+                },
+                emphasis: {
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#5F9EA0' },
+                            { offset: 0.7, color: '#5F9EA0' },
+                            { offset: 1, color: '#87CEEB' }
+                        ])
+                    }
+                },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: '{c}',
+                    color: '#4682B4',
+                    fontSize: 12,
+                    fontWeight: 'bold'
+                }
+            }
+        ]
+    };
+
+    // 设置图表配置
+    schoolRankingChartInstance.setOption(option);
+
+    // 响应式处理
+    window.addEventListener('resize', handleSchoolRankingResize);
+};
+
+// 初始化空数据学校图表
+const initEmptySchoolChart = () => {
+    if (!schoolRankingChart.value) return;
+
+    if (schoolRankingChartInstance) {
+        schoolRankingChartInstance.dispose();
+    }
+
+    schoolRankingChartInstance = echarts.init(schoolRankingChart.value);
+
+    const option = {
+        title: {
+            text: '学校积分排行榜',
+            left: 'center',
+            textStyle: {
+                fontSize: 18,
+                fontWeight: 'bold',
+                color: '#333'
+            }
+        },
+        graphic: [
+            {
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: {
+                    text: '暂无学校排行榜数据',
+                    fontSize: 16,
+                    fill: '#999'
+                }
+            }
+        ]
+    };
+
+    schoolRankingChartInstance.setOption(option);
+};
+
+// 窗口大小改变时重新调整学校排名图表
+const handleSchoolRankingResize = () => {
+    if (schoolRankingChartInstance) {
+        schoolRankingChartInstance.resize();
+    }
+};
+
+// 刷新学校排行榜
+const refreshSchoolRanking = () => {
+    fetchSchoolRankingData();
+};
+
 // 组件挂载后初始化图表
 onMounted(() => {
     nextTick(() => {
         fetchStatistics();
         fetchRankingData();
+        fetchSchoolRankingData();
         fetchTrendData();
     });
 });
@@ -744,10 +964,14 @@ onUnmounted(() => {
     if (chartInstance) {
         chartInstance.dispose();
     }
+    if (schoolRankingChartInstance) {
+        schoolRankingChartInstance.dispose();
+    }
     if (trendChartInstance) {
         trendChartInstance.dispose();
     }
     window.removeEventListener('resize', handleResize);
+    window.removeEventListener('resize', handleSchoolRankingResize);
     window.removeEventListener('resize', handleTrendResize);
 });
 </script>
@@ -935,6 +1159,10 @@ onUnmounted(() => {
 }
 
 .trend-chart {
+    height: 350px;
+}
+
+.school-ranking-chart {
     height: 350px;
 }
 

@@ -58,3 +58,11 @@ export const getUserNum = () => {
         method: 'get'
     });
 };
+
+// 获取学校积分排名
+export const getTopSchools = () => {
+    return request({
+        url: '/dashboard/top_schools',
+        method: 'get'
+    });
+};
