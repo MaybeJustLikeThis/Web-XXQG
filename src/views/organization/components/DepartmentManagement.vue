@@ -243,7 +243,7 @@
                         <el-table-column prop="sex" label="性别" width="60" />
                         <el-table-column prop="race" label="民族" width="80" />
                         <el-table-column prop="political_status" label="政治面貌" width="100" />
-                        <el-table-column prop="id_number" label="身份证号" width="180" show-overflow-tooltip />
+                        <el-table-column prop="id_number" label="手机号" width="180" show-overflow-tooltip />
                         <el-table-column prop="department" label="部门" width="120" />
                         <el-table-column prop="wx_id" label="微信ID" min-width="150" show-overflow-tooltip />
                         <el-table-column prop="invite_code" label="邀请码" width="120" show-overflow-tooltip>
