@@ -119,7 +119,7 @@ export const addSubjectDepartment = (data: AddSubjectDepartmentParams) => {
 export const deleteSubjectDepartment = (data: DeleteSubjectDepartmentParams) => {
     return request({
         url: '/subject/delete_department',
-        method: 'delete',
+        method: 'post',
         data
     });
 };

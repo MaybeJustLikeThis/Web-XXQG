@@ -199,40 +199,110 @@
 
                 <!-- 部门管理 -->
                 <el-tab-pane label="部门管理" name="departments">
-                    <div class="content-management">
-                        <div class="search-box">
-                            <el-input v-model="departmentSearch" placeholder="搜索部门" class="search-input"
-                                @keyup.enter="searchDepartments" clearable>
-                                <template #prefix>
-                                    <el-icon>
-                                        <Search />
-                                    </el-icon>
-                                </template>
-                            </el-input>
-                            <el-button type="primary" @click="showAddDepartmentDialog" style="margin-left: 10px;">
-                                添加部门
-                            </el-button>
+                    <div class="content-management" v-loading="refreshingData" element-loading-text="正在刷新数据...">
+                        <!-- 第一部分：专题应用状态 -->
+                        <div class="department-status-section">
+                            <div class="status-header">
+                                <h3 class="section-title">
+                                    <el-icon><OfficeBuilding /></el-icon>
+                                    专题应用状态
+                                </h3>
+                            </div>
+
+                            <!-- 已应用部门 -->
+                            <div class="applied-departments-section" v-if="appliedDepartments.length > 0">
+                                <div class="subsection-title">
+                                    <el-icon><Check /></el-icon>
+                                    已应用于 {{ appliedDepartments.length }} 个部门：
+                                </div>
+                                <div class="applied-departments-list">
+                                    <el-tag
+                                        v-for="dept in appliedDepartments"
+                                        :key="dept.id"
+                                        type="success"
+                                        size="default"
+                                        class="applied-dept-tag"
+                                        effect="light">
+                                        <el-icon class="tag-icon"><OfficeBuilding /></el-icon>
+                                        <span class="dept-full-path">{{ dept.fullPath }}</span>
+                                        <span class="dept-description" v-if="dept.description">（{{ dept.description }}）</span>
+                                    </el-tag>
+                                </div>
+                            </div>
+
+                            <!-- 未应用部门提示 -->
+                            <div class="no-applied-departments" v-else>
+                                <el-empty description="此专题尚未应用于任何部门" :image-size="80">
+                                    <el-button type="primary" @click="showAddDepartmentDialog">立即设置应用部门</el-button>
+                                </el-empty>
+                            </div>
                         </div>
-                        <el-table :data="availableDepartments" max-height="500">
-                            <el-table-column prop="name" label="部门名称" show-overflow-tooltip min-width="200"></el-table-column>
-                            <el-table-column prop="description" label="描述" show-overflow-tooltip min-width="150"></el-table-column>
-                            <el-table-column label="状态" width="100" align="center">
-                                <template #default="scope">
-                                    <el-tag type="success" size="small">已关联</el-tag>
-                                </template>
-                            </el-table-column>
-                            <el-table-column label="操作" width="120" align="center">
-                                <template #default="scope">
-                                    <el-button type="danger" size="small" @click="handleRemoveDepartment(scope.row)">
-                                        移除
-                                    </el-button>
-                                </template>
-                            </el-table-column>
-                        </el-table>
-                        <div class="pagination">
-                            <el-pagination background layout="total, prev, pager, next" :current-page="departmentPage"
-                                :page-size="departmentPageSize" :total="departmentTotal"
-                                @current-change="handleDepartmentPageChange" />
+
+                        <!-- 第二部分：部门关系管理 -->
+                        <div class="department-management-section">
+                            <div class="management-header">
+                                <h3 class="section-title">
+                                    <el-icon><Setting /></el-icon>
+                                    部门关系管理
+                                    <el-tag type="info" size="small" style="margin-left: 8px;">
+                                        已关联 {{ departmentTotal }} 个部门
+                                    </el-tag>
+                                </h3>
+                                <el-button type="primary" @click="showAddDepartmentDialog">
+                                    <el-icon><Plus /></el-icon>
+                                    添加部门关联
+                                </el-button>
+                            </div>
+
+                            <div class="search-box">
+                                <el-input v-model="departmentSearch" placeholder="搜索部门" class="search-input"
+                                    @keyup.enter="searchDepartments" clearable>
+                                    <template #prefix>
+                                        <el-icon>
+                                            <Search />
+                                        </el-icon>
+                                    </template>
+                                </el-input>
+                            </div>
+
+                            <div class="table-container" v-if="availableDepartments.length > 0">
+                                <el-table :data="availableDepartments" max-height="400">
+                                    <el-table-column prop="name" label="部门名称" show-overflow-tooltip min-width="250">
+                                        <template #default="scope">
+                                            <div class="department-name-cell">
+                                                <el-icon class="dept-icon"><OfficeBuilding /></el-icon>
+                                                <span>{{ scope.row.fullPath }}</span>
+                                            </div>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="description" label="描述" show-overflow-tooltip min-width="150"></el-table-column>
+                                    <el-table-column label="关联状态" width="120" align="center">
+                                        <template #default="scope">
+                                            <el-tag type="success" size="small" effect="light">
+                                                <el-icon><Link /></el-icon>
+                                                已关联
+                                            </el-tag>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="操作" width="120" align="center">
+                                        <template #default="scope">
+                                            <el-button type="danger" size="small" @click="handleRemoveDepartment(scope.row)">
+                                                <el-icon><Delete /></el-icon>
+                                                移除
+                                            </el-button>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                                <div class="pagination">
+                                    <el-pagination background layout="total, prev, pager, next" :current-page="departmentPage"
+                                        :page-size="departmentPageSize" :total="departmentTotal"
+                                        @current-change="handleDepartmentPageChange" />
+                                </div>
+                            </div>
+
+                            <div class="no-data" v-else>
+                                <el-empty description="暂无关联部门" :image-size="60"></el-empty>
+                            </div>
                         </div>
                     </div>
                 </el-tab-pane>
@@ -246,21 +316,22 @@
         </el-dialog>
 
         <!-- 添加部门弹窗 -->
-        <el-dialog title="添加部门到专题" v-model="addDepartmentDialogVisible" width="40%" destroy-on-close>
+        <el-dialog title="添加部门到专题" v-model="addDepartmentDialogVisible" width="50%" destroy-on-close>
             <el-form ref="addDepartmentFormRef" :model="addDepartmentForm" label-width="100px">
                 <el-form-item label="选择部门" prop="department_id"
                     :rules="[{ required: true, message: '请选择部门', trigger: 'change' }]">
-                    <el-select v-model="addDepartmentForm.department_id" placeholder="请选择部门"
-                        style="width: 100%;" filterable>
-                        <el-option
-                            v-for="dept in allDepartments"
-                            :key="dept.id"
-                            :label="dept.name"
-                            :value="dept.id">
-                            <span style="float: left">{{ dept.name }}</span>
-                            <span style="float: right; color: #8492a6; font-size: 13px">{{ dept.description || '无描述' }}</span>
-                        </el-option>
-                    </el-select>
+                    <el-tree-select
+                        v-model="addDepartmentForm.department_id"
+                        :data="departmentTreeOptions"
+                        :props="departmentTreeProps"
+                        placeholder="请选择部门"
+                        style="width: 100%;"
+                        filterable
+                        check-strictly
+                        :render-after-expand="false"
+                        :default-expanded-keys="[]"
+                        node-key="id"
+                    />
                 </el-form-item>
             </el-form>
             <template #footer>
@@ -276,7 +347,7 @@
 <script setup lang="ts" name="topics">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search, Document, Clock } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search, Document, Clock, OfficeBuilding, Check, Setting, Link } from '@element-plus/icons-vue';
 import type { Topic } from '@/types/content';
 import { getSubjects, updateSubject, addSubject, deleteSubject, addSubjectDepartment, deleteSubjectDepartment } from '@/api/subject';
 import { getAllArticles } from '@/api/article';
@@ -378,6 +449,7 @@ const departmentPage = ref(1);
 const departmentPageSize = ref(10);
 const departmentTotal = ref(0);
 const availableDepartments = ref<any[]>([]);
+const appliedDepartments = ref<any[]>([]); // 当前专题应用的部门详情
 
 // 添加部门弹窗
 const addDepartmentDialogVisible = ref(false);
@@ -386,6 +458,17 @@ const addDepartmentForm = reactive({
 });
 const addDepartmentFormRef = ref();
 const allDepartments = ref<any[]>([]);
+
+// 部门树配置
+const departmentTreeOptions = ref<any[]>([]);
+const departmentTreeProps = {
+    children: 'children',
+    label: 'name',
+    value: 'id'
+};
+
+// 数据刷新loading状态
+const refreshingData = ref(false);
 
 // 获取专题列表
 const getTopics = async () => {
@@ -404,6 +487,7 @@ const getTopics = async () => {
                 status: item.status,
                 begin_time: item.begin_time,
                 end_time: item.end_time,
+                applied_departments_id: item.applied_departments_id || [],
             }));
 
             // 按ID倒序排列（最新在前）
@@ -415,6 +499,70 @@ const getTopics = async () => {
     } catch (error) {
         ElMessage.error('获取专题列表失败');
         console.error('获取专题列表失败:', error);
+    }
+};
+
+// 刷新当前专题数据
+const refreshTopicData = async () => {
+    if (!currentTopic.value) return;
+
+    try {
+        refreshingData.value = true;
+
+        const res = await getSubjects();
+        const data = res.data.data || res.data;
+
+        if (data && Array.isArray(data)) {
+            const updatedTopic = data.find((item: any) => item.id.toString() === currentTopic.value!.id.toString());
+            if (updatedTopic) {
+                // 更新当前专题数据
+                currentTopic.value.applied_departments_id = updatedTopic.applied_departments_id || [];
+                currentTopic.value.texts = updatedTopic.texts || [];
+                currentTopic.value.question_list = updatedTopic.question_list || [];
+                currentTopic.value.status = updatedTopic.status;
+                currentTopic.value.begin_time = updatedTopic.begin_time;
+                currentTopic.value.end_time = updatedTopic.end_time;
+
+                // 同时更新表格中的对应数据
+                const topicIndex = tableData.value.findIndex((item: any) => item.id === currentTopic.value!.id.toString());
+                if (topicIndex !== -1) {
+                    tableData.value[topicIndex] = {
+                        ...tableData.value[topicIndex],
+                        applied_departments_id: updatedTopic.applied_departments_id || [],
+                        texts: updatedTopic.texts || [],
+                        question_list: updatedTopic.question_list || [],
+                        status: updatedTopic.status,
+                        begin_time: updatedTopic.begin_time,
+                        end_time: updatedTopic.end_time
+                    };
+                }
+
+                // 重新获取应用部门列表
+                await getAppliedDepartments();
+            }
+        }
+    } catch (error) {
+        console.error('刷新专题数据失败:', error);
+        ElMessage.error('刷新数据失败，请稍后重试');
+    } finally {
+        refreshingData.value = false;
+    }
+};
+
+// 通用操作后刷新数据
+const refreshAfterOperation = async (operation: string) => {
+    try {
+        refreshingData.value = true;
+        console.log(`执行${operation}操作后刷新数据...`);
+
+        // 刷新当前专题数据
+        await refreshTopicData();
+
+        console.log(`${operation}操作后数据刷新完成`);
+    } catch (error) {
+        console.error(`${operation}操作后刷新数据失败:`, error);
+    } finally {
+        refreshingData.value = false;
     }
 };
 
@@ -575,6 +723,7 @@ const handleManageContent = async (row: any) => {
     await getAvailableArticles();
     await getAvailableQuestions();
     await getAvailableDepartments();
+    await getAppliedDepartments(); // 获取专题应用的部门
     await getAllDepartmentsList();
 
     // 设置已选状态
@@ -687,15 +836,61 @@ const handleQuestionPageChange = async (val: number) => {
     await getAvailableQuestions();
 };
 
-// 获取专题关联的部门列表
+// 获取专题关联的部门列表（用于管理操作）
 const getAvailableDepartments = async () => {
     try {
-        // 这里应该调用获取专题关联部门的接口，暂时模拟数据
-        availableDepartments.value = currentTopic.value?.departments || [];
+        if (!currentTopic.value || !currentTopic.value.applied_departments_id || currentTopic.value.applied_departments_id.length === 0) {
+            availableDepartments.value = [];
+            departmentTotal.value = 0;
+            return;
+        }
+
+        // 获取所有部门，筛选出当前专题应用的部门
+        const res = await getAllDepartments();
+        const allDepts = res.data.data || res.data || [];
+
+        // 筛选出当前专题应用的部门
+        const appliedDeptIds = currentTopic.value.applied_departments_id;
+        const appliedDepts = allDepts.filter((dept: any) => appliedDeptIds.includes(dept.id));
+
+        // 为每个部门添加完整路径信息
+        availableDepartments.value = appliedDepts.map((dept: any) => ({
+            ...dept,
+            fullPath: buildDepartmentPath(dept, allDepts)
+        }));
         departmentTotal.value = availableDepartments.value.length;
     } catch (error) {
-        ElMessage.error('获取部门列表失败');
-        console.error('获取部门列表失败:', error);
+        ElMessage.error('获取关联部门列表失败');
+        console.error('获取关联部门列表失败:', error);
+        availableDepartments.value = [];
+        departmentTotal.value = 0;
+    }
+};
+
+// 获取专题应用的部门详情
+const getAppliedDepartments = async () => {
+    if (!currentTopic.value || !currentTopic.value.applied_departments_id || currentTopic.value.applied_departments_id.length === 0) {
+        appliedDepartments.value = [];
+        return;
+    }
+
+    try {
+        const res = await getAllDepartments();
+        const allDepts = res.data.data || res.data || [];
+
+        // 筛选出当前专题应用的部门
+        const appliedDeptIds = currentTopic.value.applied_departments_id;
+        const appliedDepts = allDepts.filter((dept: any) => appliedDeptIds.includes(dept.id));
+
+        // 为每个应用部门添加完整路径
+        appliedDepartments.value = appliedDepts.map((dept: any) => ({
+            ...dept,
+            fullPath: buildDepartmentPath(dept, allDepts)
+        }));
+    } catch (error) {
+        ElMessage.error('获取应用部门列表失败');
+        console.error('获取应用部门列表失败:', error);
+        appliedDepartments.value = [];
     }
 };
 
@@ -705,10 +900,80 @@ const getAllDepartmentsList = async () => {
         const res = await getAllDepartments();
         const data = res.data.data || res.data;
         allDepartments.value = data || [];
+
+        // 构建部门树结构
+        departmentTreeOptions.value = buildDepartmentTree(allDepartments.value);
     } catch (error) {
         ElMessage.error('获取所有部门列表失败');
         console.error('获取所有部门列表失败:', error);
     }
+};
+
+// 构建部门树结构
+const buildDepartmentTree = (departments: any[]): any[] => {
+    if (!Array.isArray(departments)) return [];
+
+    const map = new Map<number, any>();
+    const tree: any[] = [];
+
+    // 创建映射
+    departments.forEach(dept => {
+        map.set(dept.id, {
+            ...dept,
+            children: [],
+            name: dept.name || '未命名部门'
+        });
+    });
+
+    // 构建树
+    departments.forEach(dept => {
+        const node = map.get(dept.id)!;
+        const parentId = dept.parent_department_id;
+
+        if (parentId === -1 || parentId === null || parentId === 0) {
+            // 根节点
+            tree.push(node);
+        } else {
+            // 子节点
+            const parent = map.get(parentId);
+            if (parent) {
+                parent.children.push(node);
+            } else {
+                // 如果找不到父节点，作为根节点
+                tree.push(node);
+            }
+        }
+    });
+
+    return tree;
+};
+
+// 构建部门完整层级路径
+const buildDepartmentPath = (department: any, allDepartments: any[]): string => {
+    if (!department || !allDepartments || allDepartments.length === 0) {
+        return department?.name || '未知部门';
+    }
+
+    const path: string[] = [];
+    let currentDept = department;
+    const deptMap = new Map(allDepartments.map(dept => [dept.id, dept]));
+
+    // 向上追溯父级部门
+    while (currentDept) {
+        path.unshift(currentDept.name || '未命名部门');
+
+        const parentId = currentDept.parent_department_id;
+        if (parentId === -1 || parentId === null || parentId === 0) {
+            break;
+        }
+
+        currentDept = deptMap.get(parentId);
+        if (!currentDept) {
+            break;
+        }
+    }
+
+    return path.join(' / ');
 };
 
 // 搜索部门
@@ -746,6 +1011,9 @@ const handleAddDepartment = async () => {
         ElMessage.success('部门添加成功');
         addDepartmentDialogVisible.value = false;
 
+        // 刷新专题数据以获取最新的 applied_departments_id
+        await refreshAfterOperation('添加部门');
+
         // 刷新部门列表
         await getAvailableDepartments();
     } catch (error) {
@@ -773,12 +1041,11 @@ const handleRemoveDepartment = async (department: any) => {
 
         ElMessage.success('部门移除成功');
 
-        // 从列表中移除
-        const index = availableDepartments.value.findIndex((dept: any) => dept.id === department.id);
-        if (index !== -1) {
-            availableDepartments.value.splice(index, 1);
-            departmentTotal.value = availableDepartments.value.length;
-        }
+        // 刷新专题数据以获取最新的 applied_departments_id
+        await refreshAfterOperation('移除部门');
+
+        // 刷新部门列表
+        await getAvailableDepartments();
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error('移除部门失败');
@@ -849,6 +1116,9 @@ const saveTopicContent = async () => {
 
         ElMessage.success('内容保存成功');
         contentDialogVisible.value = false;
+
+        // 刷新专题数据以确保获取最新的状态
+        await refreshAfterOperation('保存专题内容');
     } catch (error) {
         ElMessage.error('保存失败');
         console.error('保存专题内容失败:', error);
@@ -1131,5 +1401,219 @@ onMounted(async () => {
 /* 暗色模式下的表单提示 */
 :root.dark .form-tip {
     color: var(--text-muted, #6c6e72);
+}
+
+/* 部门树选择器样式 */
+:deep(.el-tree-select) {
+    width: 100%;
+}
+
+:deep(.el-tree-select .el-select__wrapper) {
+    min-height: 32px;
+}
+
+/* 暗色模式下的树选择器 */
+:root.dark :deep(.el-tree-select .el-select__wrapper) {
+    background-color: var(--el-fill-color-blank, #1a1a1a);
+    border-color: var(--el-border-color, #4c4d4f);
+}
+
+:root.dark :deep(.el-tree-select .el-select__wrapper:hover) {
+    border-color: var(--el-color-primary, #409eff);
+}
+
+:root.dark :deep(.el-tree-select.is-focus .el-select__wrapper) {
+    border-color: var(--el-color-primary, #409eff);
+}
+
+/* 树形下拉面板样式 */
+:deep(.el-select-dropdown) {
+    max-height: 400px;
+}
+
+:deep(.el-tree) {
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+/* 树节点缩进优化 */
+:deep(.el-tree-node__content) {
+    padding-left: 10px;
+}
+
+:deep(.el-tree-node__expand-icon) {
+    padding: 6px;
+}
+
+/* 节点名称样式 */
+:deep(.el-tree-node__label) {
+    font-size: 14px;
+    color: var(--text-primary, #1f2937);
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的节点名称 */
+:root.dark :deep(.el-tree-node__label) {
+    color: var(--text-primary, #e5eaf3);
+}
+
+:deep(.el-tree-node__content:hover .el-tree-node__label) {
+    color: var(--el-color-primary, #409eff);
+}
+
+/* 部门管理新排版样式 */
+.department-status-section,
+.department-management-section {
+    margin-bottom: 24px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--el-border-color-lighter, #e9ecef);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的区域 */
+:root.dark .department-status-section,
+:root.dark .department-management-section {
+    background: var(--card-bg, #1a1a1a);
+    border-color: var(--el-border-color, #4c4d4f);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-header,
+.management-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--el-border-color-lighter, #e9ecef);
+}
+
+/* 暗色模式下的头部边框 */
+:root.dark .status-header,
+:root.dark .management-header {
+    border-bottom-color: var(--el-border-color, #4c4d4f);
+}
+
+.section-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary, #1f2937);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的标题 */
+:root.dark .section-title {
+    color: var(--text-primary, #e5eaf3);
+}
+
+.subsection-title {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary, #606266);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的子标题 */
+:root.dark .subsection-title {
+    color: var(--text-secondary, #a3a6ad);
+}
+
+.applied-departments-section {
+    padding: 16px;
+    background-color: var(--el-color-success-light-9, #f0f9ff);
+    border-radius: 6px;
+    border: 1px solid var(--el-color-success-light-7, #b3d8ff);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的应用部门区域 */
+:root.dark .applied-departments-section {
+    background-color: var(--el-color-success-light-9, #1a3a1a);
+    border-color: var(--el-color-success-light-7, #2d5a2d);
+}
+
+.applied-departments-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.applied-dept-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    font-weight: 500;
+    border-radius: 4px;
+    background-color: var(--el-color-success-light-8, #e8f5e8);
+    border-color: var(--el-color-success-light-6, #95d692);
+    color: var(--el-color-success, #67c23a);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的标签 */
+:root.dark .applied-dept-tag {
+    background-color: var(--el-color-success-light-9, #1e3e1e);
+    border-color: var(--el-color-success-light-7, #2d5a2d);
+}
+
+.applied-dept-tag:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(103, 194, 58, 0.2);
+}
+
+.no-applied-departments {
+    text-align: center;
+    padding: 20px;
+}
+
+.table-container {
+    margin-top: 16px;
+}
+
+.department-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dept-icon {
+    color: var(--el-color-primary, #409eff);
+    font-size: 16px;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.tag-icon {
+    font-size: 14px;
+}
+
+.dept-full-path {
+    font-weight: 500;
+}
+
+.dept-description {
+    font-size: 12px;
+    opacity: 0.8;
+    font-weight: normal;
+}
+
+/* 搜索框样式调整 */
+.search-box {
+    margin-bottom: 16px;
 }
 </style>
