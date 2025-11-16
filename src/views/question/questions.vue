@@ -317,11 +317,65 @@ const form = reactive({
 });
 
 // 表单验证规则
-const rules = {
-    'detail.title': [{ required: true, message: '请输入题目标题', trigger: 'blur' }],
-    type: [{ required: true, message: '请选择题型', trigger: 'change' }],
-    points: [{ required: true, message: '请输入分值', trigger: 'blur' }],
-};
+const rules = computed(() => {
+    const baseRules = {
+        'detail.title': [{ required: true, message: '请输入题目标题', trigger: 'blur' }],
+        type: [{ required: true, message: '请选择题型', trigger: 'change' }],
+    };
+
+    // 选择题需要验证答案
+    if (isChoiceQuestion.value) {
+        return {
+            ...baseRules,
+            'detail.standard_answer': [
+                {
+                    required: true,
+                    validator: (rule: any, value: any, callback: any) => {
+                        if (!value || (Array.isArray(value) && value.length === 0)) {
+                            callback(new Error('请选择正确答案'));
+                        } else {
+                            callback();
+                        }
+                    },
+                    trigger: 'change'
+                }
+            ],
+            'detail.options': [
+                {
+                    required: true,
+                    validator: (rule: any, value: any, callback: any) => {
+                        if (!value || !Array.isArray(value) || value.length < 2) {
+                            callback(new Error('至少需要2个选项'));
+                        } else if (value.some((opt: string) => !opt || !opt.trim())) {
+                            callback(new Error('所有选项都不能为空'));
+                        } else {
+                            callback();
+                        }
+                    },
+                    trigger: 'blur'
+                }
+            ]
+        };
+    }
+
+    // 简答题需要验证答案内容
+    return {
+        ...baseRules,
+        'detail.standard_answer': [
+            {
+                required: true,
+                validator: (rule: any, value: any, callback: any) => {
+                    if (!value || !Array.isArray(value) || value.length === 0 || !value[0] || !value[0].trim()) {
+                        callback(new Error('请输入正确答案'));
+                    } else {
+                        callback();
+                    }
+                },
+                trigger: 'blur'
+            }
+        ]
+    };
+});
 
 // 预览相关
 const previewQuestion = ref({
@@ -706,27 +760,46 @@ const submitForm = async () => {
             }
         }
 
+        // 确保标准答案格式正确
+        let standard_answer = form.detail.standard_answer;
+
+        // 对于单选题，确保只有一个答案
+        if (form.type === 1 && Array.isArray(standard_answer)) {
+            standard_answer = standard_answer.length > 0 ? [standard_answer[0]] : [];
+        }
+
+        // 对于多选题，确保答案去重
+        if (form.type === 2 && Array.isArray(standard_answer)) {
+            standard_answer = [...new Set(standard_answer)];
+        }
+
         // 构造提交数据，符合API要求的数据结构
-        const submitData = {
-            id: parseInt(form.id),
+        const submitData: any = {
             type: form.type,
             detail: {
                 title: form.detail.title,
                 options: form.detail.options,
                 fixed_answer: form.detail.fixed_answer,
-                standard_answer: form.detail.standard_answer,
+                standard_answer: standard_answer,
                 reference_answer: form.detail.reference_answer || undefined
             },
             public: form.public,
             status: form.status
         };
 
+        // 只有编辑时才添加id字段
+        if (form.id) {
+            submitData.id = parseInt(form.id);
+        }
+
   
         // 根据是否有ID判断是新增还是编辑
         if (form.id) {
+            console.log('提交编辑数据:', submitData);
             await editQuestion(submitData);
             ElMessage.success('更新成功');
         } else {
+            console.log('提交新增数据:', submitData);
             await addQuestion(submitData);
             ElMessage.success('创建成功');
         }
@@ -737,9 +810,12 @@ const submitForm = async () => {
             query.page = 0;
         }
         await getQuestions();
-    } catch (error) {
+    } catch (error: any) {
         if (error !== 'cancel') {
-            ElMessage.error(form.id ? '更新失败' : '创建失败');
+            console.error('提交失败:', error);
+            // 显示更详细的错误信息
+            const errorMessage = error.response?.data?.message || error.message || '操作失败';
+            ElMessage.error(form.id ? `更新失败: ${errorMessage}` : `创建失败: ${errorMessage}`);
         }
     }
 };

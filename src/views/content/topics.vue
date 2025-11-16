@@ -45,7 +45,7 @@
                     </el-table-column>
                     <el-table-column label="题目数量" width="100" align="center">
                         <template #default="scope">
-                            <el-tag type="warning" size="small">{{ scope.row.question_list?.length || 0 }}</el-tag>
+                            <el-tag type="warning" size="small">{{ scope.row.questions?.length || 0 }}</el-tag>
                         </template>
                     </el-table-column>
                     <el-table-column prop="status" label="状态" width="100" align="center">
@@ -137,6 +137,24 @@
                                     <el-tag v-else type="info" size="small">未添加</el-tag>
                                 </template>
                             </el-table-column>
+                            <el-table-column label="操作" width="120" align="center">
+                                <template #default="scope">
+                                    <el-button v-if="isArticleInTopic(scope.row)"
+                                        type="danger" size="small"
+                                        @click="removeArticleFromTopic(scope.row)"
+                                        :loading="articleOperations[scope.row.id]">
+                                        <el-icon><Delete /></el-icon>
+                                        移除
+                                    </el-button>
+                                    <el-button v-else
+                                        type="success" size="small"
+                                        @click="addArticleToTopic(scope.row)"
+                                        :loading="articleOperations[scope.row.id]">
+                                        <el-icon><Plus /></el-icon>
+                                        添加
+                                    </el-button>
+                                </template>
+                            </el-table-column>
                         </el-table>
                         <div class="pagination">
                             <el-pagination background layout="total, prev, pager, next" :current-page="articlePage"
@@ -186,6 +204,24 @@
                                     <el-tag v-if="isQuestionInTopic(scope.row.id)" type="success"
                                         size="small">已添加</el-tag>
                                     <el-tag v-else type="info" size="small">未添加</el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="操作" width="120" align="center">
+                                <template #default="scope">
+                                    <el-button v-if="isQuestionInTopic(scope.row.id)"
+                                        type="danger" size="small"
+                                        @click="removeQuestionFromTopic(scope.row)"
+                                        :loading="questionOperations[scope.row.id]">
+                                        <el-icon><Delete /></el-icon>
+                                        移除
+                                    </el-button>
+                                    <el-button v-else
+                                        type="success" size="small"
+                                        @click="addQuestionToTopic(scope.row)"
+                                        :loading="questionOperations[scope.row.id]">
+                                        <el-icon><Plus /></el-icon>
+                                        添加
+                                    </el-button>
                                 </template>
                             </el-table-column>
                         </el-table>
@@ -341,7 +377,8 @@
                 </span>
             </template>
         </el-dialog>
-    </div>
+
+      </div>
 </template>
 
 <script setup lang="ts" name="topics">
@@ -470,6 +507,10 @@ const departmentTreeProps = {
 // 数据刷新loading状态
 const refreshingData = ref(false);
 
+// 文章和题目操作loading状态
+const articleOperations = ref<Record<number, boolean>>({});
+const questionOperations = ref<Record<number, boolean>>({});
+
 // 获取专题列表
 const getTopics = async () => {
     try {
@@ -482,8 +523,8 @@ const getTopics = async () => {
                 id: item.id.toString(),
                 name: item.name,
                 creator: item.creator_name || '未知',
-                texts: item.texts || [],
-                question_list: item.question_list || [],
+                texts: (item.text_list || []).filter(id => id !== null && id !== undefined),        // 过滤掉null值
+                questions: (item.question_list || []).filter(id => id !== null && id !== undefined), // 过滤掉null值
                 status: item.status,
                 begin_time: item.begin_time,
                 end_time: item.end_time,
@@ -776,13 +817,49 @@ const getAvailableQuestions = async () => {
 // 判断文章是否在专题内
 const isArticleInTopic = (article: any) => {
     if (!currentTopic.value) return false;
-    return currentTopic.value.texts?.some((text: any) => text.id === article.id);
+
+    const texts = currentTopic.value.texts || [];
+    if (!Array.isArray(texts)) return false;
+
+    return texts.some((text: any) => {
+        // 处理对象格式：{ id: 1, ... }
+        if (typeof text === 'object' && text !== null && text.id !== undefined) {
+            return text.id === article.id;
+        }
+        // 处理ID数组格式：[1, 2, 3]
+        if (typeof text === 'number' || typeof text === 'string') {
+            return Number(text) === Number(article.id);
+        }
+        // 处理ID字符串格式：'1'
+        if (typeof text === 'string' && /^\d+$/.test(text)) {
+            return Number(text) === Number(article.id);
+        }
+        return false;
+    });
 };
 
 // 判断题目是否在专题内
 const isQuestionInTopic = (questionId: number) => {
     if (!currentTopic.value) return false;
-    return currentTopic.value.question_list?.some((question: any) => question.id === questionId);
+
+    const questionList = currentTopic.value.questions || []; // 使用映射后的questions字段
+    if (!Array.isArray(questionList)) return false;
+
+    return questionList.some((question: any) => {
+        // 处理对象格式：{ id: 1, ... }
+        if (typeof question === 'object' && question !== null && question.id !== undefined) {
+            return question.id === questionId;
+        }
+        // 处理ID数组格式：[1, 2, 3]
+        if (typeof question === 'number' || typeof question === 'string') {
+            return Number(question) === questionId;
+        }
+        // 处理ID字符串格式：'1'
+        if (typeof question === 'string' && /^\d+$/.test(question)) {
+            return Number(question) === questionId;
+        }
+        return false;
+    });
 };
 
 // 设置文章选择状态
@@ -1163,6 +1240,294 @@ const getQuestionTypeColor = (type: number) => {
         3: 'warning'
     };
     return colors[type] || 'info';
+};
+
+// ================== 文章管理功能 ==================
+
+// 添加文章到专题
+const addArticleToTopic = async (article: any) => {
+    if (!currentTopic.value) return;
+
+    try {
+        articleOperations.value[article.id] = true;
+
+        const currentArticles = currentTopic.value.texts || [];
+        const isAlreadyAdded = currentArticles.some((text: any) => {
+            // 处理数字ID格式
+            if (typeof text === 'number' || (typeof text === 'string' && /^\d+$/.test(text))) {
+                return Number(text) === Number(article.id);
+            }
+            // 处理对象格式 {id: xxx}
+            if (typeof text === 'object' && text !== null && text.id !== undefined) {
+                return Number(text.id) === Number(article.id);
+            }
+            return false;
+        });
+
+        if (isAlreadyAdded) {
+            ElMessage.warning('文章已在专题中');
+            return;
+        }
+
+        // 保持数据格式一致：使用纯数字ID数组
+        const updatedArticles = [...currentArticles, article.id];
+
+        await updateSubject({
+            id: Number(currentTopic.value.id),
+            name: currentTopic.value.name,
+            begin_time: currentTopic.value.begin_time ?
+                Math.floor(new Date(currentTopic.value.begin_time).getTime() / 1000) : 0,
+            end_time: currentTopic.value.end_time ?
+                Math.floor(new Date(currentTopic.value.end_time).getTime() / 1000) : 0,
+            question_list: (currentTopic.value.questions || []).map((q: any) => {
+                // 处理题目ID格式
+                if (typeof q === 'number' || (typeof q === 'string' && /^\d+$/.test(q))) {
+                    return Number(q);
+                }
+                if (typeof q === 'object' && q !== null && q.id !== undefined) {
+                    return Number(q.id);
+                }
+                return Number(q);
+            }),
+            text_list: updatedArticles.map((t: any) => {
+                // 处理文章ID格式
+                if (typeof t === 'number' || (typeof t === 'string' && /^\d+$/.test(t))) {
+                    return Number(t);
+                }
+                if (typeof t === 'object' && t !== null && t.id !== undefined) {
+                    return Number(t.id);
+                }
+                return Number(t);
+            })
+        });
+
+        // 更新当前专题数据
+        currentTopic.value.texts = updatedArticles;
+
+        // 更新表格数据
+        const topicIndex = tableData.value.findIndex((item: any) => item.id === currentTopic.value.id);
+        if (topicIndex !== -1) {
+            tableData.value[topicIndex].texts = updatedArticles;
+        }
+
+        ElMessage.success('文章添加成功');
+    } catch (error) {
+        ElMessage.error('添加文章失败');
+        console.error('添加文章失败:', error);
+    } finally {
+        articleOperations.value[article.id] = false;
+    }
+};
+
+// 从专题移除文章
+const removeArticleFromTopic = async (article: any) => {
+    if (!currentTopic.value) return;
+
+    try {
+        articleOperations.value[article.id] = true;
+
+        const currentArticles = currentTopic.value.texts || [];
+        const updatedArticles = currentArticles.filter((text: any) => {
+            // 处理数字ID格式
+            if (typeof text === 'number' || (typeof text === 'string' && /^\d+$/.test(text))) {
+                return Number(text) !== Number(article.id);
+            }
+            // 处理对象格式 {id: xxx}
+            if (typeof text === 'object' && text !== null && text.id !== undefined) {
+                return Number(text.id) !== Number(article.id);
+            }
+            return true; // 保留无法识别格式的数据
+        });
+
+        await updateSubject({
+            id: Number(currentTopic.value.id),
+            name: currentTopic.value.name,
+            begin_time: currentTopic.value.begin_time ?
+                Math.floor(new Date(currentTopic.value.begin_time).getTime() / 1000) : 0,
+            end_time: currentTopic.value.end_time ?
+                Math.floor(new Date(currentTopic.value.end_time).getTime() / 1000) : 0,
+            question_list: (currentTopic.value.questions || []).map((q: any) => {
+                // 处理题目ID格式
+                if (typeof q === 'number' || (typeof q === 'string' && /^\d+$/.test(q))) {
+                    return Number(q);
+                }
+                if (typeof q === 'object' && q !== null && q.id !== undefined) {
+                    return Number(q.id);
+                }
+                return Number(q);
+            }),
+            text_list: updatedArticles.map((t: any) => {
+                // 处理文章ID格式
+                if (typeof t === 'number' || (typeof t === 'string' && /^\d+$/.test(t))) {
+                    return Number(t);
+                }
+                if (typeof t === 'object' && t !== null && t.id !== undefined) {
+                    return Number(t.id);
+                }
+                return Number(t);
+            })
+        });
+
+        // 更新当前专题数据
+        currentTopic.value.texts = updatedArticles;
+
+        // 更新表格数据
+        const topicIndex = tableData.value.findIndex((item: any) => item.id === currentTopic.value.id);
+        if (topicIndex !== -1) {
+            tableData.value[topicIndex].texts = updatedArticles;
+        }
+
+        ElMessage.success('文章移除成功');
+    } catch (error) {
+        ElMessage.error('移除文章失败');
+        console.error('移除文章失败:', error);
+    } finally {
+        articleOperations.value[article.id] = false;
+    }
+};
+
+// ================== 题目管理功能 ==================
+
+// 添加题目到专题
+const addQuestionToTopic = async (question: any) => {
+    if (!currentTopic.value) return;
+
+    try {
+        questionOperations.value[question.id] = true;
+
+        const currentQuestions = currentTopic.value.questions || [];
+        const isAlreadyAdded = currentQuestions.some((q: any) => {
+            // 处理数字ID格式
+            if (typeof q === 'number' || (typeof q === 'string' && /^\d+$/.test(q))) {
+                return Number(q) === Number(question.id);
+            }
+            // 处理对象格式 {id: xxx}
+            if (typeof q === 'object' && q !== null && q.id !== undefined) {
+                return Number(q.id) === Number(question.id);
+            }
+            return false;
+        });
+
+        if (isAlreadyAdded) {
+            ElMessage.warning('题目已在专题中');
+            return;
+        }
+
+        // 保持数据格式一致：使用纯数字ID数组
+        const updatedQuestions = [...currentQuestions, question.id];
+
+        await updateSubject({
+            id: Number(currentTopic.value.id),
+            name: currentTopic.value.name,
+            begin_time: currentTopic.value.begin_time ?
+                Math.floor(new Date(currentTopic.value.begin_time).getTime() / 1000) : 0,
+            end_time: currentTopic.value.end_time ?
+                Math.floor(new Date(currentTopic.value.end_time).getTime() / 1000) : 0,
+            question_list: updatedQuestions.map((q: any) => {
+                // 处理题目ID格式
+                if (typeof q === 'number' || (typeof q === 'string' && /^\d+$/.test(q))) {
+                    return Number(q);
+                }
+                if (typeof q === 'object' && q !== null && q.id !== undefined) {
+                    return Number(q.id);
+                }
+                return Number(q);
+            }),
+            text_list: (currentTopic.value.texts || []).map((t: any) => {
+                // 处理文章ID格式
+                if (typeof t === 'number' || (typeof t === 'string' && /^\d+$/.test(t))) {
+                    return Number(t);
+                }
+                if (typeof t === 'object' && t !== null && t.id !== undefined) {
+                    return Number(t.id);
+                }
+                return Number(t);
+            })
+        });
+
+        // 更新当前专题数据
+        currentTopic.value.questions = updatedQuestions;
+
+        // 更新表格数据
+        const topicIndex = tableData.value.findIndex((item: any) => item.id === currentTopic.value.id);
+        if (topicIndex !== -1) {
+            tableData.value[topicIndex].questions = updatedQuestions;
+        }
+
+        ElMessage.success('题目添加成功');
+    } catch (error) {
+        ElMessage.error('添加题目失败');
+        console.error('添加题目失败:', error);
+    } finally {
+        questionOperations.value[question.id] = false;
+    }
+};
+
+// 从专题移除题目
+const removeQuestionFromTopic = async (question: any) => {
+    if (!currentTopic.value) return;
+
+    try {
+        questionOperations.value[question.id] = true;
+
+        const currentQuestions = currentTopic.value.questions || [];
+        const updatedQuestions = currentQuestions.filter((q: any) => {
+            // 处理数字ID格式
+            if (typeof q === 'number' || (typeof q === 'string' && /^\d+$/.test(q))) {
+                return Number(q) !== Number(question.id);
+            }
+            // 处理对象格式 {id: xxx}
+            if (typeof q === 'object' && q !== null && q.id !== undefined) {
+                return Number(q.id) !== Number(question.id);
+            }
+            return true; // 保留无法识别格式的数据
+        });
+
+        await updateSubject({
+            id: Number(currentTopic.value.id),
+            name: currentTopic.value.name,
+            begin_time: currentTopic.value.begin_time ?
+                Math.floor(new Date(currentTopic.value.begin_time).getTime() / 1000) : 0,
+            end_time: currentTopic.value.end_time ?
+                Math.floor(new Date(currentTopic.value.end_time).getTime() / 1000) : 0,
+            question_list: updatedQuestions.map((q: any) => {
+                // 处理题目ID格式
+                if (typeof q === 'number' || (typeof q === 'string' && /^\d+$/.test(q))) {
+                    return Number(q);
+                }
+                if (typeof q === 'object' && q !== null && q.id !== undefined) {
+                    return Number(q.id);
+                }
+                return Number(q);
+            }),
+            text_list: (currentTopic.value.texts || []).map((t: any) => {
+                // 处理文章ID格式
+                if (typeof t === 'number' || (typeof t === 'string' && /^\d+$/.test(t))) {
+                    return Number(t);
+                }
+                if (typeof t === 'object' && t !== null && t.id !== undefined) {
+                    return Number(t.id);
+                }
+                return Number(t);
+            })
+        });
+
+        // 更新当前专题数据
+        currentTopic.value.questions = updatedQuestions;
+
+        // 更新表格数据
+        const topicIndex = tableData.value.findIndex((item: any) => item.id === currentTopic.value.id);
+        if (topicIndex !== -1) {
+            tableData.value[topicIndex].questions = updatedQuestions;
+        }
+
+        ElMessage.success('题目移除成功');
+    } catch (error) {
+        ElMessage.error('移除题目失败');
+        console.error('移除题目失败:', error);
+    } finally {
+        questionOperations.value[question.id] = false;
+    }
 };
 
 onMounted(async () => {
@@ -1615,5 +1980,84 @@ onMounted(async () => {
 /* 搜索框样式调整 */
 .search-box {
     margin-bottom: 16px;
+}
+
+/* 选项样式 */
+.option-item {
+    margin-bottom: 12px;
+}
+
+:deep(.option-item .el-input__wrapper) {
+    transition: all 0.3s ease;
+}
+
+:deep(.option-item .el-input__wrapper:hover) {
+    border-color: var(--el-color-primary, #409eff);
+}
+
+/* 暗色模式下的选项 */
+:root.dark .option-item :deep(.el-input__wrapper) {
+    background-color: var(--el-fill-color-blank, #1a1a1a);
+    border-color: var(--el-border-color, #4c4d4f);
+}
+
+:root.dark .option-item :deep(.el-input__wrapper:hover) {
+    border-color: var(--el-color-primary, #409eff);
+}
+
+/* 按钮组优化 */
+:deep(.el-button-group) {
+    display: flex;
+    gap: 0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+:deep(.el-button-group .el-button) {
+    margin-left: 0;
+    border-radius: 0;
+    border-right-width: 1px;
+}
+
+:deep(.el-button-group .el-button:first-child) {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+:deep(.el-button-group .el-button:last-child) {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-right-width: 0;
+}
+
+:deep(.el-button-group .el-button:hover) {
+    z-index: 1;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .search-box {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .search-input {
+        width: 100%;
+    }
+
+    :deep(.el-button-group) {
+        flex-direction: column;
+    }
+
+    :deep(.el-button-group .el-button) {
+        border-radius: 4px;
+        border-right-width: 1px;
+        margin-bottom: 5px;
+    }
+
+    :deep(.el-button-group .el-button:last-child) {
+        margin-bottom: 0;
+    }
 }
 </style>

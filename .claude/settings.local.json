@@ -11,7 +11,8 @@
       "Bash(taskkill:*)",
       "Bash(powershell:*)",
       "Bash(git checkout:*)",
-      "Bash(npx vite build:*)"
+      "Bash(npx vite build:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
