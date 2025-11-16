@@ -93,3 +93,22 @@ export const updateQuestionStatus = (id: string | number, status: string) => {
         data: { status }
     });
 };
+
+// 批量导入题目
+export const addQuestionsByFile = (file: File, questionType: number) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return request({
+        url: '/question/add_by_file',
+        method: 'post',
+        params: {
+            question_type: questionType
+        },
+        data: formData,
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        },
+        responseType: 'blob' // 用于下载结果文件
+    });
+};

@@ -2,6 +2,7 @@
     <div class="container">
         <div class="handle-box">
             <el-button type="primary" :icon="Plus" @click="handleCreate">新增题目</el-button>
+            <el-button type="success" :icon="Upload" @click="handleImport">批量导入</el-button>
             <el-input v-model="query.title" placeholder="题目标题" class="handle-input mr10" @keyup.enter="handleSearch"></el-input>
             <el-select v-model="query.type" placeholder="题型" class="handle-select mr10">
                 <el-option label="全部" value=""></el-option>
@@ -92,16 +93,7 @@
                     </el-col>
                 </el-row>
 
-                <!-- 调试信息 -->
-                <el-form-item label="调试信息">
-                    <div style="background: #f0f0f0; padding: 10px; font-size: 12px;">
-                        <p>题型: {{ form.type }} ({{ isChoiceQuestion ? '选择题' : '非选择题' }})</p>
-                        <p>选项数量: {{ form.detail.options?.length || 0 }}</p>
-                        <p>正确答案: {{ form.detail.standard_answer }}</p>
-                        <p>选项内容: {{ JSON.stringify(form.detail.options) }}</p>
-                    </div>
-                </el-form-item>
-
+  
                 <!-- 选择题选项 -->
                 <el-form-item v-if="isChoiceQuestion" label="选项配置">
                     <div class="options-container">
@@ -233,15 +225,56 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 批量导入弹窗 -->
+        <el-dialog
+            v-model="importDialogVisible"
+            title="批量导入题目"
+            width="500px"
+            :close-on-click-modal="false"
+        >
+            <el-form ref="importFormRef" :model="importForm" label-width="100px">
+                <el-form-item label="题目类型" prop="questionType" :rules="[{ required: true, message: '请选择题目类型', trigger: 'change' }]">
+                    <el-select v-model="importForm.questionType" placeholder="请选择题目类型" style="width: 100%">
+                        <el-option label="单选题" :value="1"></el-option>
+                        <el-option label="多选题" :value="2"></el-option>
+                        <el-option label="简答题" :value="3"></el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="上传文件" prop="file" :rules="[{ required: true, message: '请选择要上传的文件', trigger: 'change' }]">
+                    <el-upload
+                        ref="uploadRef"
+                        :auto-upload="false"
+                        :show-file-list="true"
+                        :limit="1"
+                        accept=".xlsx,.xls"
+                        :on-change="handleFileChange"
+                        :before-upload="beforeUpload"
+                        style="width: 100%"
+                    >
+                        <el-button type="primary">选择文件</el-button>
+                        <template #tip>
+                            <div class="el-upload__tip">
+                                请上传 .xlsx 或 .xls 格式的Excel文件
+                            </div>
+                        </template>
+                    </el-upload>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="importDialogVisible = false">取消</el-button>
+                <el-button type="primary" :loading="uploading" @click="handleImportSubmit">导入</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts" name="question-questions">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search, Upload } from '@element-plus/icons-vue';
 import type { QuestionQuery } from '@/types/question';
-import { getAllQuestions, addQuestion, editQuestion, deleteQuestion } from '@/api/question';
+import { getAllQuestions, addQuestion, editQuestion, deleteQuestion, addQuestionsByFile } from '@/api/question';
 import { transformQuestionData } from '@/types/question';
 
 // 查询参数
@@ -321,6 +354,17 @@ const reviewQuestion = ref({
 const reviewForm = reactive({
     status: 'active',
     reviewComment: ''
+});
+
+// 批量导入相关
+const importDialogVisible = ref(false);
+const importFormRef = ref();
+const uploadRef = ref();
+const uploading = ref(false);
+const fileList = ref([]);
+const importForm = reactive({
+    questionType: null as number | null,
+    file: null as File | null
 });
 
 // 计算属性
@@ -724,6 +768,110 @@ const resetForm = () => {
         public: true,
         status: 1,
     });
+};
+
+// 批量导入相关方法
+const handleImport = () => {
+    importDialogVisible.value = true;
+    resetImportForm();
+};
+
+const resetImportForm = () => {
+    Object.assign(importForm, {
+        questionType: null,
+        file: null
+    });
+    fileList.value = [];
+};
+
+const handleFileChange = (uploadFile: any) => {
+    fileList.value = [uploadFile];
+    importForm.file = uploadFile.raw || uploadFile;
+};
+
+const beforeUpload = (uploadFile: any) => {
+    const isExcel = uploadFile.type === 'application/vnd.ms-excel' ||
+                   uploadFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (!isExcel) {
+        ElMessage.error('只能上传 Excel 文件!');
+        return false;
+    }
+    return true;
+};
+
+const handleImportSubmit = async () => {
+    if (!importFormRef.value) return;
+
+    try {
+        await importFormRef.value.validate();
+
+        if (!importForm.questionType) {
+            ElMessage.error('请选择题目类型');
+            return;
+        }
+
+        if (!importForm.file) {
+            ElMessage.error('请选择要上传的文件');
+            return;
+        }
+
+        uploading.value = true;
+
+        const response = await addQuestionsByFile(importForm.file, importForm.questionType);
+
+        // 检查响应类型，如果是JSON错误响应则处理错误
+        if (response.data instanceof Blob && response.data.type === 'application/json') {
+            const errorText = await response.data.text();
+            const errorData = JSON.parse(errorText);
+            throw new Error(errorData.message || '服务器返回错误');
+        }
+
+        // 直接下载返回的文件（无论成功或失败）
+        const blob = new Blob([response.data], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `批量导入结果_${new Date().toLocaleDateString()}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // 检查导入结果并显示相应消息
+        const importSuccess = response.headers['x-import-success'] || response.headers['X-Import-Success'];
+
+        if (importSuccess === 'true' || importSuccess === true) {
+            ElMessage.success('批量导入成功，处理结果已下载');
+            await getQuestions(); // 刷新题目列表
+        } else {
+            ElMessage.warning('导入处理完成，请查看下载的结果文件了解详情');
+        }
+
+        importDialogVisible.value = false;
+        resetImportForm();
+    } catch (error: any) {
+        console.error('批量导入失败:', error);
+
+        // 尝试从错误响应中提取详细错误信息
+        let errorMessage = '文件上传失败，请重试';
+        if (error.response?.data instanceof Blob) {
+            try {
+                const errorText = await error.response.data.text();
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorData.error || errorMessage;
+            } catch (parseError) {
+                console.error('解析错误响应失败:', parseError);
+            }
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
+        ElMessage.error(errorMessage);
+    } finally {
+        uploading.value = false;
+    }
 };
 
 // 辅助方法
