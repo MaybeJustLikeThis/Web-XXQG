@@ -3,7 +3,10 @@
         <div class="handle-box">
             <el-button type="primary" :icon="Plus" @click="handleCreate">新增题目</el-button>
             <el-button type="success" :icon="Upload" @click="handleImport">批量导入</el-button>
-            <el-input v-model="query.title" placeholder="题目标题" class="handle-input mr10" @keyup.enter="handleSearch"></el-input>
+            <el-button type="danger" :icon="Delete" @click="handleBatchDelete"
+                :disabled="!multipleSelection.length">批量删除</el-button>
+            <el-input v-model="query.title" placeholder="题目标题" class="handle-input mr10"
+                @keyup.enter="handleSearch"></el-input>
             <el-select v-model="query.type" placeholder="题型" class="handle-select mr10">
                 <el-option label="全部" value=""></el-option>
                 <el-option label="单选题" value="single_choice"></el-option>
@@ -18,10 +21,11 @@
                 <el-option label="中等" value="medium"></el-option>
                 <el-option label="困难" value="hard"></el-option>
             </el-select>
-                <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+            <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
         </div>
 
-        <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
+        <el-table :data="tableData" border class="table" header-cell-class-name="table-header"
+            @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="55"></el-table-column>
             <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
             <el-table-column prop="title" label="题目标题" min-width="200" show-overflow-tooltip>
@@ -44,7 +48,7 @@
                 </template>
             </el-table-column>
             <el-table-column prop="points" label="分值" width="80" align="center"></el-table-column>
-                  <el-table-column label="操作" width="220" align="center" fixed="right">
+            <el-table-column label="操作" width="220" align="center" fixed="right">
                 <template #default="scope">
                     <el-button type="primary" size="small" @click="handleEdit(scope.row)">编辑</el-button>
                     <el-button type="info" size="small" @click="handleView(scope.row)">预览</el-button>
@@ -54,16 +58,9 @@
         </el-table>
 
         <div class="pagination">
-            <el-pagination
-                background
-                layout="total, sizes, prev, pager, next, jumper"
-                :current-page="query.page + 1"
-                :page-size="query.pageSize"
-                :page-sizes="[10, 20, 50, 100]"
-                :total="pageTotal"
-                @current-change="handlePageChange"
-                @size-change="handleSizeChange"
-            ></el-pagination>
+            <el-pagination background layout="total, sizes, prev, pager, next, jumper" :current-page="query.page + 1"
+                :page-size="query.pageSize" :page-sizes="[10, 20, 50, 100]" :total="pageTotal"
+                @current-change="handlePageChange" @size-change="handleSizeChange"></el-pagination>
         </div>
 
         <!-- 新增/编辑题目弹窗 -->
@@ -77,7 +74,8 @@
                     </el-col>
                     <el-col :span="6">
                         <el-form-item label="题型" prop="type">
-                            <el-select v-model="form.type" placeholder="请选择题型" style="width: 100%" @change="handleTypeChange">
+                            <el-select v-model="form.type" placeholder="请选择题型" style="width: 100%"
+                                @change="handleTypeChange">
                                 <el-option label="单选题" :value="1"></el-option>
                                 <el-option label="多选题" :value="2"></el-option>
                                 <el-option label="简答题" :value="3"></el-option>
@@ -93,12 +91,13 @@
                     </el-col>
                 </el-row>
 
-  
+
                 <!-- 选择题选项 -->
                 <el-form-item v-if="isChoiceQuestion" label="选项配置">
                     <div class="options-container">
                         <div v-for="(option, index) in form.detail.options" :key="index" class="option-item">
-                            <el-input v-model="form.detail.options[index]" :placeholder="`选项${String.fromCharCode(65 + index)}`">
+                            <el-input v-model="form.detail.options[index]"
+                                :placeholder="`选项${String.fromCharCode(65 + index)}`">
                                 <template #prepend>{{ String.fromCharCode(65 + index) }}.</template>
                             </el-input>
                         </div>
@@ -108,7 +107,8 @@
                 <!-- 单选题正确答案 -->
                 <el-form-item v-if="form.type === 1" label="正确答案">
                     <el-radio-group v-model="form.detail.standard_answer[0]">
-                        <el-radio v-for="(option, index) in form.detail.options" :key="index" :label="String.fromCharCode(65 + index)">
+                        <el-radio v-for="(option, index) in form.detail.options" :key="index"
+                            :label="String.fromCharCode(65 + index)">
                             {{ String.fromCharCode(65 + index) }}. {{ option }}
                         </el-radio>
                     </el-radio-group>
@@ -117,7 +117,8 @@
                 <!-- 多选题正确答案 -->
                 <el-form-item v-if="form.type === 2" label="正确答案">
                     <el-checkbox-group v-model="form.detail.standard_answer">
-                        <el-checkbox v-for="(option, index) in form.detail.options" :key="index" :label="String.fromCharCode(65 + index)">
+                        <el-checkbox v-for="(option, index) in form.detail.options" :key="index"
+                            :label="String.fromCharCode(65 + index)">
                             {{ String.fromCharCode(65 + index) }}. {{ option }}
                         </el-checkbox>
                     </el-checkbox-group>
@@ -125,7 +126,8 @@
 
                 <!-- 简答题答案 -->
                 <el-form-item v-if="form.type === 3" label="正确答案" prop="correctAnswer">
-                    <el-input v-model="form.detail.standard_answer[0]" type="textarea" rows="2" placeholder="请输入正确答案"></el-input>
+                    <el-input v-model="form.detail.standard_answer[0]" type="textarea" rows="2"
+                        placeholder="请输入正确答案"></el-input>
                 </el-form-item>
 
                 <el-row :gutter="20">
@@ -139,13 +141,14 @@
                             <el-input-number :value="undefined" disabled style="width: 100%"></el-input-number>
                         </el-form-item>
                     </el-col>
-                  </el-row>
+                </el-row>
 
                 <el-form-item label="答案解析">
-                    <el-input v-model="form.detail.reference_answer" type="textarea" rows="3" placeholder="请输入答案解析（可选）"></el-input>
+                    <el-input v-model="form.detail.reference_answer" type="textarea" rows="3"
+                        placeholder="请输入答案解析（可选）"></el-input>
                 </el-form-item>
 
-              </el-form>
+            </el-form>
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="dialogVisible = false">取 消</el-button>
@@ -214,7 +217,8 @@
                         </el-radio-group>
                     </el-form-item>
                     <el-form-item label="评审意见">
-                        <el-input v-model="reviewForm.reviewComment" type="textarea" rows="4" placeholder="请输入评审意见"></el-input>
+                        <el-input v-model="reviewForm.reviewComment" type="textarea" rows="4"
+                            placeholder="请输入评审意见"></el-input>
                     </el-form-item>
                 </el-form>
             </div>
@@ -227,31 +231,21 @@
         </el-dialog>
 
         <!-- 批量导入弹窗 -->
-        <el-dialog
-            v-model="importDialogVisible"
-            title="批量导入题目"
-            width="500px"
-            :close-on-click-modal="false"
-        >
+        <el-dialog v-model="importDialogVisible" title="批量导入题目" width="500px" :close-on-click-modal="false">
             <el-form ref="importFormRef" :model="importForm" label-width="100px">
-                <el-form-item label="题目类型" prop="questionType" :rules="[{ required: true, message: '请选择题目类型', trigger: 'change' }]">
+                <el-form-item label="题目类型" prop="questionType"
+                    :rules="[{ required: true, message: '请选择题目类型', trigger: 'change' }]">
                     <el-select v-model="importForm.questionType" placeholder="请选择题目类型" style="width: 100%">
                         <el-option label="单选题" :value="1"></el-option>
                         <el-option label="多选题" :value="2"></el-option>
                         <el-option label="简答题" :value="3"></el-option>
                     </el-select>
                 </el-form-item>
-                <el-form-item label="上传文件" prop="file" :rules="[{ required: true, message: '请选择要上传的文件', trigger: 'change' }]">
-                    <el-upload
-                        ref="uploadRef"
-                        :auto-upload="false"
-                        :show-file-list="true"
-                        :limit="1"
-                        accept=".xlsx,.xls"
-                        :on-change="handleFileChange"
-                        :before-upload="beforeUpload"
-                        style="width: 100%"
-                    >
+                <el-form-item label="上传文件" prop="file"
+                    :rules="[{ required: true, message: '请选择要上传的文件', trigger: 'change' }]">
+                    <el-upload ref="uploadRef" :auto-upload="false" :show-file-list="true" :limit="1"
+                        accept=".xlsx,.xls" :on-change="handleFileChange" :before-upload="beforeUpload"
+                        style="width: 100%">
                         <el-button type="primary">选择文件</el-button>
                         <template #tip>
                             <div class="el-upload__tip">
@@ -266,13 +260,45 @@
                 <el-button type="primary" :loading="uploading" @click="handleImportSubmit">导入</el-button>
             </template>
         </el-dialog>
+
+        <!-- 批量删除确认弹窗 -->
+        <el-dialog v-model="batchDeleteVisible" title="批量删除确认" width="500px" :close-on-click-modal="false">
+            <div class="batch-delete-content">
+                <el-icon class="warning-icon" size="24" color="#E6A23C">
+                    <Warning />
+                </el-icon>
+                <p>您确定要删除选中的 <strong>{{ multipleSelection.length }}</strong> 道题目吗？</p>
+                <p class="warning-text">此操作不可恢复，请谨慎操作！</p>
+
+                <!-- 显示选中题目列表 -->
+                <div class="selected-questions" v-if="multipleSelection.length > 0">
+                    <h4>选中的题目：</h4>
+                    <ul>
+                        <li v-for="(item, index) in multipleSelection.slice(0, 10)" :key="item.id">
+                            {{ item.detail?.title || item.title }}
+                        </li>
+                        <li v-if="multipleSelection.length > 10" class="more-items">
+                            ... 还有 {{ multipleSelection.length - 10 }} 道题目
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="batchDeleteVisible = false">取 消</el-button>
+                    <el-button type="danger" @click="confirmBatchDelete" :loading="batchDeleting">
+                        确认删除 ({{ multipleSelection.length }})
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts" name="question-questions">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search, Upload } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search, Upload, Warning } from '@element-plus/icons-vue';
 import type { QuestionQuery } from '@/types/question';
 import { getAllQuestions, addQuestion, editQuestion, deleteQuestion, addQuestionsByFile } from '@/api/question';
 import { transformQuestionData } from '@/types/question';
@@ -421,6 +447,11 @@ const importForm = reactive({
     file: null as File | null
 });
 
+// 批量删除相关
+const multipleSelection = ref<any[]>([]);
+const batchDeleteVisible = ref(false);
+const batchDeleting = ref(false);
+
 // 计算属性
 const isChoiceQuestion = computed(() => {
     return form.type === 1 || form.type === 2;
@@ -443,10 +474,10 @@ const getQuestions = async () => {
             let questionsData: any[] = [];
             let totalCount = 0;
 
-  
+
             if (Array.isArray(apiData)) {
                 // 直接返回数组（无分页）- 进行客户端分页
-  
+
                 // 转换所有数据
                 const allQuestions = apiData.map((item: any) => {
                     const transformedData = transformQuestionData(item);
@@ -506,7 +537,7 @@ const getQuestions = async () => {
 
             } else if (apiData && apiData.list && Array.isArray(apiData.list)) {
                 // 分页数据结构 { list: [], total: number }
-                    questionsData = apiData.list.map((item: any) => {
+                questionsData = apiData.list.map((item: any) => {
                     const transformedData = transformQuestionData(item);
                     return {
                         ...transformedData,
@@ -548,7 +579,7 @@ const getQuestions = async () => {
                 });
                 totalCount = apiData.total || apiData.list.length;
             } else {
-                      throw new Error('API返回数据格式不正确');
+                throw new Error('API返回数据格式不正确');
             }
 
             tableData.value = questionsData;
@@ -574,7 +605,7 @@ const handleSearch = async () => {
 
 // 分页切换
 const handlePageChange = (val: number) => {
-        query.page = val - 1; // 前端分页从1开始，后端从0开始
+    query.page = val - 1; // 前端分页从1开始，后端从0开始
 
     // 如果有全量数据，直接进行客户端分页
     if (allQuestionsData.value.length > 0) {
@@ -710,6 +741,87 @@ const handleDelete = async (row: any) => {
     }
 };
 
+// 表格选择变化处理
+const handleSelectionChange = (selection: any[]) => {
+    multipleSelection.value = selection;
+};
+
+// 批量删除按钮点击处理
+const handleBatchDelete = () => {
+    if (multipleSelection.value.length === 0) {
+        ElMessage.warning('请先选择要删除的题目');
+        return;
+    }
+    batchDeleteVisible.value = true;
+};
+
+// 确认批量删除
+const confirmBatchDelete = async () => {
+    if (multipleSelection.value.length === 0) {
+        ElMessage.warning('请先选择要删除的题目');
+        return;
+    }
+
+    // 再次确认
+    try {
+        await ElMessageBox.confirm(
+            `即将删除 ${multipleSelection.value.length} 道题目，此操作不可恢复！\n是否继续？`,
+            '最后确认',
+            {
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消',
+                type: 'error',
+                confirmButtonClass: 'el-button--danger'
+            }
+        );
+    } catch (error) {
+        return; // 用户取消
+    }
+
+    batchDeleting.value = true;
+    const totalToDelete = multipleSelection.value.length;
+    let successCount = 0;
+    let failCount = 0;
+    const failedItems: string[] = [];
+
+    try {
+        // 逐个删除题目，调用单个删除接口
+        for (let i = 0; i < multipleSelection.value.length; i++) {
+            const item = multipleSelection.value[i];
+            try {
+                await deleteQuestion(item.id);
+                successCount++;
+            } catch (error) {
+                failCount++;
+                failedItems.push(item.detail?.title || item.title);
+                console.error(`删除题目失败 (ID: ${item.id}):`, error);
+            }
+        }
+
+        // 显示删除结果
+        if (failCount === 0) {
+            ElMessage.success(`成功删除 ${successCount} 道题目`);
+        } else if (successCount === 0) {
+            ElMessage.error(`删除失败，未能删除任何题目`);
+        } else {
+            ElMessage.warning(`删除完成：成功 ${successCount} 道题目，失败 ${failCount} 道题目`);
+            if (failedItems.length > 0) {
+                console.warn('删除失败的题目:', failedItems);
+            }
+        }
+
+        // 关闭弹窗并刷新列表
+        batchDeleteVisible.value = false;
+        await getQuestions();
+
+    } catch (error) {
+        console.error('批量删除过程中发生错误:', error);
+        ElMessage.error('批量删除过程中发生错误，请重试');
+    } finally {
+        batchDeleting.value = false;
+    }
+};
+
 // 题型变化处理
 const handleTypeChange = (type: number) => {
     // 重置答案和选项
@@ -792,7 +904,7 @@ const submitForm = async () => {
             submitData.id = parseInt(form.id);
         }
 
-  
+
         // 根据是否有ID判断是新增还是编辑
         if (form.id) {
             console.log('提交编辑数据:', submitData);
@@ -867,7 +979,7 @@ const handleFileChange = (uploadFile: any) => {
 
 const beforeUpload = (uploadFile: any) => {
     const isExcel = uploadFile.type === 'application/vnd.ms-excel' ||
-                   uploadFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        uploadFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     if (!isExcel) {
         ElMessage.error('只能上传 Excel 文件!');
         return false;
@@ -1082,5 +1194,57 @@ onMounted(async () => {
 
 .review-content {
     padding: 20px 0;
+}
+
+.batch-delete-content {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.warning-icon {
+    margin-bottom: 16px;
+}
+
+.batch-delete-content p {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.warning-text {
+    color: #E6A23C;
+    font-weight: bold;
+}
+
+.selected-questions {
+    margin-top: 20px;
+    text-align: left;
+    background: #f5f7fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e4e7ed;
+}
+
+.selected-questions h4 {
+    margin: 0 0 10px 0;
+    color: #303133;
+    font-size: 14px;
+}
+
+.selected-questions ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: decimal;
+}
+
+.selected-questions li {
+    margin: 5px 0;
+    color: #606266;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.selected-questions .more-items {
+    color: #909399;
+    font-style: italic;
 }
 </style>
