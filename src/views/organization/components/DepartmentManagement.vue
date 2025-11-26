@@ -17,7 +17,8 @@
                 node-key="id"
             >
                 <template #default="{ node, data }">
-                    <div class="tree-node">
+                    <!-- 第一层权限检查：决定是否显示该部门节点 -->
+                    <div class="tree-node" v-if="shouldDisplayDepartment(data.id)">
                         <div class="node-info">
                             <span class="node-name">{{ data.name }}</span>
                             <el-tag v-if="data.userCount" size="small" type="info">
@@ -26,35 +27,34 @@
                             <el-tag v-if="data.admin && data.admin.length > 0" size="small" type="success">
                                 部门管理员：{{ data.admin.map(a => a.name).join('，') }}
                             </el-tag>
+                            <!-- 显示权限状态标签 -->
+                            <el-tag v-if="!hasManagementPermission(data.id)" size="small" type="warning">
+                                仅查看
+                            </el-tag>
                         </div>
                         <div class="node-actions">
-                            <el-button type="primary" size="small" @click="showAddDialog(data)">
-                                新增子部门
-                            </el-button>
-                            <el-button type="info" size="small" @click="showMemberManagement(data)">
-                                成员管理
-                            </el-button>
-                            <!-- 部门管理员专用功能 -->
-                            <template v-if="canManageDepartment(data.id)">
+                            <!-- 第二层权限检查：决定显示哪些操作按钮 -->
+                            <template v-if="hasManagementPermission(data.id)">
+                                <!-- 有管理权限时显示操作按钮组 -->
+                                <el-button type="primary" size="small" @click="showAddDialog(data)">
+                                    新增子部门
+                                </el-button>
+                                <el-button type="info" size="small" @click="showMemberManagement(data)">
+                                    成员管理
+                                </el-button>
                                 <el-button type="success" size="small" @click="showSetAdminDialog(data)">
                                     设置管理员
                                 </el-button>
-                                          <el-button type="warning" size="small" @click="showEditDialog(data)">
+                                <el-button type="warning" size="small" @click="showEditDialog(data)">
                                     编辑
                                 </el-button>
                                 <el-button type="danger" size="small" @click="handleDelete(data)">
                                     删除
                                 </el-button>
                             </template>
-                            <!-- 非部门管理员只能查看，但删除按钮临时可见用于测试 -->
                             <template v-else>
-                                <el-button type="warning" size="small" @click="showEditDialog(data)">
-                                    查看详情
-                                </el-button>
-                                <!-- 临时：删除按钮始终显示，用于测试删除接口 -->
-                                <el-button type="danger" size="small" @click="handleDelete(data)">
-                                    删除
-                                </el-button>
+                                <!-- 无管理权限时显示查看提示 -->
+                                <span class="view-only-hint">您仅有查看权限</span>
                             </template>
                         </div>
                     </div>
@@ -417,6 +417,10 @@ const permiss = usePermissStore();
 const isUnmounted = ref(false); // 组件是否已卸载
 const abortController = new AbortController(); // 用于取消异步请求
 
+// 权限状态管理
+const departmentPermissions = ref<Record<number, boolean>>({}); // 缓存部门权限状态
+const permissionLoading = ref(false); // 权限检查加载状态
+
 // 设置管理员弹窗相关
 const adminDialogVisible = ref(false);
 const adminFormRef = ref<FormInstance>();
@@ -529,7 +533,7 @@ const departmentOptions = computed(() => {
     };
 
     return [
-        { id: 0, name: '根部门', children: filterDepartments(departmentTree.value, isEdit.value ? formData.id : undefined) }
+        { id: 0, name: '山西省教育厅（根部门）', children: filterDepartments(departmentTree.value, isEdit.value ? formData.id : undefined) }
     ];
 });
 
@@ -554,12 +558,16 @@ const getDepartmentData = async () => {
                     createTime: item.create_time || '',
                     userCount: item.user_count || 0,
                     admin: item.admin || [], // 添加管理员信息
+                    parent_department_name: item.parent_department_name || '',
                     children: [] // 先初始化为空，后面会构建树结构
                 };
             });
 
-            // 构建树结构
-            departmentTree.value = buildDepartmentTree(departments);
+            // 构建完整的树结构
+            const fullTree = buildDepartmentTree(departments);
+
+            // 过滤显示用户有权限查看的部门（包含权限继承链）
+            departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
         } else {
             throw new Error('API返回数据格式不正确');
         }
@@ -569,70 +577,11 @@ const getDepartmentData = async () => {
             console.error('获取部门数据错误:', error);
         }
 
-        // 使用模拟数据作为fallback
-        departmentTree.value = [
-            {
-                id: 1,
-                name: '总公司',
-                parentId: null,
-                level: 1,
-                description: '公司总部',
-                manager: '张三',
-                phone: '13800138000',
-                createTime: '2023-01-01',
-                userCount: 15,
-                children: [
-                    {
-                        id: 2,
-                        name: '技术部',
-                        parentId: 1,
-                        level: 2,
-                        description: '负责技术研发',
-                        manager: '李四',
-                        phone: '13800138001',
-                        createTime: '2023-01-01',
-                        userCount: 8,
-                        children: [
-                            {
-                                id: 4,
-                                name: '前端组',
-                                parentId: 2,
-                                level: 3,
-                                description: '前端开发',
-                                manager: '王五',
-                                phone: '13800138003',
-                                createTime: '2023-01-01',
-                                userCount: 3
-                            },
-                            {
-                                id: 5,
-                                name: '后端组',
-                                parentId: 2,
-                                level: 3,
-                                description: '后端开发',
-                                manager: '赵六',
-                                phone: '13800138004',
-                                createTime: '2023-01-01',
-                                userCount: 5
-                            }
-                        ]
-                    },
-                    {
-                        id: 3,
-                        name: '市场部',
-                        parentId: 1,
-                        level: 2,
-                        description: '负责市场推广',
-                        manager: '钱七',
-                        phone: '13800138002',
-                        createTime: '2023-01-01',
-                        userCount: 7
-                    }
-                ]
-            }
-        ];
+        // 发生错误时清空部门树
+        departmentTree.value = [];
     }
 };
+
 
 // 构建部门树结构
 const buildDepartmentTree = (departments: Department[]): Department[] => {
@@ -647,7 +596,8 @@ const buildDepartmentTree = (departments: Department[]): Department[] => {
     // 构建树
     departments.forEach(dept => {
         const node = map.get(dept.id)!;
-        if (dept.parentId === null) {
+        if (dept.parentId === null || dept.parentId === 0) {
+            // 根部门（parentId为null或0）
             tree.push(node);
         } else {
             const parent = map.get(dept.parentId);
@@ -655,12 +605,102 @@ const buildDepartmentTree = (departments: Department[]): Department[] => {
                 parent.children!.push(node);
             } else {
                 // 如果找不到父节点，作为根节点
+                console.warn(`找不到部门 ${dept.id} 的父部门 ${dept.parentId}，作为根节点处理`);
                 tree.push(node);
             }
         }
     });
 
     return tree;
+};
+
+// 过滤部门树，显示用户有权限查看的部门（包含权限继承链上的所有部门）
+const filterDepartmentTreeForDisplay = (tree: Department[]): Department[] => {
+    const userProfile = permiss.userProfile;
+    // 超级管理员可以看到所有部门
+    if (userProfile?.is_super_admin) {
+        return tree;
+    }
+
+
+    if (!userProfile?.manage_departments || userProfile.manage_departments.length === 0) {
+        return [];
+    }
+
+    const userDeptIds = new Set(userProfile.manage_departments);
+
+    // 收集所有需要显示的部门ID：
+    // 1. 用户可管理的部门
+    // 2. 用户可管理部门的所有上级部门（完整权限链）
+    // 3. 用户可管理部门的所有下级部门（权限继承）
+    const visibleDeptIds = new Set<number>();
+
+    // 构建部门映射用于查找父子关系
+    const allDepartments = new Map<number, Department>();
+    const collectAllDepartments = (depts: Department[]) => {
+        depts.forEach(dept => {
+            allDepartments.set(dept.id, dept);
+            if (dept.children) {
+                collectAllDepartments(dept.children);
+            }
+        });
+    };
+    collectAllDepartments(tree);
+
+    // 为每个用户权限部门查找完整的权限链
+    userDeptIds.forEach(managedDeptId => {
+        // 1. 添加用户直接管理的部门
+        visibleDeptIds.add(managedDeptId);
+
+        // 2. 查找所有上级部门（权限链向上）
+        const findParentDepartments = (deptId: number) => {
+            const dept = allDepartments.get(deptId);
+            if (!dept) return;
+
+            if (dept.parentId !== null && dept.parentId !== 0) {
+                visibleDeptIds.add(dept.parentId);
+                findParentDepartments(dept.parentId);
+            }
+        };
+        findParentDepartments(managedDeptId);
+
+        // 3. 查找所有下级部门（权限继承向下）
+        const findChildDepartments = (deptId: number) => {
+            const dept = allDepartments.get(deptId);
+            if (!dept || !dept.children) return;
+
+            dept.children.forEach(child => {
+                visibleDeptIds.add(child.id);
+                findChildDepartments(child.id);
+            });
+        };
+        findChildDepartments(managedDeptId);
+    });
+
+    // 递归过滤树，只保留可见的部门，但保持完整的树结构
+    const filterTreeForDisplay = (departments: Department[]): Department[] => {
+        return departments.filter(dept => {
+            // 如果当前部门在可见列表中，显示它及其子部门
+            if (visibleDeptIds.has(dept.id)) {
+                // 递归处理子部门，只显示可见的子部门
+                if (dept.children && dept.children.length > 0) {
+                    dept.children = filterTreeForDisplay(dept.children);
+                }
+                return true;
+            }
+            // 如果当前部门不可见，但它的子部门中有可见的，也要显示当前部门（作为路径）
+            else if (dept.children && dept.children.length > 0) {
+                const filteredChildren = filterTreeForDisplay(dept.children);
+                if (filteredChildren.length > 0) {
+                    dept.children = filteredChildren;
+                    return true;
+                }
+            }
+            return false;
+        });
+    };
+
+    return filterTreeForDisplay(tree);
 };
 
 // 显示新增对话框
@@ -674,7 +714,14 @@ const showAddDialog = (parent: Department | null) => {
 };
 
 // 显示编辑对话框
-const showEditDialog = (department: Department) => {
+const showEditDialog = async (department: Department) => {
+    // 检查权限（包含继承逻辑）
+    const hasPermission = await canManageDepartment(department.id);
+    if (!hasPermission) {
+        ElMessage.warning('您没有编辑该部门的权限');
+        return;
+    }
+
     isEdit.value = true;
     Object.assign(formData, department);
     dialogVisible.value = true;
@@ -748,17 +795,19 @@ const handleSubmit = async () => {
 
 // 显示设置管理员对话框
 const showSetAdminDialog = async (department: Department) => {
-    console.log('打开管理员对话框，部门:', department);
+    // 检查权限（包含继承逻辑）
+    const hasPermission = await canManageDepartment(department.id);
+    if (!hasPermission) {
+        ElMessage.warning('您没有管理部门的权限');
+        return;
+    }
 
     // 设置部门信息
     currentDepartmentId.value = department.id;
     currentDepartmentName.value = department.name;
-    console.log('设置部门ID:', currentDepartmentId.value, '部门名称:', currentDepartmentName.value);
 
     // 设置当前部门管理员列表
     currentDepartmentAdmins.value = department.admin || [];
-    console.log('设置管理员列表:', currentDepartmentAdmins.value);
-    console.log('管理员列表长度:', currentDepartmentAdmins.value.length);
 
     // 重置表单和标签页
     resetAdminForm();
@@ -769,11 +818,6 @@ const showSetAdminDialog = async (department: Department) => {
 
     // 等待下一个tick确保数据更新完成
     await nextTick();
-
-    console.log('即将打开对话框，最终数据检查:');
-    console.log('- 部门ID:', currentDepartmentId.value);
-    console.log('- 管理员列表:', currentDepartmentAdmins.value);
-    console.log('- 激活标签页:', activeTab.value);
 
     adminDialogVisible.value = true;
 };
@@ -1414,15 +1458,196 @@ const resetMemberManagement = () => {
     currentDepartment.value = null;
 };
 
-// 检查是否可以管理部门
-const canManageDepartment = (departmentId: number): boolean => {
-    // 检查权限工具类的权限
-    const hasPermission = permission.canManageDepartment(departmentId);
+/**
+ * 权限系统说明：
+ *
+ * 1. shouldDisplayDepartment(departmentId) - 第一层权限检查
+ *    作用：决定是否显示该部门节点
+ *    逻辑：显示用户权限部门的上级单链 + 所有下级部门，隐藏同级部门
+ *    使用场景：树形组件中决定部门节点是否渲染
+ *
+ * 2. hasManagementPermission(departmentId) - 第二层权限检查
+ *    作用：决定是否显示操作按钮
+ *    逻辑：只能操作有权限的部门及其子部门
+ *    使用场景：在已显示的部门节点中，决定操作按钮的显示/隐藏
+ *
+ * 3. canManageDepartment(departmentId) - 异步权限验证
+ *    作用：执行具体操作前的最终权限验证
+ *    逻辑：与 hasManagementPermission 相同，但是异步版本
+ *    使用场景：点击按钮后，执行实际操作前的最后权限检查
+ */
 
-    // 如果没有权限，检查是否有组织管理权限码 (10)
-    const hasOrgPermission = permission.hasPermission('10');
+// 检查是否可以管理部门（支持权限继承） - 用于异步操作前的权限验证
+const canManageDepartment = async (departmentId: number): Promise<boolean> => {
+    try {
+        // 首先检查异步权限（包含继承逻辑）
+        const hasInheritedPermission = await permission.canManageDepartment(departmentId);
+        if (hasInheritedPermission) {
+            return true;
+        }
 
-    return hasPermission || hasOrgPermission;
+        // 如果没有继承权限，用户无权管理该部门
+        return false;
+    } catch (error) {
+        console.warn('权限检查失败，使用同步检查:', error);
+        // 降级到同步权限检查（不包含继承）
+        const hasSyncPermission = permission.canManageDepartmentSync(departmentId);
+        return hasSyncPermission;
+    }
+};
+
+// 检查部门是否应该显示（展示权限） - 第一层权限检查
+// 决定是否显示该部门节点
+const shouldDisplayDepartment = (departmentId: number): boolean => {
+    // 超级管理员可以看到所有部门
+    if (permission.isSuperAdmin()) {
+        return true;
+    }
+
+    const userProfile = permiss.userProfile;
+    if (!userProfile?.manage_departments || userProfile.manage_departments.length === 0) {
+        return false;
+    }
+
+    const userDeptIds = new Set(userProfile.manage_departments);
+
+    // 构建部门映射用于查找父子关系
+    const allDepartments = new Map<number, Department>();
+    const collectAllDepartments = (depts: Department[]) => {
+        depts.forEach(dept => {
+            allDepartments.set(dept.id, dept);
+            if (dept.children) {
+                collectAllDepartments(dept.children);
+            }
+        });
+    };
+    collectAllDepartments(departmentTree.value);
+
+    // 1. 检查是否为用户直接管理的部门
+    if (userDeptIds.has(departmentId)) {
+        return true;
+    }
+
+    // 2. 检查是否为用户可管理部门的上级部门（权限链向上）
+    // 对于用户管理的每个部门，获取其完整的上级路径
+    const getUpwardChain = (targetDeptId: number): number[] => {
+        const upwardChain: number[] = [];
+        let currentDept = allDepartments.get(targetDeptId);
+
+        while (currentDept && currentDept.parentId !== null && currentDept.parentId !== 0) {
+            upwardChain.push(currentDept.parentId);
+            currentDept = allDepartments.get(currentDept.parentId);
+        }
+
+        return upwardChain;
+    };
+
+    // 收集用户管理部门的所有上级部门
+    const allVisibleParentDepts = new Set<number>();
+    for (const managedDeptId of userDeptIds) {
+        const parentChain = getUpwardChain(managedDeptId);
+        parentChain.forEach(parentId => allVisibleParentDepts.add(parentId));
+    }
+
+    if (allVisibleParentDepts.has(departmentId)) {
+        return true;
+    }
+
+    // 3. 检查是否为用户可管理部门的下级部门（权限继承向下）
+    const findAllChildDepartments = (parentId: number): number[] => {
+        const childIds: number[] = [];
+        const parent = allDepartments.get(parentId);
+
+        if (parent && parent.children) {
+            const collectChildren = (children: Department[]) => {
+                children.forEach(child => {
+                    childIds.push(child.id);
+                    if (child.children) {
+                        collectChildren(child.children);
+                    }
+                });
+            };
+            collectChildren(parent.children);
+        }
+
+        return childIds;
+    };
+
+    // 收集用户管理部门的所有下级部门
+    const allVisibleChildDepts = new Set<number>();
+    for (const managedDeptId of userDeptIds) {
+        const childIds = findAllChildDepartments(managedDeptId);
+        childIds.forEach(childId => allVisibleChildDepts.add(childId));
+    }
+
+    if (allVisibleChildDepts.has(departmentId)) {
+        return true;
+    }
+
+    return false;
+};
+
+// 检查是否有管理权限（操作权限） - 第二层权限检查
+// 决定是否显示操作按钮
+const hasManagementPermission = (departmentId: number): boolean => {
+    // 超级管理员可以管理所有部门
+    if (permission.isSuperAdmin()) {
+        return true;
+    }
+
+    const userProfile = permiss.userProfile;
+    if (!userProfile?.manage_departments || userProfile.manage_departments.length === 0) {
+        return false;
+    }
+
+    const userDeptIds = new Set(userProfile.manage_departments);
+
+    // 1. 检查是否为用户直接管理的部门
+    if (userDeptIds.has(departmentId)) {
+        return true;
+    }
+
+    // 2. 检查权限继承：如果用户有某个部门的权限，那么他对该部门的所有子部门都有权限
+    const buildDepartmentMap = (depts: Department[]): Map<number, Department> => {
+        const map = new Map<number, Department>();
+        const collect = (departments: Department[]) => {
+            departments.forEach(dept => {
+                map.set(dept.id, dept);
+                if (dept.children) {
+                    collect(dept.children);
+                }
+            });
+        };
+        collect(depts);
+        return map;
+    };
+
+    const deptMap = buildDepartmentMap(departmentTree.value);
+
+    // 检查目标部门是否为用户可管理部门的子部门
+    for (const managedDeptId of userDeptIds) {
+        const managedDept = deptMap.get(managedDeptId);
+        if (managedDept && managedDept.children) {
+            // 递归查找子部门
+            const findInChildren = (children: Department[], targetId: number): boolean => {
+                for (const child of children) {
+                    if (child.id === targetId) {
+                        return true;
+                    }
+                    if (child.children && findInChildren(child.children, targetId)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            if (findInChildren(managedDept.children, departmentId)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 };
 
 onMounted(() => {
@@ -1633,5 +1858,16 @@ onUnmounted(() => {
 .pagination {
     margin-top: 20px;
     text-align: right;
+}
+
+.view-only-hint {
+    color: #909399;
+    font-size: 12px;
+    font-style: italic;
+}
+
+/* 暗色模式下的查看提示 */
+:root.dark .view-only-hint {
+    color: #a3a6ad;
 }
 </style>

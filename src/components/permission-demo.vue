@@ -99,7 +99,7 @@ const showMessage = (message: string) => {
 };
 
 const canManageDepartment = (departmentId: number): boolean => {
-  return permission.canManageDepartment(departmentId);
+  return permission.canManageDepartmentSync(departmentId);
 };
 
 const testDepartmentPermission = (deptId: number) => {
