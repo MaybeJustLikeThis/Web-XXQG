@@ -45,6 +45,18 @@ export const updateUser = (data: { id: number; [key: string]: any }) => {
     });
 };
 
+// 管理员更新用户信息
+export const updateUserByAdmin = (user_id: number, data: { name: string; sex: number; race: string; political_status: string; id_number: string }) => {
+    return request({
+        url: '/user/update_by_admin',
+        method: 'post',
+        params: {
+            user_id
+        },
+        data
+    });
+};
+
 // 删除用户
 export const deleteUser = (id: number) => {
     return request({

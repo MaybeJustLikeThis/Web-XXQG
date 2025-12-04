@@ -3,19 +3,16 @@
         <div class="header">
             <h2>部门管理</h2>
             <el-button type="primary" @click="showAddDialog(null)">
-                <el-icon><Plus /></el-icon>
+                <el-icon>
+                    <Plus />
+                </el-icon>
                 新增部门
             </el-button>
         </div>
 
         <div class="content">
-            <el-tree
-                :data="departmentTree"
-                :props="treeProps"
-                :expand-on-click-node="false"
-                default-expand-all
-                node-key="id"
-            >
+            <el-tree :data="departmentTree" :props="treeProps" :expand-on-click-node="false" default-expand-all
+                node-key="id">
                 <template #default="{ node, data }">
                     <!-- 第一层权限检查：决定是否显示该部门节点 -->
                     <div class="tree-node" v-if="shouldDisplayDepartment(data.id)">
@@ -25,7 +22,7 @@
                                 {{ data.userCount }}人
                             </el-tag>
                             <el-tag v-if="data.admin && data.admin.length > 0" size="small" type="success">
-                                部门管理员：{{ data.admin.map(a => a.name).join('，') }}
+                                部门管理员：{{data.admin.map(a => a.name).join('，')}}
                             </el-tag>
                             <!-- 显示权限状态标签 -->
                             <el-tag v-if="!hasManagementPermission(data.id)" size="small" type="warning">
@@ -63,39 +60,17 @@
         </div>
 
         <!-- 新增/编辑部门弹窗 -->
-        <el-dialog
-            v-model="dialogVisible"
-            :title="isEdit ? '编辑部门' : '新增部门'"
-            width="500px"
-            @close="resetForm"
-        >
-            <el-form
-                ref="formRef"
-                :model="formData"
-                :rules="formRules"
-                label-width="100px"
-            >
+        <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑部门' : '新增部门'" width="500px" @close="resetForm">
+            <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
                 <el-form-item label="部门名称" prop="name">
                     <el-input v-model="formData.name" placeholder="请输入部门名称" />
                 </el-form-item>
                 <el-form-item label="上级部门">
-                    <el-tree-select
-                        v-model="formData.parentId"
-                        :data="departmentOptions"
-                        :props="treeProps"
-                        placeholder="请选择上级部门"
-                        clearable
-                        check-strictly
-                        :render-after-expand="false"
-                    />
+                    <el-tree-select v-model="formData.parentId" :data="departmentOptions" :props="treeProps"
+                        placeholder="请选择上级部门" clearable check-strictly :render-after-expand="false" />
                 </el-form-item>
                 <el-form-item label="部门描述" prop="description">
-                    <el-input
-                        v-model="formData.description"
-                        type="textarea"
-                        placeholder="请输入部门描述"
-                        :rows="3"
-                    />
+                    <el-input v-model="formData.description" type="textarea" placeholder="请输入部门描述" :rows="3" />
                 </el-form-item>
                 <el-form-item label="负责人" prop="manager">
                     <el-input v-model="formData.manager" placeholder="请输入负责人姓名" />
@@ -111,44 +86,25 @@
         </el-dialog>
 
         <!-- 设置管理员弹窗 -->
-        <el-dialog
-            v-model="adminDialogVisible"
-            title="部门管理员管理"
-            width="600px"
-            @close="handleDialogClose"
-        >
+        <el-dialog v-model="adminDialogVisible" title="部门管理员管理" width="600px" @close="handleDialogClose">
             <el-tabs v-model="activeTab" type="border-card" @tab-click="handleTabClick">
                 <!-- 设置管理员标签页 -->
                 <el-tab-pane label="设置管理员" name="set">
-                    <el-form
-                        ref="adminFormRef"
-                        :model="adminFormData"
-                        :rules="adminFormRules"
-                        label-width="100px"
-                    >
+                    <el-form ref="adminFormRef" :model="adminFormData" :rules="adminFormRules" label-width="100px">
                         <el-form-item label="部门名称">
                             <el-input v-model="currentDepartmentName" readonly />
                         </el-form-item>
                         <el-form-item label="选择管理员" prop="admin_id">
-                            <el-select
-                                v-model="adminFormData.admin_id"
-                                placeholder="请选择管理员"
-                                style="width: 100%"
-                                clearable
-                                filterable
-                                :key="departmentMembers.length"
-                            >
-                                <el-option
-                                    v-for="member in departmentMembers"
-                                    :key="`member-${member.id}`"
-                                    :label="member.name"
-                                    :value="member.id"
-                                />
+                            <el-select v-model="adminFormData.admin_id" placeholder="请选择管理员" style="width: 100%"
+                                clearable filterable :key="departmentMembers.length">
+                                <el-option v-for="member in departmentMembers" :key="`member-${member.id}`"
+                                    :label="member.name" :value="member.id" />
                                 <template v-if="departmentMembers.length === 0">
                                     <el-option disabled value="" label="暂无可选择的成员" />
                                 </template>
                             </el-select>
-                            <div v-if="departmentMembers.length > 0" style="font-size: 12px; color: #999; margin-top: 4px;">
+                            <div v-if="departmentMembers.length > 0"
+                                style="font-size: 12px; color: #999; margin-top: 4px;">
                                 共 {{ departmentMembers.length }} 个可选成员
                             </div>
                         </el-form-item>
@@ -159,8 +115,10 @@
                 </el-tab-pane>
 
                 <!-- 取消管理员标签页 -->
-                <el-tab-pane label="取消管理员" name="unset" :disabled="!currentDepartmentAdmins || currentDepartmentAdmins.length === 0">
-                    <div v-if="!currentDepartmentAdmins || currentDepartmentAdmins.length === 0" style="text-align: center; padding: 40px; color: #999;">
+                <el-tab-pane label="取消管理员" name="unset"
+                    :disabled="!currentDepartmentAdmins || currentDepartmentAdmins.length === 0">
+                    <div v-if="!currentDepartmentAdmins || currentDepartmentAdmins.length === 0"
+                        style="text-align: center; padding: 40px; color: #999;">
                         该部门暂无管理员
                     </div>
                     <div v-else>
@@ -175,11 +133,7 @@
                             <el-table-column prop="id" label="ID" width="80" />
                             <el-table-column label="操作" width="100">
                                 <template #default="{ row }">
-                                    <el-button
-                                        type="danger"
-                                        size="small"
-                                        @click="confirmUnsetAdmin(row)"
-                                    >
+                                    <el-button type="danger" size="small" @click="confirmUnsetAdmin(row)">
                                         取消
                                     </el-button>
                                 </template>
@@ -195,18 +149,15 @@
         </el-dialog>
 
         <!-- 成员管理弹窗 -->
-        <el-dialog
-            v-model="memberDialogVisible"
-            :title="`${currentDepartment?.name || ''} - 成员管理`"
-            width="90%"
-            :close-on-click-modal="false"
-            @close="resetMemberManagement"
-        >
+        <el-dialog v-model="memberDialogVisible" :title="`${currentDepartment?.name || ''} - 成员管理`" width="90%"
+            :close-on-click-modal="false" @close="resetMemberManagement">
             <div class="member-management-content">
                 <!-- 操作区域 -->
                 <div class="member-actions">
                     <el-button type="success" @click="showImportMemberDialog">
-                        <el-icon><Upload /></el-icon>
+                        <el-icon>
+                            <Upload />
+                        </el-icon>
                         批量导入
                     </el-button>
                 </div>
@@ -215,12 +166,8 @@
                 <div class="member-search">
                     <el-form :model="memberSearchForm" inline>
                         <el-form-item label="姓名">
-                            <el-input
-                                v-model="memberSearchForm.name"
-                                placeholder="请输入姓名"
-                                clearable
-                                style="width: 200px"
-                            />
+                            <el-input v-model="memberSearchForm.name" placeholder="请输入姓名" clearable
+                                style="width: 200px" />
                         </el-form-item>
                         <el-form-item>
                             <el-button type="primary" @click="handleMemberSearch">搜索</el-button>
@@ -231,12 +178,7 @@
 
                 <!-- 成员表格 -->
                 <div class="member-table">
-                    <el-table
-                        :data="memberTableData"
-                        border
-                        style="width: 100%"
-                        v-loading="memberLoading"
-                    >
+                    <el-table :data="memberTableData" border style="width: 100%" v-loading="memberLoading">
                         <el-table-column type="selection" width="55" />
                         <el-table-column type="index" label="序号" width="60" align="center" />
                         <el-table-column prop="name" label="姓名" min-width="100" />
@@ -248,12 +190,8 @@
                         <el-table-column prop="wx_id" label="微信ID" min-width="150" show-overflow-tooltip />
                         <el-table-column prop="invite_code" label="邀请码" width="120" show-overflow-tooltip>
                             <template #default="{ row }">
-                                <span
-                                    v-if="row.invite_code"
-                                    class="invite-code"
-                                    @click="copyInvitationCode(row.invite_code)"
-                                    title="点击复制邀请码"
-                                >
+                                <span v-if="row.invite_code" class="invite-code"
+                                    @click="copyInvitationCode(row.invite_code)" title="点击复制邀请码">
                                     {{ row.invite_code }}
                                 </span>
                                 <span v-else class="no-invite-code">无邀请码</span>
@@ -279,13 +217,12 @@
                                 </span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="100" fixed="right">
+                        <el-table-column label="操作" width="150" fixed="right">
                             <template #default="{ row }">
-                                <el-button
-                                    type="danger"
-                                    size="small"
-                                    @click="removeMember(row)"
-                                >
+                                <el-button type="primary" size="small" @click="showEditUserDialog(row)">
+                                    编辑
+                                </el-button>
+                                <el-button type="danger" size="small" @click="removeMember(row)">
                                     移除
                                 </el-button>
                             </template>
@@ -294,33 +231,19 @@
 
                     <!-- 分页 -->
                     <div class="pagination">
-                        <el-pagination
-                            v-model:current-page="memberPagination.page"
-                            v-model:page-size="memberPagination.size"
-                            :page-sizes="[10, 20, 50, 100]"
-                            :total="memberPagination.total"
-                            layout="total, sizes, prev, pager, next, jumper"
-                            @size-change="handleMemberSizeChange"
-                            @current-change="handleMemberCurrentChange"
-                        />
+                        <el-pagination v-model:current-page="memberPagination.page"
+                            v-model:page-size="memberPagination.size" :page-sizes="[10, 20, 50, 100]"
+                            :total="memberPagination.total" layout="total, sizes, prev, pager, next, jumper"
+                            @size-change="handleMemberSizeChange" @current-change="handleMemberCurrentChange" />
                     </div>
                 </div>
             </div>
         </el-dialog>
 
         <!-- 添加/编辑成员弹窗 -->
-        <el-dialog
-            v-model="memberFormDialogVisible"
-            :title="isEditMember ? '编辑成员' : '添加成员'"
-            width="600px"
-            @close="resetMemberForm"
-        >
-            <el-form
-                ref="memberFormRef"
-                :model="memberFormData"
-                :rules="memberFormRules"
-                label-width="100px"
-            >
+        <el-dialog v-model="memberFormDialogVisible" :title="isEditMember ? '编辑成员' : '添加成员'" width="600px"
+            @close="resetMemberForm">
+            <el-form ref="memberFormRef" :model="memberFormData" :rules="memberFormRules" label-width="100px">
                 <el-form-item label="用户名" prop="name">
                     <el-input v-model="memberFormData.name" placeholder="请输入用户名" />
                 </el-form-item>
@@ -331,27 +254,13 @@
                     <el-input v-model="memberFormData.phone" placeholder="请输入手机号" />
                 </el-form-item>
                 <el-form-item label="用户分组">
-                    <el-select
-                        v-model="memberFormData.groupIds"
-                        multiple
-                        placeholder="请选择用户分组"
-                        style="width: 100%"
-                    >
-                        <el-option
-                            v-for="group in groupOptions"
-                            :key="group.id"
-                            :label="group.name"
-                            :value="group.id"
-                        />
+                    <el-select v-model="memberFormData.groupIds" multiple placeholder="请选择用户分组" style="width: 100%">
+                        <el-option v-for="group in groupOptions" :key="group.id" :label="group.name"
+                            :value="group.id" />
                     </el-select>
                 </el-form-item>
                 <el-form-item v-if="!isEditMember" label="密码" prop="password">
-                    <el-input
-                        v-model="memberFormData.password"
-                        type="password"
-                        placeholder="请输入密码"
-                        show-password
-                    />
+                    <el-input v-model="memberFormData.password" type="password" placeholder="请输入密码" show-password />
                 </el-form-item>
             </el-form>
             <template #footer>
@@ -361,24 +270,12 @@
         </el-dialog>
 
         <!-- 批量导入成员弹窗 -->
-        <el-dialog
-            v-model="importDialogVisible"
-            title="批量导入成员"
-            width="500px"
-            :close-on-click-modal="false"
-        >
+        <el-dialog v-model="importDialogVisible" title="批量导入成员" width="500px" :close-on-click-modal="false">
             <el-form ref="importFormRef" :model="{ file: fileList }" label-width="80px">
                 <el-form-item label="上传文件">
-                    <el-upload
-                        ref="uploadRef"
-                        :auto-upload="false"
-                        :show-file-list="true"
-                        :limit="1"
-                        accept=".xlsx,.xls"
-                        :on-change="handleFileChange"
-                        :before-upload="beforeUpload"
-                        style="width: 100%"
-                    >
+                    <el-upload ref="uploadRef" :auto-upload="false" :show-file-list="true" :limit="1"
+                        accept=".xlsx,.xls" :on-change="handleFileChange" :before-upload="beforeUpload"
+                        style="width: 100%">
                         <el-button type="primary">选择文件</el-button>
                         <template #tip>
                             <div class="el-upload__tip">
@@ -394,7 +291,38 @@
             </template>
         </el-dialog>
 
-        </div>
+        <!-- 用户编辑弹窗 -->
+        <el-dialog v-model="editUserDialogVisible" title="编辑用户信息" width="600px" :close-on-click-modal="false"
+            @close="resetEditUserForm">
+            <el-form ref="editUserFormRef" :model="editUserFormData" :rules="editUserFormRules" label-width="100px">
+                <el-form-item label="用户名" prop="name">
+                    <el-input v-model="editUserFormData.name" placeholder="请输入用户名" />
+                </el-form-item>
+                <el-form-item label="性别" prop="sex">
+                    <el-select v-model="editUserFormData.sex" placeholder="请选择性别" style="width: 100%">
+                        <el-option label="男" value="0"></el-option>
+                        <el-option label="女" value="1"></el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="民族" prop="race">
+                    <el-input v-model="editUserFormData.race" placeholder="请输入民族" />
+                </el-form-item>
+                <el-form-item label="政治面貌" prop="political_status">
+                    <el-input v-model="editUserFormData.political_status" placeholder="请输入政治面貌" />
+                </el-form-item>
+                <el-form-item label="手机号" prop="id_number">
+                    <el-input v-model="editUserFormData.id_number" placeholder="请输入手机号" />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="editUserDialogVisible = false">取消</el-button>
+                <el-button type="primary" :loading="editUserSubmitting" @click="handleEditUserSubmit">
+                    确认修改
+                </el-button>
+            </template>
+        </el-dialog>
+
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -404,7 +332,7 @@ import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin } from '@/api/department';
-import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile } from '@/api/user';
+import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin } from '@/api/user';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
 
@@ -481,6 +409,40 @@ const formData = reactive({
 const adminFormData = reactive({
     admin_id: null as number | null
 });
+
+// 用户编辑相关
+const editUserDialogVisible = ref(false);
+const editUserFormRef = ref<FormInstance>();
+const editUserSubmitting = ref(false);
+
+const editUserFormData = reactive({
+    id: 0,
+    name: '',
+    sex: '0',
+    race: '',
+    political_status: '',
+    id_number: ''
+});
+
+const editUserFormRules = {
+    name: [
+        { required: true, message: '请输入用户名', trigger: 'blur' },
+        { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'blur' }
+    ],
+    sex: [
+        { required: true, message: '请选择性别', trigger: 'change' }
+    ],
+    race: [
+        { required: true, message: '请输入民族', trigger: 'blur' }
+    ],
+    political_status: [
+        { required: true, message: '请输入政治面貌', trigger: 'blur' }
+    ],
+    id_number: [
+        { required: true, message: '请输入手机号', trigger: 'blur' },
+        { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' }
+    ]
+};
 
 const treeProps = {
     children: 'children',
@@ -1231,7 +1193,7 @@ const handleFileChange = (uploadFile: any) => {
 
 const beforeUpload = (uploadFile: any) => {
     const isExcel = uploadFile.type === 'application/vnd.ms-excel' ||
-                   uploadFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        uploadFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     if (!isExcel) {
         ElMessage.error('只能上传 Excel 文件!');
         return false;
@@ -1456,6 +1418,77 @@ const resetMemberManagement = () => {
         total: 0
     });
     currentDepartment.value = null;
+};
+
+// 用户编辑相关方法
+// 显示用户编辑对话框
+const showEditUserDialog = (user: DepartmentUser) => {
+    // 将用户数据填充到表单中
+    Object.assign(editUserFormData, {
+        id: user.id,
+        name: user.name || '',
+        sex: user.sex || '',
+        race: user.race || '',
+        political_status: user.political_status || '',
+        id_number: user.id_number || ''
+    });
+    editUserDialogVisible.value = true;
+};
+
+// 重置用户编辑表单
+const resetEditUserForm = () => {
+    if (editUserFormRef.value) {
+        editUserFormRef.value.resetFields();
+    }
+    Object.assign(editUserFormData, {
+        id: 0,
+        name: '',
+        sex: '0',
+        race: '',
+        political_status: '',
+        id_number: ''
+    });
+    editUserSubmitting.value = false;
+};
+
+// 提交用户编辑表单
+const handleEditUserSubmit = async () => {
+    if (!editUserFormRef.value) return;
+
+    try {
+        await editUserFormRef.value.validate();
+        editUserSubmitting.value = true;
+
+        // 构造更新数据，按照API要求的格式
+        const updateData = {
+            name: editUserFormData.name,
+            sex: parseInt(editUserFormData.sex), // 转换为数字
+            race: editUserFormData.race,
+            political_status: editUserFormData.political_status,
+            id_number: editUserFormData.id_number
+        };
+
+        console.log('提交管理员更新用户数据, user_id:', editUserFormData.id, 'data:', updateData);
+
+        // 调用管理员更新API，user_id作为查询参数，其他数据作为请求体
+        await updateUserByAdmin(editUserFormData.id, updateData);
+
+        ElMessage.success('用户信息更新成功');
+        editUserDialogVisible.value = false;
+
+        // 刷新成员数据
+        if (memberDialogVisible.value) {
+            getMemberData();
+        }
+
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('更新用户信息失败:', error);
+            ElMessage.error('更新用户信息失败');
+        }
+    } finally {
+        editUserSubmitting.value = false;
+    }
 };
 
 /**
