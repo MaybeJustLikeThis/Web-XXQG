@@ -9,6 +9,7 @@ export interface Department {
     createTime: string;
     children?: Department[];
     userCount?: number;
+    activeCount?: number;
     admin?: Array<{
         id: number;
         name: string;

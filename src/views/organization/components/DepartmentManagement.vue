@@ -18,8 +18,12 @@
                     <div class="tree-node" v-if="shouldDisplayDepartment(data.id)">
                         <div class="node-info">
                             <span class="node-name">{{ data.name }}</span>
-                            <el-tag v-if="data.userCount" size="small" type="info">
-                                {{ data.userCount }}人
+                            <!-- 人数统计显示 -->
+                            <el-tag v-if="data.userCount > 0" size="small" type="info">
+                                ({{ data.activeCount || 0 }}/{{ data.userCount }})
+                            </el-tag>
+                            <el-tag v-else-if="data.userCount === 0" size="small" type="info">
+                                (0/0)
                             </el-tag>
                             <el-tag v-if="data.admin && data.admin.length > 0" size="small" type="success">
                                 部门管理员：{{data.admin.map(a => a.name).join('，')}}
@@ -270,7 +274,8 @@
         </el-dialog>
 
         <!-- 批量导入成员弹窗 -->
-        <el-dialog v-model="importDialogVisible" title="批量导入成员" width="500px" :close-on-click-modal="false">
+        <el-dialog v-model="importDialogVisible" title="批量导入成员" width="500px" :close-on-click-modal="false"
+            @open="resetImportDialog" @closed="resetImportDialog">
             <el-form ref="importFormRef" :model="{ file: fileList }" label-width="80px">
                 <el-form-item label="上传文件">
                     <el-upload ref="uploadRef" :auto-upload="false" :show-file-list="true" :limit="1"
@@ -361,6 +366,7 @@ const activeTab = ref('set'); // 当前激活的标签页
 // 批量导入相关
 const importDialogVisible = ref(false);
 const importFormRef = ref<FormInstance>();
+const uploadRef = ref();
 const uploading = ref(false);
 const fileList = ref([]);
 const importUrl = ref('');
@@ -519,17 +525,43 @@ const getDepartmentData = async () => {
                     phone: item.phone || '',
                     createTime: item.create_time || '',
                     userCount: item.user_count || 0,
+                    activeCount: 0, // 初始化为0，后面会获取实际数据
                     admin: item.admin || [], // 添加管理员信息
                     parent_department_name: item.parent_department_name || '',
                     children: [] // 先初始化为空，后面会构建树结构
                 };
             });
 
+            // 为每个部门获取总人数和激活用户数
+            await Promise.all(departments.map(async (dept) => {
+                try {
+                    const userRes = await getUsersByDepartment(dept.id);
+                    if (userRes.data && userRes.data.code === 200 && Array.isArray(userRes.data.data)) {
+                        const users = userRes.data.data;
+                        const activeUsers = users.filter((user: any) => user.wx_id && user.wx_id.trim() !== '');
+
+                        // 使用实际获取到的用户数量作为总人数
+                        dept.userCount = users.length;
+                        dept.activeCount = activeUsers.length;
+
+                        console.log(`部门 ${dept.name} (${dept.id}): 实际总数=${users.length}, 激活=${activeUsers.length}`);
+                    }
+                } catch (error) {
+                    console.warn(`获取部门 ${dept.name} 的用户数据失败:`, error);
+                    dept.userCount = 0;
+                    dept.activeCount = 0;
+                }
+            }));
+
+            console.log('处理后的部门数据:', departments);
+
             // 构建完整的树结构
             const fullTree = buildDepartmentTree(departments);
+            console.log('构建的树结构:', fullTree);
 
             // 过滤显示用户有权限查看的部门（包含权限继承链）
             departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
+            console.log('最终显示的部门树:', departmentTree.value);
         } else {
             throw new Error('API返回数据格式不正确');
         }
@@ -1233,22 +1265,46 @@ const handleImport = async () => {
         window.URL.revokeObjectURL(url);
 
         // 检查导入结果并显示相应消息
-        const importSuccess = response.headers['x-import-success'] || response.headers['X-Import-Success'];
+        // 只检查 x-import-success header 字段
+        const importSuccessFlag = response.headers['x-import-success'];
+        const isImportSuccess = importSuccessFlag === 'true' || importSuccessFlag === true;
 
-        if (importSuccess === 'true' || importSuccess === true) {
+        console.log('导入结果检查:', {
+            xImportSuccess: importSuccessFlag,
+            isImportSuccess: isImportSuccess
+        });
+
+        if (isImportSuccess) {
+            // 成功：显示绿色success组件
             ElMessage.success('批量导入成功，处理结果已下载');
-            getMemberData(); // 刷新成员列表
+            // 等待后端处理完成后刷新数据
+            setTimeout(async () => {
+                await getMemberData(); // 刷新成员列表
+                // 同时刷新部门统计数据
+                await getDepartmentData();
+            }, 1000);
         } else {
-            ElMessage.warning('导入处理完成，请查看下载的结果文件了解详情');
+            // 失败：显示红色error组件
+            ElMessage.error('批量导入失败，请查看下载的结果文件了解详情');
+            // 即使失败也尝试刷新数据
+            setTimeout(async () => {
+                await getMemberData(); // 刷新成员列表
+            }, 1000);
         }
 
+        // 关闭弹窗并清空文件列表
         importDialogVisible.value = false;
         fileList.value = [];
+
+        // 重置上传组件状态
+        if (uploadRef.value) {
+            uploadRef.value.clearFiles();
+        }
     } catch (error: any) {
         console.error('批量导入失败:', error);
 
         // 尝试从错误响应中提取详细错误信息
-        let errorMessage = '文件上传失败，请重试';
+        let errorMessage = '批量导入失败，请重试';
         if (error.response?.data instanceof Blob) {
             try {
                 const errorText = await error.response.data.text();
@@ -1261,6 +1317,7 @@ const handleImport = async () => {
             errorMessage = error.message;
         }
 
+        // 失败：显示红色error组件
         ElMessage.error(errorMessage);
     } finally {
         uploading.value = false;
@@ -1403,6 +1460,21 @@ const copyInvitationCode = (code: string) => {
     }).catch(() => {
         ElMessage.error('复制失败');
     });
+};
+
+// 重置导入弹窗
+const resetImportDialog = () => {
+    fileList.value = [];
+    uploading.value = false;
+
+    // 重置上传组件
+    if (uploadRef.value) {
+        try {
+            uploadRef.value.clearFiles();
+        } catch (error) {
+            console.warn('清空上传文件列表失败:', error);
+        }
+    }
 };
 
 // 重置成员管理

@@ -534,8 +534,13 @@ const getTopics = async () => {
             // 按ID倒序排列（最新在前）
             mappedData.sort((a: any, b: any) => Number(b.id) - Number(a.id));
 
+            // 强制触发响应式更新
+            tableData.value = [];
+            await nextTick();
             tableData.value = mappedData;
             pageTotal.value = data.length;
+
+            console.log('专题列表已更新:', mappedData);
         }
     } catch (error) {
         ElMessage.error('获取专题列表失败');
@@ -697,15 +702,32 @@ const handleSubmit = async () => {
 
         if (!form.id) {
             // 新增专题
-            await addSubject({
+            const createResult = await addSubject({
                 name: form.name,
                 begin_time: beginTime,
                 end_time: endTime,
                 question_list: [],
                 text_list: []
             });
+
             ElMessage.success('新增成功');
+            console.log('新增专题结果:', createResult);
+
+            // 关闭弹窗
+            dialogVisible.value = false;
+            resetForm();
+
+            // 等待一小段时间确保后端处理完成
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 确保数据刷新并显示新增的专题
             await getTopics();
+
+            // 确保新增的专题在第一页显示
+            query.page = 1;
+
+            // 使用 nextTick 确保 DOM 更新完成
+            await nextTick();
         } else {
             // 更新专题
             const questionList = editingRow.value?.question_list?.map((q: any) => Number(q.id)) || [];
@@ -730,8 +752,11 @@ const handleSubmit = async () => {
             ElMessage.success('更新成功');
         }
 
+        // 只有在编辑状态下才在关闭弹窗时重置editingRow
+        if (form.id) {
+            editingRow.value = null;
+        }
         dialogVisible.value = false;
-        editingRow.value = null;
     } catch (error) {
         if (error !== 'cancel') {
             ElMessage.error(form.id ? '更新失败' : '新增失败');

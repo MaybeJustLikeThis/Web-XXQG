@@ -6,7 +6,7 @@ const getBaseURL = () => {
         return '/api';
     }
     // 生产环境使用完整URL
-    return import.meta.env.VITE_API_BASE_URL || 'https://api.xuexi.geekyuu.com';
+    return import.meta.env.VITE_API_BASE_URL || "https://api.xuexi.9998k.cn";
 };
 
 // 通用请求实例（需要认证的接口）
