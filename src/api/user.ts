@@ -114,3 +114,20 @@ export const addUsersByFile = (department_id: number, file: File) => {
         responseType: 'blob' // 重要：用于下载文件
     });
 };
+
+// 获取所有用户积分列表（管理员）
+export const getPointAllList = () => {
+    return request({
+        url: '/user/get_point_all_list',
+        method: 'get'
+    });
+};
+
+// 获取用户积分记录（管理员）
+export const getPointRecordForAdmin = (user_id: number) => {
+    return request({
+        url: '/user/get_point_record_for_admin',
+        method: 'get',
+        params: { user_id }
+    });
+};

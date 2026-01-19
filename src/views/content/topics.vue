@@ -346,7 +346,8 @@
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="contentDialogVisible = false">取 消</el-button>
-                    <el-button type="primary" @click="saveTopicContent">保 存</el-button>
+                    <!-- 部门管理标签页不需要保存按钮，因为部门关联是实时保存的 -->
+                    <el-button v-if="activeTab !== 'departments'" type="primary" @click="saveTopicContent">保 存</el-button>
                 </span>
             </template>
         </el-dialog>

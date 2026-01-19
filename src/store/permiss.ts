@@ -75,6 +75,9 @@ export const usePermissStore = defineStore('permiss', {
             POINTS_RECORDS: '172',
             POINTS_STATS: '173',
 
+            // 用户管理
+            USER_MANAGE: '18',
+
             // 系统管理
             MENU_MANAGE: '13',
             ICON_MANAGE: '5',

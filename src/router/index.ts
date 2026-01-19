@@ -87,6 +87,15 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "system-menu" */ '../views/system/menu.vue'),
             },
             {
+                path: '/system/user-management',
+                name: 'system-user-management',
+                meta: {
+                    title: '用户管理',
+                    permiss: '18',
+                },
+                component: () => import(/* webpackChunkName: "system-user-management" */ '../views/system/user-management.vue'),
+            },
+            {
                 path: '/ucenter',
                 name: 'ucenter',
                 meta: {

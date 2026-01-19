@@ -354,6 +354,56 @@ const abortController = new AbortController(); // 用于取消异步请求
 const departmentPermissions = ref<Record<number, boolean>>({}); // 缓存部门权限状态
 const permissionLoading = ref(false); // 权限检查加载状态
 
+// ========== 优化：请求缓存机制 ==========
+interface CacheItem {
+    data: any;
+    timestamp: number;
+}
+
+const userCountCache = ref<Map<number, CacheItem>>(new Map());
+const CACHE_TTL = 5 * 60 * 1000; // 缓存5分钟
+
+// 清除过期缓存
+const clearExpiredCache = () => {
+    const now = Date.now();
+    const cache = userCountCache.value;
+
+    for (const [key, value] of cache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+            cache.delete(key);
+        }
+    }
+};
+
+// 获取缓存的用户数量
+const getCachedUserCount = (deptId: number) => {
+    const cached = userCountCache.value.get(deptId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+    }
+    return null;
+};
+
+// 设置用户数量缓存
+const setCachedUserCount = (deptId: number, data: any) => {
+    userCountCache.value.set(deptId, {
+        data,
+        timestamp: Date.now()
+    });
+};
+
+// ========== 优化：请求批量处理器（无并发限制，更高效） ==========
+const processBatchRequests = async <T,>(
+    items: T[],
+    processor: (item: T) => Promise<void>,
+    batchSize: number = 10
+): Promise<void> => {
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        await Promise.all(batch.map(processor));
+    }
+};
+
 // 设置管理员弹窗相关
 const adminDialogVisible = ref(false);
 const adminFormRef = ref<FormInstance>();
@@ -524,7 +574,7 @@ const getDepartmentData = async () => {
                     manager: item.manager || '',
                     phone: item.phone || '',
                     createTime: item.create_time || '',
-                    userCount: item.user_count || 0,
+                    userCount: item.user_count || 0, // 优先使用后端返回的user_count
                     activeCount: 0, // 初始化为0，后面会获取实际数据
                     admin: item.admin || [], // 添加管理员信息
                     parent_department_name: item.parent_department_name || '',
@@ -532,36 +582,68 @@ const getDepartmentData = async () => {
                 };
             });
 
-            // 为每个部门获取总人数和激活用户数
-            await Promise.all(departments.map(async (dept) => {
+            // ========== 优化：先构建树结构并渲染，再异步加载用户数据 ==========
+            console.log('构建基础部门树结构...');
+
+            // 构建完整的树结构
+            const fullTree = buildDepartmentTree(departments);
+
+            // 过滤显示用户有权限查看的部门（包含权限继承链）
+            departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
+            console.log('部门树已渲染，开始获取用户统计数据...');
+
+            // 清除过期缓存
+            clearExpiredCache();
+
+            // ========== 异步获取用户数据，不阻塞渲染 ==========
+            // 使用分批处理，每批10个并发请求，避免浏览器限制
+            const fetchUserData = async (dept: any) => {
+                // 检查缓存
+                const cached = getCachedUserCount(dept.id);
+                if (cached) {
+                    console.log(`使用缓存数据 - 部门 ${dept.name} (${dept.id})`);
+                    dept.userCount = cached.userCount;
+                    dept.activeCount = cached.activeCount;
+
+                    // 更新树中对应的节点
+                    updateDepartmentTreeNode(departmentTree.value, dept.id, {
+                        userCount: cached.userCount,
+                        activeCount: cached.activeCount
+                    });
+                    return;
+                }
+
+                // 缓存未命中，发起请求
                 try {
                     const userRes = await getUsersByDepartment(dept.id);
+
                     if (userRes.data && userRes.data.code === 200 && Array.isArray(userRes.data.data)) {
                         const users = userRes.data.data;
                         const activeUsers = users.filter((user: any) => user.wx_id && user.wx_id.trim() !== '');
 
-                        // 使用实际获取到的用户数量作为总人数
-                        dept.userCount = users.length;
-                        dept.activeCount = activeUsers.length;
+                        const userCount = users.length;
+                        const activeCount = activeUsers.length;
 
-                        console.log(`部门 ${dept.name} (${dept.id}): 实际总数=${users.length}, 激活=${activeUsers.length}`);
+                        // 存入缓存
+                        setCachedUserCount(dept.id, { userCount, activeCount });
+
+                        // 更新树中对应的节点
+                        updateDepartmentTreeNode(departmentTree.value, dept.id, {
+                            userCount,
+                            activeCount
+                        });
+
+                        console.log(`从API获取 - 部门 ${dept.name} (${dept.id}): 总数=${userCount}, 激活=${activeCount}`);
                     }
                 } catch (error) {
                     console.warn(`获取部门 ${dept.name} 的用户数据失败:`, error);
-                    dept.userCount = 0;
-                    dept.activeCount = 0;
                 }
-            }));
+            };
 
-            console.log('处理后的部门数据:', departments);
+            // 使用分批处理，每批10个并发请求
+            await processBatchRequests(departments, fetchUserData, 10);
 
-            // 构建完整的树结构
-            const fullTree = buildDepartmentTree(departments);
-            console.log('构建的树结构:', fullTree);
-
-            // 过滤显示用户有权限查看的部门（包含权限继承链）
-            departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
-            console.log('最终显示的部门树:', departmentTree.value);
+            console.log('所有部门用户数据获取完成');
         } else {
             throw new Error('API返回数据格式不正确');
         }
@@ -574,6 +656,23 @@ const getDepartmentData = async () => {
         // 发生错误时清空部门树
         departmentTree.value = [];
     }
+};
+
+// 更新部门树中的节点数据
+const updateDepartmentTreeNode = (tree: Department[], deptId: number, data: { userCount: number; activeCount: number }): boolean => {
+    for (const dept of tree) {
+        if (dept.id === deptId) {
+            dept.userCount = data.userCount;
+            dept.activeCount = data.activeCount;
+            return true;
+        }
+        if (dept.children && dept.children.length > 0) {
+            if (updateDepartmentTreeNode(dept.children, deptId, data)) {
+                return true;
+            }
+        }
+    }
+    return false;
 };
 
 
@@ -744,6 +843,10 @@ const handleDelete = async (department: Department) => {
         await deleteDepartment({ department_id: department.id });
 
         ElMessage.success('删除成功');
+
+        // 清除缓存
+        userCountCache.value.clear();
+
         await getDepartmentData();
     } catch (error) {
         if (error !== 'cancel') {
@@ -779,6 +882,10 @@ const handleSubmit = async () => {
 
         ElMessage.success(isEdit.value ? '编辑成功' : '新增成功');
         dialogVisible.value = false;
+
+        // 清除缓存，因为部门数据已更新
+        userCountCache.value.clear();
+
         await getDepartmentData();
     } catch (error) {
         if (error !== 'cancel') {
@@ -881,6 +988,9 @@ const handleSetAdmin = async () => {
         ElMessage.success('设置管理员成功');
         adminDialogVisible.value = false;
 
+        // 清除缓存
+        userCountCache.value.clear();
+
         // 重新获取数据以更新显示
         if (!isUnmounted.value) {
             await getDepartmentData();
@@ -931,6 +1041,9 @@ const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
                 currentDepartmentAdmins.value = currentDepartmentAdmins.value.filter(a => a.id !== admin.id);
                 console.log('更新本地管理员列表:', currentDepartmentAdmins.value);
             }
+
+            // 清除缓存
+            userCountCache.value.clear();
 
             // 重新获取部门数据以更新显示
             if (!isUnmounted.value) {
@@ -1764,6 +1877,9 @@ onUnmounted(() => {
 
     // 取消所有正在进行的异步请求
     abortController.abort();
+
+    // 清理缓存（可选，如果希望保留缓存则删除此行）
+    userCountCache.value.clear();
 
     // 立即关闭所有弹窗
     dialogVisible.value = false;

@@ -71,6 +71,13 @@ export const menuData: Menus[] = [
                 title: '菜单管理',
                 permiss: '13',
             },
+            {
+                id: '18',
+                pid: '1',
+                index: '/system/user-management',
+                title: '用户管理',
+                permiss: '18',
+            },
         ],
     },
     {
