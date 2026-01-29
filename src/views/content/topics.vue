@@ -462,7 +462,7 @@
 </template>
 
 <script setup lang="ts" name="topics">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search, Document, Clock, OfficeBuilding, Check, Setting, Link, Download, Refresh } from '@element-plus/icons-vue';
 import type { Topic } from '@/types/content';
@@ -561,6 +561,15 @@ const questionFilter = reactive({
     type: undefined as number | undefined,
 });
 
+// 计算平均完成度
+const averageCompletion = computed(() => {
+    if (!completionData.value.users || completionData.value.users.length === 0) {
+        return 0;
+    }
+    const total = completionData.value.users.reduce((sum: number, user: any) => sum + (user.completion_degree || 0), 0);
+    return Math.round(total / completionData.value.users.length);
+});
+
 // 部门管理
 const departmentSearch = ref('');
 const departmentPage = ref(1);
@@ -591,6 +600,14 @@ const refreshingData = ref(false);
 // 文章和题目操作loading状态
 const articleOperations = ref<Record<number, boolean>>({});
 const questionOperations = ref<Record<number, boolean>>({});
+
+// 完成情况管理
+const loadingCompletion = ref(false);
+const completionData = ref<any>({
+    total_items: 0,
+    users: []
+});
+const exportCompletionLoading = ref(false);
 
 // 获取专题列表
 const getTopics = async () => {
@@ -1348,6 +1365,14 @@ const getQuestionTypeColor = (type: number) => {
     return colors[type] || 'info';
 };
 
+// 根据完成度返回进度条颜色
+const getProgressColor = (percentage: number) => {
+    if (percentage >= 80) return '#67c23a'; // 绿色
+    if (percentage >= 60) return '#409eff'; // 蓝色
+    if (percentage >= 40) return '#e6a23c'; // 橙色
+    return '#f56c6c'; // 红色
+};
+
 // ================== 文章管理功能 ==================
 
 // 添加文章到专题
@@ -1636,8 +1661,116 @@ const removeQuestionFromTopic = async (question: any) => {
     }
 };
 
+// ================== 完成情况功能 ==================
+
+// 获取专题完成情况数据
+const fetchCompletionData = async () => {
+    if (!currentTopic.value) return;
+
+    try {
+        loadingCompletion.value = true;
+
+        const res = await getSubjectCompletion(Number(currentTopic.value.id));
+        const data = res.data.data || res.data;
+
+        if (data) {
+            completionData.value = {
+                total_items: data.total_items || 0,
+                users: data.users || []
+            };
+        } else {
+            completionData.value = {
+                total_items: 0,
+                users: []
+            };
+        }
+    } catch (error) {
+        ElMessage.error('获取完成情况失败');
+        console.error('获取完成情况失败:', error);
+        completionData.value = {
+            total_items: 0,
+            users: []
+        };
+    } finally {
+        loadingCompletion.value = false;
+    }
+};
+
+// 导出完成情况到Excel
+const exportCompletionToExcel = () => {
+    if (!completionData.value.users || completionData.value.users.length === 0) {
+        ElMessage.warning('暂无数据可导出');
+        return;
+    }
+
+    try {
+        exportCompletionLoading.value = true;
+
+        // 准备导出数据
+        const exportData = completionData.value.users.map((user: any, index: number) => ({
+            '序号': index + 1,
+            '用户ID': user.id,
+            '姓名': user.name,
+            '所属部门': user.department,
+            '完成进度(%)': user.completion_degree
+        }));
+
+        // 添加统计信息行
+        const summaryData = [
+            { '专题内容总数': completionData.value.total_items },
+            { '统计用户数': completionData.value.users.length },
+            { '平均完成度(%)': averageCompletion.value },
+            {}, // 空行
+            { '说明': '以下是用户完成情况明细' },
+            {} // 空行
+        ];
+
+        // 合并数据
+        const finalData = [...summaryData, ...exportData];
+
+        // 创建工作表
+        const ws = XLSX.utils.json_to_sheet(finalData);
+
+        // 设置列宽
+        ws['!cols'] = [
+            { wch: 8 },   // 序号
+            { wch: 12 },  // 用户ID
+            { wch: 15 },  // 姓名
+            { wch: 40 },  // 所属部门
+            { wch: 15 }   // 完成进度
+        ];
+
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '专题完成情况');
+
+        // 生成文件名
+        const fileName = `专题完成情况_${currentTopic.value?.name || '未命名'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+
+        // 下载文件
+        XLSX.writeFile(wb, fileName);
+
+        ElMessage.success('导出成功');
+    } catch (error) {
+        ElMessage.error('导出失败');
+        console.error('导出Excel失败:', error);
+    } finally {
+        exportCompletionLoading.value = false;
+    }
+};
+
 onMounted(async () => {
     await getTopics();
+});
+
+// 监听标签页切换
+watch(activeTab, async (newTab) => {
+    if (newTab === 'completion' && currentTopic.value) {
+        // 只在首次切换到完成情况标签时加载数据
+        if (completionData.value.users.length === 0) {
+            await fetchCompletionData();
+        }
+    }
 });
 </script>
 
