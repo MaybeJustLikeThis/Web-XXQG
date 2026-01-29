@@ -123,3 +123,12 @@ export const deleteSubjectDepartment = (data: DeleteSubjectDepartmentParams) => 
         data
     });
 };
+
+// 获取专题完成情况
+export const getSubjectCompletion = (subjectId: number) => {
+    return request({
+        url: '/subject/check_completion_degree',
+        method: 'get',
+        params: { subject_id: subjectId }
+    });
+};
