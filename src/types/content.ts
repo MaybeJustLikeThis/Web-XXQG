@@ -82,12 +82,12 @@ export interface DeleteSubjectDepartmentParams {
 // Subject completion data types
 export interface SubjectCompletionData {
     total_items: number;  // Total articles + questions in the subject
-    users: SubjectUserCompletion[];
+    list: SubjectUserCompletion[];  // Backend returns 'list' not 'users'
 }
 
 export interface SubjectUserCompletion {
-    id: number;           // User ID
+    user_id: number;           // User ID - backend uses 'user_id'
     name: string;         // User name
     department: string;   // Department name/path
-    completion_degree: number;  // Completion percentage (0-100)
+    progress: number;  // Completion percentage (0-100) - backend uses 'progress'
 }

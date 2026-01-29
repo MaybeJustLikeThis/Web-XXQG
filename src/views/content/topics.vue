@@ -355,7 +355,7 @@
                                 </div>
                                 <div class="summary-item">
                                     <span class="summary-label">统计用户数</span>
-                                    <span class="summary-value">{{ completionData.users?.length || 0 }}</span>
+                                    <span class="summary-value">{{ completionData.list?.length || 0 }}</span>
                                 </div>
                                 <div class="summary-item">
                                     <span class="summary-label">平均完成度</span>
@@ -368,7 +368,7 @@
                         <div class="table-toolbar">
                             <div class="toolbar-left">
                                 <el-button type="primary" :icon="Download" @click="exportCompletionToExcel"
-                                    :loading="exportCompletionLoading" :disabled="!completionData.users || completionData.users.length === 0">
+                                    :loading="exportCompletionLoading" :disabled="!completionData.list || completionData.list.length === 0">
                                     <el-icon><Download /></el-icon>
                                     导出Excel
                                 </el-button>
@@ -378,23 +378,23 @@
                                 </el-button>
                             </div>
                             <div class="toolbar-right">
-                                <span class="total-info">共 {{ completionData.users?.length || 0 }} 位用户</span>
+                                <span class="total-info">共 {{ completionData.list?.length || 0 }} 位用户</span>
                             </div>
                         </div>
 
                         <!-- 完成情况表格 -->
                         <div class="table-container">
-                            <el-table :data="completionData.users" border stripe style="width: 100%"
-                                :default-sort="{ prop: 'completion_degree', order: 'descending' }"
-                                v-if="completionData.users && completionData.users.length > 0">
+                            <el-table :data="completionData.list" border stripe style="width: 100%"
+                                :default-sort="{ prop: 'progress', order: 'descending' }"
+                                v-if="completionData.list && completionData.list.length > 0">
                                 <el-table-column type="index" label="序号" width="70" align="center">
                                     <template #default="{ $index }">
                                         {{ $index + 1 }}
                                     </template>
                                 </el-table-column>
-                                <el-table-column prop="id" label="用户ID" width="100" align="center" sortable>
+                                <el-table-column prop="user_id" label="用户ID" width="100" align="center" sortable>
                                     <template #default="scope">
-                                        <span style="font-weight: 600; color: #409eff;">{{ scope.row.id }}</span>
+                                        <span style="font-weight: 600; color: #409eff;">{{ scope.row.user_id }}</span>
                                     </template>
                                 </el-table-column>
                                 <el-table-column prop="name" label="姓名" min-width="120" sortable show-overflow-tooltip>
@@ -404,12 +404,12 @@
                                 </el-table-column>
                                 <el-table-column prop="department" label="所属部门" min-width="250" sortable
                                     show-overflow-tooltip />
-                                <el-table-column prop="completion_degree" label="完成进度" width="200" align="center" sortable>
+                                <el-table-column prop="progress" label="完成进度" width="200" align="center" sortable>
                                     <template #default="scope">
                                         <div class="progress-cell">
                                             <el-progress
-                                                :percentage="scope.row.completion_degree"
-                                                :color="getProgressColor(scope.row.completion_degree)"
+                                                :percentage="scope.row.progress"
+                                                :color="getProgressColor(scope.row.progress)"
                                                 :stroke-width="18"
                                                 :text-inside="true"
                                             />
@@ -602,11 +602,11 @@ const exportCompletionLoading = ref(false);
 
 // 计算平均完成度
 const averageCompletion = computed(() => {
-    if (!completionData.value.users || completionData.value.users.length === 0) {
+    if (!completionData.value.list || completionData.value.list.length === 0) {
         return 0;
     }
-    const total = completionData.value.users.reduce((sum: number, user: any) => sum + (user.completion_degree || 0), 0);
-    return Math.round(total / completionData.value.users.length);
+    const total = completionData.value.list.reduce((sum: number, user: any) => sum + (user.progress || 0), 0);
+    return Math.round(total / completionData.value.list.length);
 });
 
 // 获取专题列表
@@ -1676,12 +1676,12 @@ const fetchCompletionData = async () => {
         if (data) {
             completionData.value = {
                 total_items: data.total_items || 0,
-                users: data.users || []
+                list: data.list || []
             };
         } else {
             completionData.value = {
                 total_items: 0,
-                users: []
+                list: []
             };
         }
     } catch (error) {
@@ -1689,7 +1689,7 @@ const fetchCompletionData = async () => {
         console.error('获取完成情况失败:', error);
         completionData.value = {
             total_items: 0,
-            users: []
+            list: []
         };
     } finally {
         loadingCompletion.value = false;
@@ -1698,7 +1698,7 @@ const fetchCompletionData = async () => {
 
 // 导出完成情况到Excel
 const exportCompletionToExcel = () => {
-    if (!completionData.value.users || completionData.value.users.length === 0) {
+    if (!completionData.value.list || completionData.value.list.length === 0) {
         ElMessage.warning('暂无数据可导出');
         return;
     }
@@ -1707,18 +1707,18 @@ const exportCompletionToExcel = () => {
         exportCompletionLoading.value = true;
 
         // 准备导出数据
-        const exportData = completionData.value.users.map((user: any, index: number) => ({
+        const exportData = completionData.value.list.map((user: any, index: number) => ({
             '序号': index + 1,
-            '用户ID': user.id,
+            '用户ID': user.user_id,
             '姓名': user.name,
             '所属部门': user.department,
-            '完成进度(%)': user.completion_degree
+            '完成进度(%)': user.progress
         }));
 
         // 添加统计信息行
         const summaryData = [
             { '专题内容总数': completionData.value.total_items },
-            { '统计用户数': completionData.value.users.length },
+            { '统计用户数': completionData.value.list.length },
             { '平均完成度(%)': averageCompletion.value },
             {}, // 空行
             { '说明': '以下是用户完成情况明细' },
@@ -1767,7 +1767,7 @@ onMounted(async () => {
 watch(activeTab, async (newTab) => {
     if (newTab === 'completion' && currentTopic.value) {
         // 只在首次切换到完成情况标签时加载数据
-        if (completionData.value.users.length === 0) {
+        if (completionData.value.list.length === 0) {
             await fetchCompletionData();
         }
     }
