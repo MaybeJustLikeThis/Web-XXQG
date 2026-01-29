@@ -128,7 +128,7 @@ export const deleteSubjectDepartment = (data: DeleteSubjectDepartmentParams) => 
 export const getSubjectCompletion = (subjectId: number) => {
     return request({
         url: '/subject/check_completion_degree',
-        method: 'get',
-        params: { subject_id: subjectId }
+        method: 'post',
+        data: { subject_id: subjectId }
     });
 };
