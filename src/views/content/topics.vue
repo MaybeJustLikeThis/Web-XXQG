@@ -342,6 +342,85 @@
                         </div>
                     </div>
                 </el-tab-pane>
+
+                <!-- 完成情况 -->
+                <el-tab-pane label="完成情况" name="completion">
+                    <div class="content-management" v-loading="loadingCompletion" element-loading-text="正在加载完成情况...">
+                        <!-- 统计信息 -->
+                        <div class="completion-summary">
+                            <div class="summary-card">
+                                <div class="summary-item">
+                                    <span class="summary-label">专题内容总数</span>
+                                    <span class="summary-value">{{ completionData.total_items || 0 }}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">统计用户数</span>
+                                    <span class="summary-value">{{ completionData.users?.length || 0 }}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">平均完成度</span>
+                                    <span class="summary-value">{{ averageCompletion }}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 工具栏 -->
+                        <div class="table-toolbar">
+                            <div class="toolbar-left">
+                                <el-button type="primary" :icon="Download" @click="exportCompletionToExcel"
+                                    :loading="exportCompletionLoading" :disabled="!completionData.users || completionData.users.length === 0">
+                                    <el-icon><Download /></el-icon>
+                                    导出Excel
+                                </el-button>
+                                <el-button :icon="Refresh" @click="fetchCompletionData" :loading="loadingCompletion">
+                                    <el-icon><Refresh /></el-icon>
+                                    刷新
+                                </el-button>
+                            </div>
+                            <div class="toolbar-right">
+                                <span class="total-info">共 {{ completionData.users?.length || 0 }} 位用户</span>
+                            </div>
+                        </div>
+
+                        <!-- 完成情况表格 -->
+                        <div class="table-container">
+                            <el-table :data="completionData.users" border stripe style="width: 100%"
+                                :default-sort="{ prop: 'completion_degree', order: 'descending' }"
+                                v-if="completionData.users && completionData.users.length > 0">
+                                <el-table-column type="index" label="序号" width="70" align="center">
+                                    <template #default="{ $index }">
+                                        {{ $index + 1 }}
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="id" label="用户ID" width="100" align="center" sortable>
+                                    <template #default="scope">
+                                        <span style="font-weight: 600; color: #409eff;">{{ scope.row.id }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="name" label="姓名" min-width="120" sortable show-overflow-tooltip>
+                                    <template #default="scope">
+                                        <span style="font-weight: 500;">{{ scope.row.name }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="department" label="所属部门" min-width="250" sortable
+                                    show-overflow-tooltip />
+                                <el-table-column prop="completion_degree" label="完成进度" width="200" align="center" sortable>
+                                    <template #default="scope">
+                                        <div class="progress-cell">
+                                            <el-progress
+                                                :percentage="scope.row.completion_degree"
+                                                :color="getProgressColor(scope.row.completion_degree)"
+                                                :stroke-width="18"
+                                                :text-inside="true"
+                                            />
+                                        </div>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                            <el-empty v-else description="暂无完成情况数据" :image-size="100" />
+                        </div>
+                    </div>
+                </el-tab-pane>
             </el-tabs>
             <template #footer>
                 <span class="dialog-footer">
