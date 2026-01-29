@@ -178,7 +178,7 @@
                             </el-input>
                             <el-select v-model="questionFilter.type" placeholder="题型"
                                 style="width: 120px; margin-left: 10px;" @change="searchQuestions">
-                                <el-option label="全部" :value="undefined"></el-option>
+                                <el-option label="全部" value=""></el-option>
                                 <el-option label="单选" :value="1"></el-option>
                                 <el-option label="多选" :value="2"></el-option>
                                 <el-option label="简答" :value="3"></el-option>
@@ -596,7 +596,7 @@ const questionOperations = ref<Record<number, boolean>>({});
 const loadingCompletion = ref(false);
 const completionData = ref<any>({
     total_items: 0,
-    users: []
+    list: []
 });
 const exportCompletionLoading = ref(false);
 
