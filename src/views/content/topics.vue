@@ -561,15 +561,6 @@ const questionFilter = reactive({
     type: undefined as number | undefined,
 });
 
-// 计算平均完成度
-const averageCompletion = computed(() => {
-    if (!completionData.value.users || completionData.value.users.length === 0) {
-        return 0;
-    }
-    const total = completionData.value.users.reduce((sum: number, user: any) => sum + (user.completion_degree || 0), 0);
-    return Math.round(total / completionData.value.users.length);
-});
-
 // 部门管理
 const departmentSearch = ref('');
 const departmentPage = ref(1);
@@ -608,6 +599,15 @@ const completionData = ref<any>({
     users: []
 });
 const exportCompletionLoading = ref(false);
+
+// 计算平均完成度
+const averageCompletion = computed(() => {
+    if (!completionData.value.users || completionData.value.users.length === 0) {
+        return 0;
+    }
+    const total = completionData.value.users.reduce((sum: number, user: any) => sum + (user.completion_degree || 0), 0);
+    return Math.round(total / completionData.value.users.length);
+});
 
 // 获取专题列表
 const getTopics = async () => {
