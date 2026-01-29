@@ -369,11 +369,9 @@
                             <div class="toolbar-left">
                                 <el-button type="primary" :icon="Download" @click="exportCompletionToExcel"
                                     :loading="exportCompletionLoading" :disabled="!completionData.list || completionData.list.length === 0">
-                                    <el-icon><Download /></el-icon>
                                     导出Excel
                                 </el-button>
                                 <el-button :icon="Refresh" @click="fetchCompletionData" :loading="loadingCompletion">
-                                    <el-icon><Refresh /></el-icon>
                                     刷新
                                 </el-button>
                             </div>
@@ -1715,21 +1713,8 @@ const exportCompletionToExcel = () => {
             '完成进度(%)': user.progress
         }));
 
-        // 添加统计信息行
-        const summaryData = [
-            { '专题内容总数': completionData.value.total_items },
-            { '统计用户数': completionData.value.list.length },
-            { '平均完成度(%)': averageCompletion.value },
-            {}, // 空行
-            { '说明': '以下是用户完成情况明细' },
-            {} // 空行
-        ];
-
-        // 合并数据
-        const finalData = [...summaryData, ...exportData];
-
-        // 创建工作表
-        const ws = XLSX.utils.json_to_sheet(finalData);
+        // 创建工作表（只导出用户数据，不包含统计信息）
+        const ws = XLSX.utils.json_to_sheet(exportData);
 
         // 设置列宽
         ws['!cols'] = [
