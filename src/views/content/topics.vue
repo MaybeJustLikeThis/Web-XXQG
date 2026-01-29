@@ -464,12 +464,13 @@
 <script setup lang="ts" name="topics">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search, Document, Clock, OfficeBuilding, Check, Setting, Link } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search, Document, Clock, OfficeBuilding, Check, Setting, Link, Download, Refresh } from '@element-plus/icons-vue';
 import type { Topic } from '@/types/content';
-import { getSubjects, updateSubject, addSubject, deleteSubject, addSubjectDepartment, deleteSubjectDepartment } from '@/api/subject';
+import { getSubjects, updateSubject, addSubject, deleteSubject, addSubjectDepartment, deleteSubjectDepartment, getSubjectCompletion } from '@/api/subject';
 import { getAllArticles } from '@/api/article';
 import { getAllQuestions } from '@/api/question';
 import { getAllDepartments } from '@/api/department';
+import * as XLSX from 'xlsx';
 
 // 查询参数
 const query = reactive<{
