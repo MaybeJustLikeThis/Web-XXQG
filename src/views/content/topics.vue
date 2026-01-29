@@ -2299,4 +2299,133 @@ watch(activeTab, async (newTab) => {
         margin-bottom: 0;
     }
 }
+
+/* 完成情况标签页样式 */
+.completion-summary {
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的统计区域 */
+:root.dark .completion-summary {
+    background: linear-gradient(135deg, #4c5c9e 0%, #5a3d7e 100%);
+    box-shadow: 0 4px 12px rgba(76, 92, 158, 0.3);
+}
+
+.summary-card {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 20px;
+}
+
+.summary-item {
+    flex: 1;
+    text-align: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.summary-item:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.summary-label {
+    display: block;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.summary-value {
+    display: block;
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+/* 暗色模式下的工具栏 */
+:root.dark .table-toolbar {
+    background: var(--el-fill-color-light, #262727);
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+}
+
+.total-info {
+    font-size: 14px;
+    color: var(--text-secondary, #606266);
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+/* 暗色模式下的统计信息 */
+:root.dark .total-info {
+    color: var(--text-secondary, #a3a6ad);
+}
+
+.table-container {
+    margin-top: 16px;
+}
+
+.progress-cell {
+    padding: 0 10px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .summary-card {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .summary-item {
+        width: 100%;
+        padding: 12px;
+    }
+
+    .table-toolbar {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .toolbar-left {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .toolbar-left .el-button {
+        width: 100%;
+    }
+}
 </style>
