@@ -262,32 +262,43 @@
             </div>
         </el-dialog>
 
-        <!-- 添加/编辑成员弹窗 -->
-        <el-dialog v-model="memberFormDialogVisible" :title="isEditMember ? '编辑成员' : '添加成员'" width="600px"
+        <!-- 添加成员弹窗 -->
+        <el-dialog v-model="memberFormDialogVisible" title="新增成员" width="600px"
             @close="resetMemberForm">
             <el-form ref="memberFormRef" :model="memberFormData" :rules="memberFormRules" label-width="100px">
-                <el-form-item label="用户名" prop="name">
-                    <el-input v-model="memberFormData.name" placeholder="请输入用户名" />
+                <el-form-item label="姓名" prop="name">
+                    <el-input v-model="memberFormData.name" placeholder="请输入姓名" />
                 </el-form-item>
-                <el-form-item label="邮箱" prop="email">
-                    <el-input v-model="memberFormData.email" placeholder="请输入邮箱" />
+                <el-form-item label="手机号" prop="id_number">
+                    <el-input v-model="memberFormData.id_number" placeholder="请输入手机号" />
                 </el-form-item>
-                <el-form-item label="手机号" prop="phone">
-                    <el-input v-model="memberFormData.phone" placeholder="请输入手机号" />
-                </el-form-item>
-                <el-form-item label="用户分组">
-                    <el-select v-model="memberFormData.groupIds" multiple placeholder="请选择用户分组" style="width: 100%">
-                        <el-option v-for="group in groupOptions" :key="group.id" :label="group.name"
-                            :value="group.id" />
+                <el-form-item label="性别" prop="sex">
+                    <el-select v-model="memberFormData.sex" placeholder="请选择性别" style="width: 100%">
+                        <el-option label="男" :value="1"></el-option>
+                        <el-option label="女" :value="0"></el-option>
                     </el-select>
                 </el-form-item>
-                <el-form-item v-if="!isEditMember" label="密码" prop="password">
-                    <el-input v-model="memberFormData.password" type="password" placeholder="请输入密码" show-password />
+                <el-form-item label="民族" prop="race">
+                    <el-input v-model="memberFormData.race" placeholder="请输入民族" />
+                </el-form-item>
+                <el-form-item label="政治面貌" prop="political_status">
+                    <el-select v-model="memberFormData.political_status" placeholder="请选择政治面貌" style="width: 100%">
+                        <el-option label="群众" value="群众"></el-option>
+                        <el-option label="共青团员" value="共青团员"></el-option>
+                        <el-option label="中共党员" value="中共党员"></el-option>
+                        <el-option label="预备党员" value="预备党员"></el-option>
+                        <el-option label="其他党派" value="其他党派"></el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="入职日期">
+                    <el-date-picker v-model="memberFormData.entry_date" type="date"
+                        placeholder="请选择入职日期" value-format="YYYY-MM-DDTHH:mm:ssZ"
+                        style="width: 100%" />
                 </el-form-item>
             </el-form>
             <template #footer>
                 <el-button @click="memberFormDialogVisible = false">取消</el-button>
-                <el-button type="primary" @click="handleMemberSubmit">确认</el-button>
+                <el-button type="primary" :loading="memberSubmitting" @click="handleMemberSubmit">确认</el-button>
             </template>
         </el-dialog>
 
@@ -362,7 +373,7 @@ import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment } from '@/api/department';
-import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin } from '@/api/user';
+import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser } from '@/api/user';
 import { getTemplate } from '@/api/template';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
@@ -523,6 +534,7 @@ const memberFormRef = ref<FormInstance>();
 const currentDepartment = ref<Department | null>(null);
 const memberLoading = ref(false);
 const isEditMember = ref(false);
+const memberSubmitting = ref(false);
 
 // 成员管理相关数据
 const memberTableData = ref<DepartmentUser[]>([]);
@@ -534,12 +546,12 @@ const memberSearchForm = reactive({
 });
 
 const memberFormData = reactive({
-    id: 0,
     name: '',
-    email: '',
-    phone: '',
-    groupIds: [] as number[],
-    password: ''
+    id_number: '',
+    sex: 2,
+    race: '',
+    political_status: '',
+    entry_date: null as string | null
 });
 
 const memberPagination = reactive({
@@ -620,19 +632,19 @@ const adminFormRules = {
 // 成员表单验证规则
 const memberFormRules = {
     name: [
-        { required: true, message: '请输入用户名', trigger: 'blur' },
-        { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'blur' }
+        { required: true, message: '请输入姓名', trigger: 'blur' }
     ],
-    email: [
-        { required: true, message: '请输入邮箱', trigger: 'blur' },
-        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    id_number: [
+        { required: true, message: '请输入手机号', trigger: 'blur' }
     ],
-    phone: [
-        { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' }
+    sex: [
+        { required: true, message: '请选择性别', trigger: 'change' }
     ],
-    password: [
-        { required: true, message: '请输入密码', trigger: 'blur' },
-        { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    race: [
+        { required: true, message: '请输入民族', trigger: 'blur' }
+    ],
+    political_status: [
+        { required: true, message: '请选择政治面貌', trigger: 'change' }
     ]
 };
 
@@ -1464,7 +1476,6 @@ const handleMemberCurrentChange = (page: number) => {
 
 // 显示添加成员对话框
 const showAddMemberDialog = () => {
-    isEditMember.value = false;
     resetMemberForm();
     memberFormDialogVisible.value = true;
 };
@@ -1652,53 +1663,31 @@ const removeMember = async (user: DepartmentUser) => {
 
 // 提交成员表单
 const handleMemberSubmit = async () => {
-    if (!memberFormRef.value) return;
+    if (!memberFormRef.value || !currentDepartment.value) return;
 
     try {
         await memberFormRef.value.validate();
 
-        // 实际应该调用API
-        if (isEditMember.value) {
-            ElMessage.success('编辑成功');
-        } else {
-            // 生成新的邀请码
-            const newUser: DepartmentUser = {
-                id: Date.now(),
-                wx_id: '',
-                name: memberFormData.name,
-                sex: '男',
-                race: '汉族',
-                political_status: '群众',
-                id_number: '',
-                department: currentDepartment.value!.name,
-                invite_code: 'INV' + Date.now().toString().slice(-6),
-                points: 0,
-                is_super_admin: false,
-                edit_text: false,
-                edit_question: false,
-                manage_departments: [],
-                // 兼容字段
-                email: memberFormData.email,
-                phone: memberFormData.phone,
-                status: 'active',
-                departmentId: currentDepartment.value!.id,
-                departmentName: currentDepartment.value!.name,
-                groupIds: memberFormData.groupIds,
-                groups: memberFormData.groupIds.map(id => {
-                    const group = groupOptions.value.find(g => g.id === id);
-                    return group ? group.name : '';
-                }).filter(Boolean),
-                createTime: new Date().toLocaleString()
-            };
-            memberTableData.value.unshift(newUser);
-            memberPagination.total++;
-            ElMessage.success('添加成功');
-        }
+        memberSubmitting.value = true;
+        await createUser({
+            name: memberFormData.name,
+            id_number: memberFormData.id_number,
+            department_id: currentDepartment.value.id,
+            sex: memberFormData.sex,
+            race: memberFormData.race,
+            political_status: memberFormData.political_status,
+            entry_date: memberFormData.entry_date || null
+        });
 
+        ElMessage.success('添加成功');
         memberFormDialogVisible.value = false;
         getMemberData();
-    } catch (error) {
-        console.error('表单验证失败:', error);
+    } catch (error: any) {
+        console.error('添加成员失败:', error);
+        const msg = error?.response?.data?.msg || error?.message || '添加失败，请重试';
+        ElMessage.error(msg);
+    } finally {
+        memberSubmitting.value = false;
     }
 };
 
@@ -1708,12 +1697,12 @@ const resetMemberForm = () => {
         memberFormRef.value.resetFields();
     }
     Object.assign(memberFormData, {
-        id: 0,
         name: '',
-        email: '',
-        phone: '',
-        groupIds: [],
-        password: ''
+        id_number: '',
+        sex: 2,
+        race: '',
+        political_status: '',
+        entry_date: null
     });
 };
 
