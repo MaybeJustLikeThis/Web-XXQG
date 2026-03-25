@@ -36,6 +36,15 @@ export const createUser = (data: any) => {
     });
 };
 
+// 删除用户
+export const deleteUser = (data: { user_id: number }) => {
+    return request({
+        url: '/user/delete',
+        method: 'post',
+        data
+    });
+};
+
 // 更新用户
 export const updateUser = (data: { id: number; [key: string]: any }) => {
     return request({
@@ -54,15 +63,6 @@ export const updateUserByAdmin = (user_id: number, data: { name: string; sex: nu
             user_id
         },
         data
-    });
-};
-
-// 删除用户
-export const deleteUser = (id: number) => {
-    return request({
-        url: '/user/delete',
-        method: 'post',
-        data: { id }
     });
 };
 

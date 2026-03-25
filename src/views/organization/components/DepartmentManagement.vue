@@ -239,13 +239,16 @@
                                 </span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="150" fixed="right">
+                        <el-table-column label="操作" width="200" fixed="right">
                             <template #default="{ row }">
                                 <el-button type="primary" size="small" @click="showEditUserDialog(row)">
                                     编辑
                                 </el-button>
                                 <el-button type="danger" size="small" @click="removeMember(row)">
                                     移除
+                                </el-button>
+                                <el-button type="danger" size="small" plain @click="handleDeleteUser(row)">
+                                    删除
                                 </el-button>
                             </template>
                         </el-table-column>
@@ -370,7 +373,7 @@ import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment } from '@/api/department';
-import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser } from '@/api/user';
+import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser } from '@/api/user';
 import { getTemplate } from '@/api/template';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
@@ -1661,6 +1664,30 @@ const removeMember = async (user: DepartmentUser) => {
         if (error !== 'cancel') {
             console.error('移除成员错误:', error);
             ElMessage.error('移除失败');
+        }
+    }
+};
+
+const handleDeleteUser = async (user: DepartmentUser) => {
+    try {
+        await ElMessageBox.confirm(
+            `确定要删除用户 ${user.name} 吗？此操作不可恢复！`,
+            '删除确认',
+            { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'error' }
+        );
+
+        await deleteUser({ user_id: user.id });
+
+        const index = memberTableData.value.findIndex(item => item.id === user.id);
+        if (index > -1) {
+            memberTableData.value.splice(index, 1);
+            memberPagination.total--;
+        }
+        ElMessage.success('删除成功');
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('删除用户错误:', error);
+            ElMessage.error('删除失败');
         }
     }
 };
