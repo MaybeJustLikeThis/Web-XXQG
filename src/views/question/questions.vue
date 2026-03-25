@@ -15,12 +15,6 @@
                 <el-option label="判断题" value="judge"></el-option>
                 <el-option label="简答题" value="essay"></el-option>
             </el-select>
-            <el-select v-model="query.difficulty" placeholder="难度" class="handle-select mr10">
-                <el-option label="全部" value=""></el-option>
-                <el-option label="简单" value="easy"></el-option>
-                <el-option label="中等" value="medium"></el-option>
-                <el-option label="困难" value="hard"></el-option>
-            </el-select>
             <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
         </div>
 
@@ -40,14 +34,13 @@
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column label="难度" width="80" align="center">
+            <el-table-column label="公开" width="80" align="center">
                 <template #default="scope">
-                    <el-tag :type="getDifficultyColor('medium')">
-                        {{ getDifficultyText('medium') }}
+                    <el-tag :type="scope.row.public ? 'success' : 'info'">
+                        {{ scope.row.public ? '公开' : '私有' }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column prop="points" label="分值" width="80" align="center"></el-table-column>
             <el-table-column label="操作" width="220" align="center" fixed="right">
                 <template #default="scope">
                     <el-button type="primary" size="small" @click="handleEdit(scope.row)">编辑</el-button>
@@ -83,10 +76,8 @@
                         </el-form-item>
                     </el-col>
                     <el-col :span="6">
-                        <el-form-item label="难度">
-                            <el-select value="medium" disabled style="width: 100%">
-                                <el-option label="中等" value="medium"></el-option>
-                            </el-select>
+                        <el-form-item label="是否公开">
+                            <el-switch v-model="form.public"></el-switch>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -129,19 +120,6 @@
                     <el-input v-model="form.detail.standard_answer[0]" type="textarea" rows="2"
                         placeholder="请输入正确答案"></el-input>
                 </el-form-item>
-
-                <el-row :gutter="20">
-                    <el-col :span="8">
-                        <el-form-item label="分值">
-                            <el-input-number :value="10" disabled style="width: 100%"></el-input-number>
-                        </el-form-item>
-                    </el-col>
-                    <el-col :span="8">
-                        <el-form-item label="时间限制(秒)">
-                            <el-input-number :value="undefined" disabled style="width: 100%"></el-input-number>
-                        </el-form-item>
-                    </el-col>
-                </el-row>
 
                 <el-form-item label="答案解析">
                     <el-input v-model="form.detail.reference_answer" type="textarea" rows="3"
@@ -241,6 +219,9 @@
                         <el-option label="简答题" :value="3"></el-option>
                     </el-select>
                 </el-form-item>
+                <el-form-item label="是否公开">
+                    <el-switch v-model="importForm.isPublic"></el-switch>
+                </el-form-item>
                 <el-form-item label="上传文件" prop="file"
                     :rules="[{ required: true, message: '请选择要上传的文件', trigger: 'change' }]">
                     <el-upload ref="uploadRef" :auto-upload="false" :show-file-list="true" :limit="1"
@@ -249,7 +230,22 @@
                         <el-button type="primary">选择文件</el-button>
                         <template #tip>
                             <div class="el-upload__tip">
-                                请上传 .xlsx 或 .xls 格式的Excel文件
+                                请上传 .xlsx 或 .xls 格式的 Excel 文件，必须使用下方模板填写
+                                <div style="margin-top: 4px;">
+                                    下载模板：
+                                    <el-link type="primary" :underline="false"
+                                        @click="handleDownloadTemplate('upload_questions_choice.xls')">
+                                        单选题模板
+                                    </el-link>
+                                    <el-link type="primary" :underline="false"
+                                        @click="handleDownloadTemplate('upload_questions_multi_choice.xls')">
+                                        多选题模板
+                                    </el-link>
+                                    <el-link type="primary" :underline="false"
+                                        @click="handleDownloadTemplate('upload_questions_qa.xls')">
+                                        简答题模板
+                                    </el-link>
+                                </div>
                             </div>
                         </template>
                     </el-upload>
@@ -301,6 +297,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search, Upload, Warning } from '@element-plus/icons-vue';
 import type { QuestionQuery } from '@/types/question';
 import { getAllQuestions, addQuestion, editQuestion, deleteQuestion, addQuestionsByFile } from '@/api/question';
+import { getTemplate } from '@/api/template';
 import { transformQuestionData } from '@/types/question';
 
 // 查询参数
@@ -309,7 +306,6 @@ const query = reactive<QuestionQuery>({
     pageSize: 10,
     title: '',
     type: undefined,
-    difficulty: undefined,
 });
 
 // 存储所有题目数据（用于客户端分页）
@@ -444,8 +440,29 @@ const uploading = ref(false);
 const fileList = ref([]);
 const importForm = reactive({
     questionType: null as number | null,
+    isPublic: true,
     file: null as File | null
 });
+
+const handleDownloadTemplate = async (fileName: string) => {
+    try {
+        const response = await getTemplate(fileName);
+        const blob = new Blob([response.data], {
+            type: 'application/vnd.ms-excel'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+        console.error('下载模板失败:', error);
+        ElMessage.error('下载模板失败，请重试');
+    }
+};
 
 // 批量删除相关
 const multipleSelection = ref<any[]>([]);
@@ -967,6 +984,7 @@ const handleImport = () => {
 const resetImportForm = () => {
     Object.assign(importForm, {
         questionType: null,
+        isPublic: true,
         file: null
     });
     fileList.value = [];
@@ -1005,7 +1023,7 @@ const handleImportSubmit = async () => {
 
         uploading.value = true;
 
-        const response = await addQuestionsByFile(importForm.file, importForm.questionType);
+        const response = await addQuestionsByFile(importForm.file, importForm.questionType, importForm.isPublic);
 
         // 检查响应类型，如果是JSON错误响应则处理错误
         if (response.data instanceof Blob && response.data.type === 'application/json') {
