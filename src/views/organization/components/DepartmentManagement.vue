@@ -493,17 +493,17 @@ const importUrl = ref('');
 const handleDownloadTemplate = async (fileName: string) => {
     try {
         const response = await getTemplate(fileName);
-        const blob = new Blob([response.data], {
-            type: 'application/vnd.ms-excel'
-        });
-        const url = window.URL.createObjectURL(blob);
+        const url = response.data?.data?.url;
+        if (!url) {
+            ElMessage.error('获取模板下载链接失败');
+            return;
+        }
         const link = document.createElement('a');
         link.href = url;
-        link.download = fileName;
+        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
     } catch (error: any) {
         console.error('下载模板失败:', error);
         ElMessage.error('下载模板失败，请重试');
