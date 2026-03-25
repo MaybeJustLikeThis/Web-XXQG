@@ -170,6 +170,12 @@
             <div class="member-management-content">
                 <!-- 操作区域 -->
                 <div class="member-actions">
+                    <el-button type="primary" @click="showAddMemberDialog">
+                        <el-icon>
+                            <Plus />
+                        </el-icon>
+                        新增成员
+                    </el-button>
                     <el-button type="success" @click="showImportMemberDialog">
                         <el-icon>
                             <Upload />
