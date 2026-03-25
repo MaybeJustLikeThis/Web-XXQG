@@ -239,15 +239,12 @@
                                 </span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="200" fixed="right">
+                        <el-table-column label="操作" width="150" fixed="right">
                             <template #default="{ row }">
                                 <el-button type="primary" size="small" @click="showEditUserDialog(row)">
                                     编辑
                                 </el-button>
-                                <el-button type="danger" size="small" @click="removeMember(row)">
-                                    移除
-                                </el-button>
-                                <el-button type="danger" size="small" plain @click="handleDeleteUser(row)">
+                                <el-button type="danger" size="small" @click="handleDeleteUser(row)">
                                     删除
                                 </el-button>
                             </template>
@@ -373,7 +370,7 @@ import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment } from '@/api/department';
-import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser } from '@/api/user';
+import { getUsersByDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser } from '@/api/user';
 import { getTemplate } from '@/api/template';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
@@ -1637,37 +1634,6 @@ const toggleMemberStatus = async (user: DepartmentUser) => {
 };
 
 // 移除成员
-const removeMember = async (user: DepartmentUser) => {
-    if (!currentDepartment.value) return;
-
-    try {
-        await ElMessageBox.confirm(`确定要将 ${user.name} 移出当前部门吗？`, '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        });
-
-        // 调用API将用户从部门移除
-        await removeUserFromDepartment({
-            user_id: user.id,
-            department_id: currentDepartment.value.id
-        });
-
-        // 从本地数据中移除
-        const index = memberTableData.value.findIndex(item => item.id === user.id);
-        if (index > -1) {
-            memberTableData.value.splice(index, 1);
-            memberPagination.total--;
-        }
-        ElMessage.success('移除成功');
-    } catch (error) {
-        if (error !== 'cancel') {
-            console.error('移除成员错误:', error);
-            ElMessage.error('移除失败');
-        }
-    }
-};
-
 const handleDeleteUser = async (user: DepartmentUser) => {
     try {
         await ElMessageBox.confirm(

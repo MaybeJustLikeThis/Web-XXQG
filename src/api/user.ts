@@ -75,15 +75,6 @@ export const toggleUserStatus = (id: number, status: 'active' | 'disabled') => {
     });
 };
 
-// 将用户从部门移除
-export const removeUserFromDepartment = (data: { user_id: number; department_id: number }) => {
-    return request({
-        url: '/user/remove_from_department',
-        method: 'post',
-        data
-    });
-};
-
 // 批量导入用户
 export const importUsers = (data: FormData) => {
     return request({
