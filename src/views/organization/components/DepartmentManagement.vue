@@ -292,11 +292,6 @@
                         <el-option label="其他党派" value="其他党派"></el-option>
                     </el-select>
                 </el-form-item>
-                <el-form-item label="入职日期">
-                    <el-date-picker v-model="memberFormData.entry_date" type="date"
-                        placeholder="请选择入职日期" value-format="YYYY-MM-DDTHH:mm:ssZ"
-                        style="width: 100%" />
-                </el-form-item>
             </el-form>
             <template #footer>
                 <el-button @click="memberFormDialogVisible = false">取消</el-button>
@@ -552,8 +547,7 @@ const memberFormData = reactive({
     id_number: '',
     sex: null as number | null,
     race: '',
-    political_status: '',
-    entry_date: null as string | null
+    political_status: ''
 });
 
 const ethnicGroups = [
@@ -1686,8 +1680,7 @@ const handleMemberSubmit = async () => {
             department_id: currentDepartment.value.id,
             sex: memberFormData.sex,
             race: memberFormData.race,
-            political_status: memberFormData.political_status,
-            entry_date: memberFormData.entry_date || null
+            political_status: memberFormData.political_status
         });
 
         ElMessage.success('添加成功');
@@ -1712,8 +1705,7 @@ const resetMemberForm = () => {
         id_number: '',
         sex: null,
         race: '',
-        political_status: '',
-        entry_date: null
+        political_status: ''
     });
 };
 
