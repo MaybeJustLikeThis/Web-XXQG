@@ -11,8 +11,9 @@
         </div>
 
         <div class="content">
-            <el-tree :data="departmentTree" :props="treeProps" :expand-on-click-node="false" default-expand-all
-                node-key="id">
+            <el-tree ref="treeRef" :data="departmentTree" :props="treeProps" :expand-on-click-node="false"
+                :default-expanded-keys="expandedKeys" node-key="id" @node-expand="handleNodeExpand"
+                @node-collapse="handleNodeCollapse">
                 <template #default="{ node, data }">
                     <!-- 第一层权限检查：决定是否显示该部门节点 -->
                     <div class="tree-node" v-if="shouldDisplayDepartment(data.id)">
@@ -39,6 +40,9 @@
                                 <!-- 有管理权限时显示操作按钮组 -->
                                 <el-button type="primary" size="small" @click="showAddDialog(data)">
                                     新增子部门
+                                </el-button>
+                                <el-button type="primary" size="small" plain @click="showBatchAddDialog(data)">
+                                    批量添加
                                 </el-button>
                                 <el-button type="info" size="small" @click="showMemberManagement(data)">
                                     成员管理
@@ -69,23 +73,31 @@
                 <el-form-item label="部门名称" prop="name">
                     <el-input v-model="formData.name" placeholder="请输入部门名称" />
                 </el-form-item>
-                <el-form-item label="上级部门">
+                <el-form-item label="上级部门" prop="parentId">
                     <el-tree-select v-model="formData.parentId" :data="departmentOptions" :props="treeProps"
                         placeholder="请选择上级部门" clearable check-strictly :render-after-expand="false" />
-                </el-form-item>
-                <el-form-item label="部门描述" prop="description">
-                    <el-input v-model="formData.description" type="textarea" placeholder="请输入部门描述" :rows="3" />
-                </el-form-item>
-                <el-form-item label="负责人" prop="manager">
-                    <el-input v-model="formData.manager" placeholder="请输入负责人姓名" />
-                </el-form-item>
-                <el-form-item label="联系电话" prop="phone">
-                    <el-input v-model="formData.phone" placeholder="请输入联系电话" />
                 </el-form-item>
             </el-form>
             <template #footer>
                 <el-button @click="dialogVisible = false">取消</el-button>
                 <el-button type="primary" @click="handleSubmit">确认</el-button>
+            </template>
+        </el-dialog>
+
+        <!-- 批量添加子部门弹窗 -->
+        <el-dialog v-model="batchAddDialogVisible" title="批量添加子部门" width="500px" @close="resetBatchAddForm">
+            <el-form ref="batchAddFormRef" :model="batchAddFormData" :rules="batchAddFormRules" label-width="100px">
+                <el-form-item label="上级部门">
+                    <el-input :model-value="batchAddParentName" readonly />
+                </el-form-item>
+                <el-form-item label="部门名称" prop="nameList">
+                    <el-input v-model="batchAddFormData.nameText" type="textarea" :rows="6"
+                        placeholder="每行输入一个部门名称" />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="batchAddDialogVisible = false">取消</el-button>
+                <el-button type="primary" :loading="batchAddSubmitting" @click="handleBatchAddSubmit">确认</el-button>
             </template>
         </el-dialog>
 
@@ -284,7 +296,14 @@
                         <el-button type="primary">选择文件</el-button>
                         <template #tip>
                             <div class="el-upload__tip">
-                                请上传 .xlsx 或 .xls 格式的Excel文件
+                                请上传 .xlsx 或 .xls 格式的 Excel 文件，必须使用下方模板填写
+                                <div style="margin-top: 4px;">
+                                    下载模板：
+                                    <el-link type="primary" :underline="false"
+                                        @click="handleDownloadTemplate('upload_users.xls')">
+                                        用户导入模板
+                                    </el-link>
+                                </div>
                             </div>
                         </template>
                     </el-upload>
@@ -336,8 +355,9 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
-import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin } from '@/api/department';
+import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment } from '@/api/department';
 import { getUsersByDepartment, removeUserFromDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin } from '@/api/user';
+import { getTemplate } from '@/api/template';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
 
@@ -392,6 +412,40 @@ const setCachedUserCount = (deptId: number, data: any) => {
     });
 };
 
+// ========== 树展开状态持久化 ==========
+const DEPT_EXPAND_CACHE_KEY = 'department_expanded_keys';
+const treeRef = ref();
+const getInitialExpandedKeys = (): number[] => {
+    try {
+        const cached = localStorage.getItem(DEPT_EXPAND_CACHE_KEY);
+        return cached ? JSON.parse(cached) : [];
+    } catch {
+        return [];
+    }
+};
+const expandedKeys = ref<number[]>(getInitialExpandedKeys());
+
+const saveExpandedKeys = (keys: number[]) => {
+    try {
+        localStorage.setItem(DEPT_EXPAND_CACHE_KEY, JSON.stringify(keys));
+    } catch {
+        // ignore
+    }
+};
+
+const handleNodeExpand = (data: Department) => {
+    const key = data.id;
+    if (!expandedKeys.value.includes(key)) {
+        expandedKeys.value = [...expandedKeys.value, key];
+        saveExpandedKeys(expandedKeys.value);
+    }
+};
+
+const handleNodeCollapse = (data: Department) => {
+    expandedKeys.value = expandedKeys.value.filter(id => id !== data.id);
+    saveExpandedKeys(expandedKeys.value);
+};
+
 // ========== 优化：请求批量处理器（无并发限制，更高效） ==========
 const processBatchRequests = async <T,>(
     items: T[],
@@ -413,6 +467,21 @@ const departmentMembers = ref<DepartmentUser[]>([]); // 部门成员列表
 const currentDepartmentAdmins = ref<{ id: number; name: string }[]>([]); // 当前部门管理员列表
 const activeTab = ref('set'); // 当前激活的标签页
 
+// 批量添加子部门相关
+const batchAddDialogVisible = ref(false);
+const batchAddFormRef = ref<FormInstance>();
+const batchAddSubmitting = ref(false);
+const batchAddParentId = ref<number>(0);
+const batchAddParentName = ref('');
+const batchAddFormData = reactive({
+    nameText: ''
+});
+const batchAddFormRules = {
+    nameText: [
+        { required: true, message: '请输入部门名称，每行一个', trigger: 'blur' }
+    ]
+};
+
 // 批量导入相关
 const importDialogVisible = ref(false);
 const importFormRef = ref<FormInstance>();
@@ -420,6 +489,26 @@ const uploadRef = ref();
 const uploading = ref(false);
 const fileList = ref([]);
 const importUrl = ref('');
+
+const handleDownloadTemplate = async (fileName: string) => {
+    try {
+        const response = await getTemplate(fileName);
+        const blob = new Blob([response.data], {
+            type: 'application/vnd.ms-excel'
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+        console.error('下载模板失败:', error);
+        ElMessage.error('下载模板失败，请重试');
+    }
+};
 
 // 成员管理弹窗相关
 const memberDialogVisible = ref(false);
@@ -456,10 +545,7 @@ const memberPagination = reactive({
 const formData = reactive({
     id: 0,
     name: '',
-    parentId: 0 as number,
-    description: '',
-    manager: '',
-    phone: ''
+    parentId: undefined as number | undefined
 });
 
 const adminFormData = reactive({
@@ -512,6 +598,9 @@ const formRules = {
     name: [
         { required: true, message: '请输入部门名称', trigger: 'blur' },
         { min: 2, max: 50, message: '部门名称长度在 2 到 50 个字符', trigger: 'blur' }
+    ],
+    parentId: [
+        { required: true, message: '请选择上级部门', trigger: 'change' }
     ]
 };
 
@@ -550,9 +639,7 @@ const departmentOptions = computed(() => {
         }));
     };
 
-    return [
-        { id: 0, name: '山西省教育厅（根部门）', children: filterDepartments(departmentTree.value, isEdit.value ? formData.id : undefined) }
-    ];
+    return filterDepartments(departmentTree.value, isEdit.value ? formData.id : undefined);
 });
 
 // 获取部门数据
@@ -570,9 +657,6 @@ const getDepartmentData = async () => {
                     name: item.name || '未命名部门',
                     parentId: item.parent_department_id === -1 ? null : item.parent_department_id,
                     level: item.level || 1,
-                    description: item.description || '',
-                    manager: item.manager || '',
-                    phone: item.phone || '',
                     createTime: item.create_time || '',
                     userCount: item.user_count || 0, // 优先使用后端返回的user_count
                     activeCount: 0, // 初始化为0，后面会获取实际数据
@@ -591,6 +675,14 @@ const getDepartmentData = async () => {
             // 过滤显示用户有权限查看的部门（包含权限继承链）
             departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
             console.log('部门树已渲染，开始获取用户统计数据...');
+
+            // 验证展开缓存的 key 是否仍然存在，移除无效的 key
+            const allIds = departments.map((d: any) => d.id);
+            const validKeys = expandedKeys.value.filter(id => allIds.includes(id));
+            if (validKeys.length !== expandedKeys.value.length) {
+                expandedKeys.value = validKeys;
+                saveExpandedKeys(validKeys);
+            }
 
             // 清除过期缓存
             clearExpiredCache();
@@ -806,6 +898,66 @@ const showAddDialog = (parent: Department | null) => {
     dialogVisible.value = true;
 };
 
+// 显示批量添加子部门对话框
+const showBatchAddDialog = (parent: Department) => {
+    batchAddParentId.value = parent.id;
+    batchAddParentName.value = parent.name;
+    batchAddFormData.nameText = '';
+    batchAddDialogVisible.value = true;
+};
+
+// 重置批量添加表单
+const resetBatchAddForm = () => {
+    try {
+        if (batchAddFormRef.value && !isUnmounted.value) {
+            batchAddFormRef.value.resetFields();
+        }
+    } catch (error) {
+        // ignore
+    }
+    if (!isUnmounted.value) {
+        batchAddFormData.nameText = '';
+    }
+};
+
+// 提交批量添加
+const handleBatchAddSubmit = async () => {
+    if (!batchAddFormRef.value) return;
+
+    try {
+        await batchAddFormRef.value.validate();
+
+        const nameList = batchAddFormData.nameText
+            .split('\n')
+            .map((name: string) => name.trim())
+            .filter((name: string) => name.length > 0);
+
+        if (nameList.length === 0) {
+            ElMessage.warning('请输入至少一个部门名称');
+            return;
+        }
+
+        batchAddSubmitting.value = true;
+        await addBatchDepartment({
+            name_list: nameList,
+            parent_department_id: batchAddParentId.value
+        });
+
+        ElMessage.success(`成功添加 ${nameList.length} 个部门`);
+        batchAddDialogVisible.value = false;
+
+        userCountCache.value.clear();
+        await getDepartmentData();
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            const msg = error?.response?.data?.msg || error?.message || '批量添加失败';
+            ElMessage.error(msg);
+        }
+    } finally {
+        batchAddSubmitting.value = false;
+    }
+};
+
 // 显示编辑对话框
 const showEditDialog = async (department: Department) => {
     // 检查权限（包含继承逻辑）
@@ -868,14 +1020,14 @@ const handleSubmit = async () => {
             const updateData = {
                 department_id: formData.id,
                 name: formData.name,
-                parent_department_id: formData.parentId === 0 ? -1 : formData.parentId || -1  // 根部门(id=0)转换为-1
+                parent_department_id: formData.parentId || -1
             };
             await updateDepartment(updateData);
         } else {
             // 构造新增接口所需的参数格式
             const createData = {
                 name: formData.name,
-                parent_department_id: formData.parentId === 0 ? -1 : formData.parentId || -1  // 根部门(id=0)转换为-1
+                parent_department_id: formData.parentId || -1
             };
             await createDepartment(createData);
         }
@@ -1120,10 +1272,7 @@ const resetForm = () => {
         Object.assign(formData, {
             id: 0,
             name: '',
-            parentId: 0,
-            description: '',
-            manager: '',
-            phone: ''
+            parentId: undefined
         });
     }
 };
