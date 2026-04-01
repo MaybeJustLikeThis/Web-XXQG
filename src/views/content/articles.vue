@@ -5,6 +5,7 @@
                 @keyup.enter="handleSearch"></el-input>
             <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
             <el-button type="success" :icon="Plus" @click="handleCreate" class="ml10">添加文章</el-button>
+            <el-button v-if="permiss.isSuperAdmin" type="warning" :icon="UserFilled" @click="textAdmin.openDialog()" class="ml10">添加文章管理员</el-button>
         </div>
 
         <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
@@ -32,6 +33,13 @@
             <el-table-column prop="viewCount" label="浏览量" width="100" align="center"></el-table-column>
             <el-table-column prop="commentCount" label="评论数" width="100" align="center"></el-table-column>
             <el-table-column prop="publishTime" label="更新时间" width="160" align="center"></el-table-column>
+            <el-table-column label="公开" width="80" align="center">
+                <template #default="scope">
+                    <el-tag :type="scope.row.public ? 'success' : 'info'">
+                        {{ scope.row.public ? '公开' : '私有' }}
+                    </el-tag>
+                </template>
+            </el-table-column>
             <el-table-column label="操作" width="150" align="center">
                 <template #default="scope">
                     <el-button type="primary" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
@@ -66,6 +74,9 @@
                         <el-option v-for="item in tagOptions" :key="item" :label="item" :value="item"></el-option>
                     </el-select>
                 </el-form-item>
+                <el-form-item label="是否公开">
+                    <el-switch v-model="form.public"></el-switch>
+                </el-form-item>
                 <el-form-item label="文章内容" prop="content">
                     <div style="border: 1px solid #ccc">
                         <Toolbar style="border-bottom: 1px solid #ccc" :editor="editorRef"
@@ -83,21 +94,56 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 文章管理员弹窗 -->
+        <el-dialog v-model="textAdmin.adminDialogVisible.value" title="文章管理员管理" width="450px" destroy-on-close>
+            <el-form label-width="80px">
+                <el-form-item label="选择部门">
+                    <el-select v-model="textAdmin.selectedDepartmentId.value" filterable placeholder="请先选择部门" style="width: 100%"
+                        @change="textAdmin.handleDepartmentChange">
+                        <el-option v-for="dept in textAdmin.allDepartments.value" :key="dept.id" :label="dept.name" :value="dept.id" />
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="选择用户">
+                    <el-select v-model="textAdmin.adminUserId.value" filterable placeholder="请搜索用户姓名" style="width: 100%"
+                        :disabled="!textAdmin.selectedDepartmentId.value">
+                        <el-option v-for="user in textAdmin.departmentUsers.value" :key="user.id" :label="user.name" :value="user.id" />
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="textAdmin.closeDialog()">关闭</el-button>
+                <el-button type="success" @click="textAdmin.handleGrant()">授权</el-button>
+                <el-button type="danger" @click="textAdmin.handleRevoke()">撤销</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts" name="articles">
 import { ref, reactive, onMounted, shallowRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search, UserFilled } from '@element-plus/icons-vue';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
 import type { Article, ArticleQuery } from '@/types/content';
 import { getAllArticles, deleteArticle, updateArticle, addArticle } from '@/api/article';
+import { grantTextEdit, revokeTextEdit } from '@/api/user';
+import { usePermissStore } from '@/store/permiss';
+import { useAdminDialog } from '@/composables/useAdminDialog';
 import { uploadFile } from '@/utils/upload';
+
+const permiss = usePermissStore();
 
 // 编辑器实例，必须用 shallowRef
 const editorRef = shallowRef();
+
+// 文章管理员弹窗
+const textAdmin = useAdminDialog({
+    grantFn: grantTextEdit,
+    revokeFn: revokeTextEdit,
+    permissionName: '文章管理员',
+});
 
 
 // 查询参数
@@ -128,6 +174,7 @@ const form = reactive<Article>({
     publishTime: '',
     updateTime: '',
     viewCount: 0,
+    public: true,
 });
 
 // 表单验证规则
@@ -242,6 +289,7 @@ const getArticles = async () => {
                     updateTime: item.update_time || '',
                     viewCount: item.comments ? item.comments.length : 0, // 使用评论数作为浏览量
                     commentCount: item.comments ? item.comments.length : 0, // 评论数量
+                    public: item.public !== undefined ? item.public : true,
                     // 保留原始API数据
                     raw: item
                 };
@@ -275,6 +323,7 @@ const getArticles = async () => {
                 publishTime: '2025-10-13 23:49:09',
                 updateTime: '2025-10-13 23:49:09',
                 viewCount: 7,
+                public: true,
             },
             {
                 id: '2',
@@ -287,6 +336,7 @@ const getArticles = async () => {
                 publishTime: '2025-10-13 23:53:05',
                 updateTime: '2025-10-13 23:53:05',
                 viewCount: 5,
+                public: true,
             },
         ];
 
@@ -373,7 +423,8 @@ const submitForm = async () => {
                 id: parseInt(form.id),
                 title: form.title,
                 text: form.content, // 富文本编辑器内容已经是HTML格式
-                head_image: form.cover || undefined // 如果有封面则传递，否则不传递
+                head_image: form.cover || undefined, // 如果有封面则传递，否则不传递
+                public: form.public
             };
             await updateArticle(updateData);
             ElMessage.success('文章更新成功');
@@ -384,7 +435,8 @@ const submitForm = async () => {
             const addData = {
                 title: form.title,
                 text: form.content, // 富文本编辑器内容已经是HTML格式
-                head_image: form.cover || undefined // 如果有封面则传递，否则不传递
+                head_image: form.cover || undefined, // 如果有封面则传递，否则不传递
+                public: form.public
             };
             await addArticle(addData);
             ElMessage.success('文章创建成功');
@@ -417,6 +469,7 @@ const resetForm = () => {
         updateTime: '',
         viewCount: 0,
         commentCount: 0,
+        public: true,
     });
 };
 

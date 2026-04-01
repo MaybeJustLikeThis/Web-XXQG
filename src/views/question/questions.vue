@@ -5,6 +5,7 @@
             <el-button type="success" :icon="Upload" @click="handleImport">批量导入</el-button>
             <el-button type="danger" :icon="Delete" @click="handleBatchDelete"
                 :disabled="!multipleSelection.length">批量删除</el-button>
+            <el-button v-if="permiss.isSuperAdmin" type="warning" :icon="UserFilled" @click="questionAdmin.openDialog()">添加题目管理员</el-button>
             <el-input v-model="query.title" placeholder="题目标题" class="handle-input mr10"
                 @keyup.enter="handleSearch"></el-input>
             <el-select v-model="query.type" placeholder="题型" class="handle-select mr10">
@@ -230,9 +231,9 @@
                         <el-button type="primary">选择文件</el-button>
                         <template #tip>
                             <div class="el-upload__tip">
-                                请上传 .xlsx 或 .xls 格式的 Excel 文件，必须使用下方模板填写
-                                <div style="margin-top: 4px;">
-                                    下载模板：
+                                <span style="color: #f56c6c;">请上传 .xlsx 或 .xls 格式的 Excel 文件，必须使用下方模板填写</span>
+                                <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 4px;">
+                                    <span style="color: #f56c6c;">下载模板：</span>
                                     <el-link type="primary" :underline="false"
                                         @click="handleDownloadTemplate('upload_questions_choice.xls')">
                                         单选题模板
@@ -288,17 +289,52 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 题目管理员弹窗 -->
+        <el-dialog v-model="questionAdmin.adminDialogVisible.value" title="题目管理员管理" width="450px" destroy-on-close>
+            <el-form label-width="80px">
+                <el-form-item label="选择部门">
+                    <el-select v-model="questionAdmin.selectedDepartmentId.value" filterable placeholder="请先选择部门" style="width: 100%"
+                        @change="questionAdmin.handleDepartmentChange">
+                        <el-option v-for="dept in questionAdmin.allDepartments.value" :key="dept.id" :label="dept.name" :value="dept.id" />
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="选择用户">
+                    <el-select v-model="questionAdmin.adminUserId.value" filterable placeholder="请搜索用户姓名" style="width: 100%"
+                        :disabled="!questionAdmin.selectedDepartmentId.value">
+                        <el-option v-for="user in questionAdmin.departmentUsers.value" :key="user.id" :label="user.name" :value="user.id" />
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="questionAdmin.closeDialog()">关闭</el-button>
+                <el-button type="success" @click="questionAdmin.handleGrant()">授权</el-button>
+                <el-button type="danger" @click="questionAdmin.handleRevoke()">撤销</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts" name="question-questions">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search, Upload, Warning } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Search, Upload, Warning, UserFilled } from '@element-plus/icons-vue';
 import type { QuestionQuery } from '@/types/question';
 import { getAllQuestions, addQuestion, editQuestion, deleteQuestion, addQuestionsByFile } from '@/api/question';
+import { grantQuestionEdit, revokeQuestionEdit } from '@/api/user';
 import { getTemplate } from '@/api/template';
 import { transformQuestionData } from '@/types/question';
+import { usePermissStore } from '@/store/permiss';
+import { useAdminDialog } from '@/composables/useAdminDialog';
+
+const permiss = usePermissStore();
+
+// 题目管理员弹窗
+const questionAdmin = useAdminDialog({
+    grantFn: grantQuestionEdit,
+    revokeFn: revokeQuestionEdit,
+    permissionName: '题目管理员',
+});
 
 // 查询参数
 const query = reactive<QuestionQuery>({

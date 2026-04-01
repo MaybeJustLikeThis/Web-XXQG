@@ -42,7 +42,7 @@
                                     新增子部门
                                 </el-button>
                                 <el-button type="primary" size="small" plain @click="showBatchAddDialog(data)">
-                                    批量添加
+                                    批量添加部门
                                 </el-button>
                                 <el-button type="info" size="small" @click="showMemberManagement(data)">
                                     成员管理
@@ -182,6 +182,12 @@
                         </el-icon>
                         批量导入
                     </el-button>
+                    <el-button v-if="permiss.isSuperAdmin" type="warning" @click="textAdmin.openDialog()">
+                        添加文章管理员
+                    </el-button>
+                    <el-button v-if="permiss.isSuperAdmin" type="warning" @click="questionAdmin.openDialog()">
+                        添加题目管理员
+                    </el-button>
                 </div>
 
                 <!-- 搜索区域 -->
@@ -226,13 +232,13 @@
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="权限（内容管理，题库管理等）" width="200">
+                        <el-table-column label="权限" width="200">
                             <template #default="{ row }">
                                 <el-tag v-if="row.edit_text" type="success" size="small" class="permission-tag">
-                                    内容管理
+                                    文章管理员
                                 </el-tag>
                                 <el-tag v-if="row.edit_question" type="primary" size="small" class="permission-tag">
-                                    题库管理
+                                    题目管理员
                                 </el-tag>
                                 <span v-if="!row.edit_text && !row.edit_question" class="no-permission">
                                     暂无权限
@@ -360,6 +366,48 @@
             </template>
         </el-dialog>
 
+        <!-- 文章管理员弹窗 -->
+        <el-dialog v-model="textAdmin.adminDialogVisible.value" title="文章管理员管理" width="450px" destroy-on-close>
+            <el-form label-width="80px">
+                <el-form-item label="选择部门">
+                    <el-select v-model="textAdmin.selectedDepartmentId.value" filterable disabled style="width: 100%">
+                        <el-option v-for="dept in textAdmin.allDepartments.value" :key="dept.id" :label="dept.name" :value="dept.id" />
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="选择用户">
+                    <el-select v-model="textAdmin.adminUserId.value" filterable placeholder="请搜索用户姓名" style="width: 100%">
+                        <el-option v-for="user in textAdmin.departmentUsers.value" :key="user.id" :label="user.name" :value="user.id" />
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="textAdmin.closeDialog()">关闭</el-button>
+                <el-button type="success" @click="textAdmin.handleGrant()">授权</el-button>
+                <el-button type="danger" @click="textAdmin.handleRevoke()">撤销</el-button>
+            </template>
+        </el-dialog>
+
+        <!-- 题目管理员弹窗 -->
+        <el-dialog v-model="questionAdmin.adminDialogVisible.value" title="题目管理员管理" width="450px" destroy-on-close>
+            <el-form label-width="80px">
+                <el-form-item label="选择部门">
+                    <el-select v-model="questionAdmin.selectedDepartmentId.value" filterable disabled style="width: 100%">
+                        <el-option v-for="dept in questionAdmin.allDepartments.value" :key="dept.id" :label="dept.name" :value="dept.id" />
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="选择用户">
+                    <el-select v-model="questionAdmin.adminUserId.value" filterable placeholder="请搜索用户姓名" style="width: 100%">
+                        <el-option v-for="user in questionAdmin.departmentUsers.value" :key="user.id" :label="user.name" :value="user.id" />
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="questionAdmin.closeDialog()">关闭</el-button>
+                <el-button type="success" @click="questionAdmin.handleGrant()">授权</el-button>
+                <el-button type="danger" @click="questionAdmin.handleRevoke()">撤销</el-button>
+            </template>
+        </el-dialog>
+
     </div>
 </template>
 
@@ -370,10 +418,11 @@ import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment } from '@/api/department';
-import { getUsersByDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser } from '@/api/user';
+import { getUsersByDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser, grantTextEdit, revokeTextEdit, grantQuestionEdit, revokeQuestionEdit } from '@/api/user';
 import { getTemplate } from '@/api/template';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
+import { useAdminDialog } from '@/composables/useAdminDialog';
 
 // 响应式数据
 const departmentTree = ref<Department[]>([]);
@@ -383,6 +432,10 @@ const formRef = ref<FormInstance>();
 const permiss = usePermissStore();
 const isUnmounted = ref(false); // 组件是否已卸载
 const abortController = new AbortController(); // 用于取消异步请求
+
+// 管理员授权弹窗（声明前向引用，在 getMemberData 之后初始化）
+let textAdmin: ReturnType<typeof useAdminDialog>;
+let questionAdmin: ReturnType<typeof useAdminDialog>;
 
 // 权限状态管理
 const departmentPermissions = ref<Record<number, boolean>>({}); // 缓存部门权限状态
@@ -642,15 +695,9 @@ const memberFormRules = {
     id_number: [
         { required: true, message: '请输入手机号', trigger: 'blur' }
     ],
-    sex: [
-        { required: true, message: '请选择性别', trigger: 'change' }
-    ],
-    race: [
-        { required: true, message: '请输入民族', trigger: 'blur' }
-    ],
-    political_status: [
-        { required: true, message: '请选择政治面貌', trigger: 'change' }
-    ]
+    sex: [],
+    race: [],
+    political_status: []
 };
 
 // 获取部门选项（不包含当前部门及其子部门）
@@ -1425,6 +1472,25 @@ const getMemberData = async () => {
         memberLoading.value = false;
     }
 };
+
+// 管理员授权弹窗初始化
+textAdmin = useAdminDialog({
+    grantFn: grantTextEdit,
+    revokeFn: revokeTextEdit,
+    permissionName: '文章管理员',
+    lockedDepartmentId: computed(() => currentDepartment.value?.id ?? null),
+    lockedDepartmentName: computed(() => currentDepartment.value?.name ?? ''),
+    onSuccess: getMemberData,
+});
+
+questionAdmin = useAdminDialog({
+    grantFn: grantQuestionEdit,
+    revokeFn: revokeQuestionEdit,
+    permissionName: '题目管理员',
+    lockedDepartmentId: computed(() => currentDepartment.value?.id ?? null),
+    lockedDepartmentName: computed(() => currentDepartment.value?.name ?? ''),
+    onSuccess: getMemberData,
+});
 
 // 获取用户分组数据
 const getGroupData = async () => {
