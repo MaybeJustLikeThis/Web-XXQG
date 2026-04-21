@@ -42,6 +42,9 @@
                                     新增子部门
                                 </el-button>
                                 <el-button type="primary" size="small" plain @click="showBatchAddDialog(data)">
+                                    批量添加部门
+                                </el-button>
+                                <el-button type="success" size="small" plain @click="showBatchAddWithAdminDialog(data)">
                                     批量添加部门和管理员
                                 </el-button>
                                 <el-button type="info" size="small" @click="showMemberManagement(data)">
@@ -84,8 +87,25 @@
             </template>
         </el-dialog>
 
+        <!-- 批量添加子部门弹窗 -->
+        <el-dialog v-model="batchAddDialogVisible" title="批量添加子部门" width="500px" @close="resetBatchAddForm">
+            <el-form ref="batchAddFormRef" :model="batchAddFormData" :rules="batchAddFormRules" label-width="100px">
+                <el-form-item label="上级部门">
+                    <el-input :model-value="batchAddParentName" readonly />
+                </el-form-item>
+                <el-form-item label="部门名称" prop="nameList">
+                    <el-input v-model="batchAddFormData.nameText" type="textarea" :rows="6"
+                        placeholder="每行输入一个部门名称" />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="batchAddDialogVisible = false">取消</el-button>
+                <el-button type="primary" :loading="batchAddSubmitting" @click="handleBatchAddSubmit">确认</el-button>
+            </template>
+        </el-dialog>
+
         <!-- 批量添加子部门及管理员弹窗 -->
-        <el-dialog v-model="batchAddDialogVisible" title="一键批量添加子部门和管理员账号" width="500px" @close="resetBatchAddForm">
+        <el-dialog v-model="batchAddWithAdminDialogVisible" title="一键批量添加子部门和管理员账号" width="500px" @close="resetBatchAddWithAdminForm">
             <el-form label-width="100px">
                 <el-form-item label="上级部门">
                     <el-input :model-value="batchAddParentName" readonly />
@@ -113,8 +133,8 @@
                 </el-form-item>
             </el-form>
             <template #footer>
-                <el-button @click="batchAddDialogVisible = false">取消</el-button>
-                <el-button type="primary" :loading="batchAddSubmitting" :disabled="!batchAddSelectedFile" @click="handleBatchAddSubmit">确认上传</el-button>
+                <el-button @click="batchAddWithAdminDialogVisible = false">取消</el-button>
+                <el-button type="primary" :loading="batchAddWithAdminSubmitting" :disabled="!batchAddSelectedFile" @click="handleBatchAddWithAdminSubmit">确认上传</el-button>
             </template>
         </el-dialog>
 
@@ -553,9 +573,22 @@ const activeTab = ref('set'); // 当前激活的标签页
 
 // 批量添加子部门相关
 const batchAddDialogVisible = ref(false);
+const batchAddFormRef = ref<FormInstance>();
 const batchAddSubmitting = ref(false);
 const batchAddParentId = ref<number>(0);
 const batchAddParentName = ref('');
+const batchAddFormData = reactive({
+    nameText: ''
+});
+const batchAddFormRules = {
+    nameText: [
+        { required: true, message: '请输入部门名称，每行一个', trigger: 'blur' }
+    ]
+};
+
+// 批量添加子部门及管理员（Excel上传）相关
+const batchAddWithAdminDialogVisible = ref(false);
+const batchAddWithAdminSubmitting = ref(false);
 const batchAddSelectedFile = ref<File | null>(null);
 const batchUploadRef = ref();
 const templateDownloading = ref(false);
@@ -1002,38 +1035,48 @@ const showAddDialog = (parent: Department | null) => {
 const showBatchAddDialog = (parent: Department) => {
     batchAddParentId.value = parent.id;
     batchAddParentName.value = parent.name;
-    batchAddSelectedFile.value = null;
+    batchAddFormData.nameText = '';
     batchAddDialogVisible.value = true;
-};
-
-const handleBatchFileChange = (file: any) => {
-    batchAddSelectedFile.value = file.raw;
-};
-
-const handleBatchFileRemove = () => {
-    batchAddSelectedFile.value = null;
 };
 
 // 重置批量添加表单
 const resetBatchAddForm = () => {
-    batchAddSelectedFile.value = null;
-    if (batchUploadRef.value && !isUnmounted.value) {
-        batchUploadRef.value.clearFiles();
+    try {
+        if (batchAddFormRef.value && !isUnmounted.value) {
+            batchAddFormRef.value.resetFields();
+        }
+    } catch (error) {
+        // ignore
+    }
+    if (!isUnmounted.value) {
+        batchAddFormData.nameText = '';
     }
 };
 
-// 提交批量添加（Excel上传）
+// 提交批量添加
 const handleBatchAddSubmit = async () => {
-    if (!batchAddSelectedFile.value) {
-        ElMessage.warning('请先选择文件');
-        return;
-    }
+    if (!batchAddFormRef.value) return;
 
     try {
-        batchAddSubmitting.value = true;
-        await addDepartmentWithAdminsByFile(batchAddParentId.value, batchAddSelectedFile.value);
+        await batchAddFormRef.value.validate();
 
-        ElMessage.success('批量添加成功');
+        const nameList = batchAddFormData.nameText
+            .split('\n')
+            .map((name: string) => name.trim())
+            .filter((name: string) => name.length > 0);
+
+        if (nameList.length === 0) {
+            ElMessage.warning('请输入至少一个部门名称');
+            return;
+        }
+
+        batchAddSubmitting.value = true;
+        await addBatchDepartment({
+            name_list: nameList,
+            parent_department_id: batchAddParentId.value
+        });
+
+        ElMessage.success(`成功添加 ${nameList.length} 个部门`);
         batchAddDialogVisible.value = false;
 
         userCountCache.value.clear();
@@ -1045,6 +1088,54 @@ const handleBatchAddSubmit = async () => {
         }
     } finally {
         batchAddSubmitting.value = false;
+    }
+};
+
+// ===== 批量添加子部门及管理员（Excel上传） =====
+const showBatchAddWithAdminDialog = (parent: Department) => {
+    batchAddParentId.value = parent.id;
+    batchAddParentName.value = parent.name;
+    batchAddSelectedFile.value = null;
+    batchAddWithAdminDialogVisible.value = true;
+};
+
+const handleBatchFileChange = (file: any) => {
+    batchAddSelectedFile.value = file.raw;
+};
+
+const handleBatchFileRemove = () => {
+    batchAddSelectedFile.value = null;
+};
+
+const resetBatchAddWithAdminForm = () => {
+    batchAddSelectedFile.value = null;
+    if (batchUploadRef.value && !isUnmounted.value) {
+        batchUploadRef.value.clearFiles();
+    }
+};
+
+const handleBatchAddWithAdminSubmit = async () => {
+    if (!batchAddSelectedFile.value) {
+        ElMessage.warning('请先选择文件');
+        return;
+    }
+
+    try {
+        batchAddWithAdminSubmitting.value = true;
+        await addDepartmentWithAdminsByFile(batchAddParentId.value, batchAddSelectedFile.value);
+
+        ElMessage.success('批量添加成功');
+        batchAddWithAdminDialogVisible.value = false;
+
+        userCountCache.value.clear();
+        await getDepartmentData();
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            const msg = error?.response?.data?.msg || error?.message || '批量添加失败';
+            ElMessage.error(msg);
+        }
+    } finally {
+        batchAddWithAdminSubmitting.value = false;
     }
 };
 
