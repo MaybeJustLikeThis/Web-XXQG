@@ -636,7 +636,6 @@ const getTopics = async () => {
             tableData.value = mappedData;
             pageTotal.value = data.length;
 
-            console.log('专题列表已更新:', mappedData);
         }
     } catch (error) {
         ElMessage.error('获取专题列表失败');
@@ -695,12 +694,10 @@ const refreshTopicData = async () => {
 const refreshAfterOperation = async (operation: string) => {
     try {
         refreshingData.value = true;
-        console.log(`执行${operation}操作后刷新数据...`);
 
         // 刷新当前专题数据
         await refreshTopicData();
 
-        console.log(`${operation}操作后数据刷新完成`);
     } catch (error) {
         console.error(`${operation}操作后刷新数据失败:`, error);
     } finally {
@@ -807,7 +804,6 @@ const handleSubmit = async () => {
             });
 
             ElMessage.success('新增成功');
-            console.log('新增专题结果:', createResult);
 
             // 关闭弹窗
             dialogVisible.value = false;

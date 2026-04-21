@@ -199,12 +199,6 @@ const customUploadImage = async (file: File, insertFn: Function) => {
 // 自定义视频上传函数
 const customUploadVideo = async (file: File, insertFn: Function) => {
     try {
-        console.log('开始上传视频:', file.name);
-        console.log('视频文件信息:', {
-            name: file.name,
-            type: file.type,
-            size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
-        });
 
         // 验证视频文件格式
         const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv'];
@@ -219,12 +213,10 @@ const customUploadVideo = async (file: File, insertFn: Function) => {
         }
 
         const videoUrl = await uploadFile(file);
-        console.log('视频上传成功，URL:', videoUrl);
 
         // wangeditor的insertVideo函数格式：insertVideo(src, poster)
         // 这会自动生成正确的<video>标签
         insertFn(videoUrl, '');
-        console.log('视频已插入到编辑器，生成的标签格式：<video>');
 
         ElMessage.success('视频上传成功');
     } catch (error) {

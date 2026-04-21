@@ -156,43 +156,18 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     NProgress.start();
 
-    console.log('路由导航:', {
-        from: from.path,
-        to: to.path,
-        requiresAuth: !to.meta.noAuth,
-        permission: to.meta.permiss
-    });
-
     // 检查登录状态：同时检查 token 和用户名
     const token = localStorage.getItem('token');
     const username = localStorage.getItem('vuems_name');
     const permiss = usePermissStore();
 
-    console.log('登录状态检查:', {
-        token: token ? '存在' : '不存在',
-        username: username ? username : '不存在',
-        localStorage: {
-            token: localStorage.getItem('token'),
-            vuems_name: localStorage.getItem('vuems_name'),
-            userProfile: localStorage.getItem('userProfile')
-        }
-    });
-
     // 检查是否需要登录
     if (!token || !username) {
         if (to.meta.noAuth === true) {
             // 登录相关页面，允许访问
-            console.log('免登录页面，允许访问');
             next();
         } else {
             // 需要登录但没有登录，跳转到登录页
-            console.log('需要登录但未登录，跳转到登录页');
-            console.log('缺失信息:', {
-                hasToken: !!token,
-                hasUsername: !!username,
-                tokenValue: token,
-                usernameValue: username
-            });
             next('/login');
         }
         return;
@@ -206,7 +181,6 @@ router.beforeEach((to, from, next) => {
             try {
                 const userProfile = JSON.parse(userProfileStr);
                 permiss.setUserProfile(userProfile);
-                console.log('重新初始化权限系统成功');
             } catch (error) {
                 console.error('解析用户信息失败，重新登录:', error);
                 // 清理无效数据并跳转到登录页
@@ -220,7 +194,6 @@ router.beforeEach((to, from, next) => {
             // 没有用户信息，可能是旧版本登录状态，使用兼容模式
             const keys = username === 'admin' ? permiss.defaultList.admin : permiss.defaultList.user;
             permiss.handleSet(keys);
-            console.log('使用兼容模式初始化权限');
         }
     }
 
@@ -228,17 +201,12 @@ router.beforeEach((to, from, next) => {
     if (typeof to.meta.permiss === 'string') {
         if (!permiss.key.includes(to.meta.permiss)) {
             // 没有权限，跳转到 403
-            console.log('权限不足，跳转到403', {
-                required: to.meta.permiss,
-                has: permiss.key
-            });
             next('/403');
             return;
         }
     }
 
     // 允许访问
-    console.log('权限检查通过，允许访问');
     next();
 });
 

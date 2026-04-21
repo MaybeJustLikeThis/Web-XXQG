@@ -99,9 +99,7 @@ const loginForm = ref<FormInstance>();
 
 const submitForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
-    console.log('登录点击', param);
     formEl.validate(async (valid: boolean) => {
-        console.log('表单验证结果:', valid);
         if (valid) {
             loading.value = true;
             try {
@@ -109,19 +107,13 @@ const submitForm = (formEl: FormInstance | undefined) => {
                     id_number: param.id_number,
                     password: param.password
                 });
-                console.log('登录响应结构:', response);
-                console.log('response.data:', response.data);
-                console.log('response.data.code:', response.data?.code);
 
-                console.log('开始检查登录响应...');
                 if (response.data && response.data.code === 200) {
-                    console.log('登录成功，开始处理用户数据...');
                     ElMessage.success('登录成功');
 
                     // 保存完整的用户信息到permiss store
                     try {
                         if (response.data.data) {
-                            console.log('保存用户信息:', response.data.data);
 
                             // 保存用户信息到store和localStorage
                             permiss.setUserProfile(response.data.data);
@@ -136,44 +128,26 @@ const submitForm = (formEl: FormInstance | undefined) => {
                                 // 如果API没有返回token，生成一个默认的用于本地状态管理
                                 const defaultToken = `token-${response.data.data.id}-${Date.now()}`;
                                 localStorage.setItem('token', defaultToken);
-                                console.log('使用默认token:', defaultToken);
                             }
-
-                            console.log('登录成功，权限信息:', {
-                                is_super_admin: response.data.data.is_super_admin,
-                                edit_text: response.data.data.edit_text,
-                                edit_question: response.data.data.edit_question,
-                                manage_departments: response.data.data.manage_departments,
-                                permissions: permiss.key
-                            });
                         } else {
-                            console.error('API响应中没有用户数据');
                             ElMessage.error('登录失败：服务器返回数据异常');
                             loading.value = false;
                             return;
                         }
                     } catch (error) {
-                        console.error('保存用户信息时出错:', error);
                         ElMessage.error('登录失败：保存用户信息出错');
                         loading.value = false;
                         return;
                     }
                     // 检测是否为初始密码
                     const isInitial = isInitialPassword(param.id_number, param.password);
-                    console.log('是否初始密码检测:', {
-                        id_number: param.id_number,
-                        password: param.password,
-                        isInitial: isInitial
-                    });
 
                     if (isInitial) {
-                        console.log('检测到初始密码，显示修改密码弹窗');
                         // 显示修改密码弹窗前先重置loading状态
                         loading.value = false;
                         // 显示修改密码弹窗
                         showUpdatePasswordDialog.value = true;
                     } else {
-                        console.log('非初始密码，跳转到首页');
                         // 直接跳转到首页
                         router.push('/');
                     }
@@ -184,18 +158,15 @@ const submitForm = (formEl: FormInstance | undefined) => {
                         localStorage.removeItem('login-param');
                     }
                 } else {
-                    console.log('登录失败，响应数据:', response.data);
                     ElMessage.error(response.data?.msg || '登录失败');
                 }
             } catch (error) {
-                console.error('登录错误:', error);
                 ElMessage.error('登录失败，请检查手机号和密码');
                 return false;
             } finally {
                 loading.value = false;
             }
         } else {
-            console.log('表单验证失败');
             return false;
         }
     });

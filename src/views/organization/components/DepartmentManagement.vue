@@ -42,7 +42,7 @@
                                     新增子部门
                                 </el-button>
                                 <el-button type="primary" size="small" plain @click="showBatchAddDialog(data)">
-                                    批量添加部门
+                                    批量添加部门和管理员
                                 </el-button>
                                 <el-button type="info" size="small" @click="showMemberManagement(data)">
                                     成员管理
@@ -84,20 +84,37 @@
             </template>
         </el-dialog>
 
-        <!-- 批量添加子部门弹窗 -->
-        <el-dialog v-model="batchAddDialogVisible" title="批量添加子部门" width="500px" @close="resetBatchAddForm">
-            <el-form ref="batchAddFormRef" :model="batchAddFormData" :rules="batchAddFormRules" label-width="100px">
+        <!-- 批量添加子部门及管理员弹窗 -->
+        <el-dialog v-model="batchAddDialogVisible" title="一键批量添加子部门和管理员账号" width="500px" @close="resetBatchAddForm">
+            <el-form label-width="100px">
                 <el-form-item label="上级部门">
                     <el-input :model-value="batchAddParentName" readonly />
                 </el-form-item>
-                <el-form-item label="部门名称" prop="nameList">
-                    <el-input v-model="batchAddFormData.nameText" type="textarea" :rows="6"
-                        placeholder="每行输入一个部门名称" />
+                <el-form-item label="模板文件">
+                    <el-link type="primary" @click="downloadTemplate" :underline="false" :loading="templateDownloading">
+                        {{ templateDownloading ? '下载中...' : '下载导入模板' }}
+                    </el-link>
+                </el-form-item>
+                <el-form-item label="上传文件">
+                    <el-upload
+                        ref="batchUploadRef"
+                        :auto-upload="false"
+                        :limit="1"
+                        :on-change="handleBatchFileChange"
+                        :on-remove="handleBatchFileRemove"
+                        :before-upload="() => false"
+                        accept=".xls,.xlsx"
+                    >
+                        <el-button type="primary">选择文件</el-button>
+                        <template #tip>
+                            <div class="el-upload__tip">仅支持 .xls / .xlsx 格式</div>
+                        </template>
+                    </el-upload>
                 </el-form-item>
             </el-form>
             <template #footer>
                 <el-button @click="batchAddDialogVisible = false">取消</el-button>
-                <el-button type="primary" :loading="batchAddSubmitting" @click="handleBatchAddSubmit">确认</el-button>
+                <el-button type="primary" :loading="batchAddSubmitting" :disabled="!batchAddSelectedFile" @click="handleBatchAddSubmit">确认上传</el-button>
             </template>
         </el-dialog>
 
@@ -417,7 +434,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
-import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment } from '@/api/department';
+import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment, addDepartmentWithAdminsByFile } from '@/api/department';
 import { getUsersByDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser, grantTextEdit, revokeTextEdit, grantQuestionEdit, revokeQuestionEdit } from '@/api/user';
 import { getTemplate } from '@/api/template';
 import { usePermissStore } from '@/store/permiss';
@@ -536,17 +553,37 @@ const activeTab = ref('set'); // 当前激活的标签页
 
 // 批量添加子部门相关
 const batchAddDialogVisible = ref(false);
-const batchAddFormRef = ref<FormInstance>();
 const batchAddSubmitting = ref(false);
 const batchAddParentId = ref<number>(0);
 const batchAddParentName = ref('');
-const batchAddFormData = reactive({
-    nameText: ''
-});
-const batchAddFormRules = {
-    nameText: [
-        { required: true, message: '请输入部门名称，每行一个', trigger: 'blur' }
-    ]
+const batchAddSelectedFile = ref<File | null>(null);
+const batchUploadRef = ref();
+const templateDownloading = ref(false);
+
+const downloadTemplate = async () => {
+    if (templateDownloading.value) return;
+    templateDownloading.value = true;
+    const baseUrl = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'https://api.xuexi.9998k.cn');
+    const url = `${baseUrl}/template/get_template?file_name=upload_departments_with_admin_users.xls`;
+    const token = localStorage.getItem('token');
+    try {
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error('获取模板链接失败');
+        const json = await res.json();
+        const fileUrl = json?.data?.url;
+        if (!fileUrl) throw new Error('模板链接为空');
+        const fileRes = await fetch(fileUrl);
+        const blob = await fileRes.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'upload_departments_with_admin_users.xls';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch {
+        ElMessage.error('模板下载失败');
+    } finally {
+        templateDownloading.value = false;
+    }
 };
 
 // 批量导入相关
@@ -737,14 +774,12 @@ const getDepartmentData = async () => {
             });
 
             // ========== 优化：先构建树结构并渲染，再异步加载用户数据 ==========
-            console.log('构建基础部门树结构...');
 
             // 构建完整的树结构
             const fullTree = buildDepartmentTree(departments);
 
             // 过滤显示用户有权限查看的部门（包含权限继承链）
             departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
-            console.log('部门树已渲染，开始获取用户统计数据...');
 
             // 验证展开缓存的 key 是否仍然存在，移除无效的 key
             const allIds = departments.map((d: any) => d.id);
@@ -763,7 +798,6 @@ const getDepartmentData = async () => {
                 // 检查缓存
                 const cached = getCachedUserCount(dept.id);
                 if (cached) {
-                    console.log(`使用缓存数据 - 部门 ${dept.name} (${dept.id})`);
                     dept.userCount = cached.userCount;
                     dept.activeCount = cached.activeCount;
 
@@ -795,17 +829,14 @@ const getDepartmentData = async () => {
                             activeCount
                         });
 
-                        console.log(`从API获取 - 部门 ${dept.name} (${dept.id}): 总数=${userCount}, 激活=${activeCount}`);
                     }
                 } catch (error) {
-                    console.warn(`获取部门 ${dept.name} 的用户数据失败:`, error);
                 }
             };
 
             // 使用分批处理，每批10个并发请求
             await processBatchRequests(departments, fetchUserData, 10);
 
-            console.log('所有部门用户数据获取完成');
         } else {
             throw new Error('API返回数据格式不正确');
         }
@@ -860,7 +891,6 @@ const buildDepartmentTree = (departments: Department[]): Department[] => {
                 parent.children!.push(node);
             } else {
                 // 如果找不到父节点，作为根节点
-                console.warn(`找不到部门 ${dept.id} 的父部门 ${dept.parentId}，作为根节点处理`);
                 tree.push(node);
             }
         }
@@ -972,48 +1002,38 @@ const showAddDialog = (parent: Department | null) => {
 const showBatchAddDialog = (parent: Department) => {
     batchAddParentId.value = parent.id;
     batchAddParentName.value = parent.name;
-    batchAddFormData.nameText = '';
+    batchAddSelectedFile.value = null;
     batchAddDialogVisible.value = true;
+};
+
+const handleBatchFileChange = (file: any) => {
+    batchAddSelectedFile.value = file.raw;
+};
+
+const handleBatchFileRemove = () => {
+    batchAddSelectedFile.value = null;
 };
 
 // 重置批量添加表单
 const resetBatchAddForm = () => {
-    try {
-        if (batchAddFormRef.value && !isUnmounted.value) {
-            batchAddFormRef.value.resetFields();
-        }
-    } catch (error) {
-        // ignore
-    }
-    if (!isUnmounted.value) {
-        batchAddFormData.nameText = '';
+    batchAddSelectedFile.value = null;
+    if (batchUploadRef.value && !isUnmounted.value) {
+        batchUploadRef.value.clearFiles();
     }
 };
 
-// 提交批量添加
+// 提交批量添加（Excel上传）
 const handleBatchAddSubmit = async () => {
-    if (!batchAddFormRef.value) return;
+    if (!batchAddSelectedFile.value) {
+        ElMessage.warning('请先选择文件');
+        return;
+    }
 
     try {
-        await batchAddFormRef.value.validate();
-
-        const nameList = batchAddFormData.nameText
-            .split('\n')
-            .map((name: string) => name.trim())
-            .filter((name: string) => name.length > 0);
-
-        if (nameList.length === 0) {
-            ElMessage.warning('请输入至少一个部门名称');
-            return;
-        }
-
         batchAddSubmitting.value = true;
-        await addBatchDepartment({
-            name_list: nameList,
-            parent_department_id: batchAddParentId.value
-        });
+        await addDepartmentWithAdminsByFile(batchAddParentId.value, batchAddSelectedFile.value);
 
-        ElMessage.success(`成功添加 ${nameList.length} 个部门`);
+        ElMessage.success('批量添加成功');
         batchAddDialogVisible.value = false;
 
         userCountCache.value.clear();
@@ -1178,10 +1198,8 @@ const getDepartmentMembers = async (departmentId: number) => {
                 lastLoginTime: undefined
             }));
 
-            console.log('部门成员列表已加载:', departmentMembers.value);
         } else {
             departmentMembers.value = [];
-            console.log('API返回数据格式不正确:', res.data);
         }
     } catch (error) {
         if (!isUnmounted.value) {
@@ -1226,7 +1244,6 @@ const handleSetAdmin = async () => {
 
 // 确认取消管理员
 const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
-    console.log('尝试取消管理员:', admin, '部门ID:', currentDepartmentId.value);
 
     ElMessageBox.confirm(
         `确定要取消管理员"${admin.name}"吗？取消后该管理员将失去部门管理权限。`,
@@ -1250,9 +1267,7 @@ const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
                 department_id: currentDepartmentId.value
             };
 
-            console.log('发送取消管理员请求:', adminData);
             await unsetDepartmentAdmin(adminData);
-            console.log('取消管理员请求成功');
 
             if (isUnmounted.value) return;
 
@@ -1261,7 +1276,6 @@ const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
             // 更新本地管理员列表
             if (!isUnmounted.value && currentDepartmentAdmins.value) {
                 currentDepartmentAdmins.value = currentDepartmentAdmins.value.filter(a => a.id !== admin.id);
-                console.log('更新本地管理员列表:', currentDepartmentAdmins.value);
             }
 
             // 清除缓存
@@ -1279,19 +1293,16 @@ const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
         }
     }).catch(() => {
         // 用户取消操作
-        console.log('用户取消了取消管理员操作');
     });
 };
 
 // 处理标签页点击
 const handleTabClick = (tab: any) => {
-    console.log('标签页点击:', tab.props.name, '当前管理员列表:', currentDepartmentAdmins.value);
     activeTab.value = tab.props.name;
 };
 
 // 处理对话框关闭
 const handleDialogClose = () => {
-    console.log('对话框关闭，当前部门ID:', currentDepartmentId.value);
     // 重置表单但保留关键数据
     try {
         if (adminFormRef.value && !isUnmounted.value) {
@@ -1619,10 +1630,6 @@ const handleImport = async () => {
         const importSuccessFlag = response.headers['x-import-success'];
         const isImportSuccess = importSuccessFlag === 'true' || importSuccessFlag === true;
 
-        console.log('导入结果检查:', {
-            xImportSuccess: importSuccessFlag,
-            isImportSuccess: isImportSuccess
-        });
 
         if (isImportSuccess) {
             // 成功：显示绿色success组件
@@ -1791,7 +1798,6 @@ const resetImportDialog = () => {
         try {
             uploadRef.value.clearFiles();
         } catch (error) {
-            console.warn('清空上传文件列表失败:', error);
         }
     }
 };
@@ -1859,7 +1865,6 @@ const handleEditUserSubmit = async () => {
             id_number: editUserFormData.id_number
         };
 
-        console.log('提交管理员更新用户数据, user_id:', editUserFormData.id, 'data:', updateData);
 
         // 调用管理员更新API，user_id作为查询参数，其他数据作为请求体
         await updateUserByAdmin(editUserFormData.id, updateData);
@@ -1913,7 +1918,6 @@ const canManageDepartment = async (departmentId: number): Promise<boolean> => {
         // 如果没有继承权限，用户无权管理该部门
         return false;
     } catch (error) {
-        console.warn('权限检查失败，使用同步检查:', error);
         // 降级到同步权限检查（不包含继承）
         const hasSyncPermission = permission.canManageDepartmentSync(departmentId);
         return hasSyncPermission;

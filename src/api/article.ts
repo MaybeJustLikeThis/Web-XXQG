@@ -26,7 +26,7 @@ export const createArticle = (data: any) => {
 };
 
 // 添加文章（使用add接口）
-export const addArticle = (data: { title: string; text: string; head_image?: string }) => {
+export const addArticle = (data: { title: string; text: string; head_image?: string; public?: boolean }) => {
     return request({
         url: '/richtext/add',
         method: 'post',
@@ -35,7 +35,7 @@ export const addArticle = (data: { title: string; text: string; head_image?: str
 };
 
 // 更新文章
-export const updateArticle = (data: { id: number; text: string; title: string; head_image?: string }) => {
+export const updateArticle = (data: { id: number; text: string; title: string; head_image?: string; public?: boolean }) => {
     return request({
         url: '/richtext/edit',
         method: 'post',

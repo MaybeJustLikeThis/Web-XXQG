@@ -454,7 +454,6 @@ const setArticleSelection = () => {
 
     // 选中已在专栏中的文章
     const rows = availableArticles.value.filter(article => isArticleInColumn(article));
-    console.log('选中的文章:', rows.map(r => ({ id: r.id, title: r.title })));
 
     rows.forEach((row: any) => {
         articleTableRef.value.toggleRowSelection(row, true);

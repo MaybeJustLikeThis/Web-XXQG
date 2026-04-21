@@ -23,27 +23,22 @@ const extractFileKey = (ossUrl: string): string | null => {
 // 根据OSS URL获取可下载的URL
 export const getDownloadableUrl = async (ossUrl: string): Promise<string> => {
     try {
-        console.log('🔍 获取可下载URL:', ossUrl);
 
         // 从OSS URL中提取文件key
         const fileKey = extractFileKey(ossUrl);
 
         if (!fileKey) {
-            console.warn('无法从URL中提取文件key:', ossUrl);
             return ossUrl; // 返回原始URL作为备用
         }
 
-        console.log('提取的文件key:', fileKey);
 
         // 调用download接口获取可下载URL
         const response = await getFileDownloadUrl(fileKey);
 
         if (response.data && response.data.code === 200 && response.data.data) {
             const downloadUrl = response.data.data.url || response.data.data.download_url;
-            console.log('✅ 获取可下载URL成功:', downloadUrl);
             return downloadUrl;
         } else {
-            console.warn('download接口返回格式异常:', response.data);
             return ossUrl; // 返回原始URL作为备用
         }
 
@@ -73,7 +68,6 @@ export const getAccessibleUrl = async (url: string): Promise<string> => {
         const downloadUrl = await getDownloadableUrl(url);
         return downloadUrl;
     } catch (error) {
-        console.warn('download接口失败，返回原始URL:', error);
         return url;
     }
 };

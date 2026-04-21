@@ -61,10 +61,32 @@ export const unsetDepartmentAdmin = (data: { admin_id: number; department_id: nu
     });
 };
 
+// 批量添加部门
+export const addBatchDepartment = (data: { name_list: string[]; parent_department_id: number }) => {
+    return request({
+        url: '/department/add_batch',
+        method: 'post',
+        data
+    });
+};
+
 // 获取部门用户
 export const getDepartmentUsers = (id: string | number) => {
     return request({
         url: `/department/${id}/users`,
         method: 'get'
+    });
+};
+
+// 批量新增子部门及管理员（Excel上传）
+export const addDepartmentWithAdminsByFile = (parentDepartmentId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request({
+        url: '/department/add_with_admins_by_file',
+        method: 'post',
+        params: { parent_department_id: parentDepartmentId },
+        data: formData,
+        headers: { 'Content-Type': 'multipart/form-data' }
     });
 };

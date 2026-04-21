@@ -114,6 +114,42 @@ export const getPointAllList = () => {
     });
 };
 
+// 授予文章编辑权限
+export const grantTextEdit = (user_id: number) => {
+    return request({
+        url: '/user/grant_text_edit',
+        method: 'post',
+        data: { user_id }
+    });
+};
+
+// 撤销文章编辑权限
+export const revokeTextEdit = (user_id: number) => {
+    return request({
+        url: '/user/revoke_text_edit',
+        method: 'post',
+        data: { user_id }
+    });
+};
+
+// 授予题目编辑权限
+export const grantQuestionEdit = (user_id: number) => {
+    return request({
+        url: '/user/grant_question_edit',
+        method: 'post',
+        data: { user_id }
+    });
+};
+
+// 撤销题目编辑权限
+export const revokeQuestionEdit = (user_id: number) => {
+    return request({
+        url: '/user/revoke_question_edit',
+        method: 'post',
+        data: { user_id }
+    });
+};
+
 // 获取用户积分记录（管理员）
 export const getPointRecordForAdmin = (user_id: number) => {
     return request({

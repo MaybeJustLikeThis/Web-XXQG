@@ -69,7 +69,6 @@ const tree = ref<InstanceType<typeof ElTree>>();
 const onSubmit = () => {
     // 获取选中的权限
     const keys = [...tree.value!.getCheckedKeys(false), ...tree.value!.getHalfCheckedKeys()] as number[];
-    console.log(keys);
 };
 </script>
 

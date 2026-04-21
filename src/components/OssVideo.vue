@@ -84,21 +84,16 @@ const convertToProxyUrl = (ossUrl: string): string => {
 
 // 检查并修复视频URL
 const checkAndFixVideoUrl = async (url: string) => {
-    console.log('🔍 检查视频URL可访问性:', url);
     isLoading.value = true;
 
     try {
         const response = await fetch(url, { method: 'HEAD' });
         if (response.ok) {
-            console.log('✅ 视频URL可直接访问');
             displaySrc.value = url;
             isAccessible.value = true;
         } else {
-            console.warn(`⚠️ 视频URL访问失败: ${response.status}`);
             if (response.status === 403) {
-                console.log('🔄 使用代理方式访问视频');
                 const proxyUrl = convertToProxyUrl(url);
-                console.log('代理视频URL:', proxyUrl);
 
                 // 测试代理URL是否可访问
                 try {
@@ -106,13 +101,10 @@ const checkAndFixVideoUrl = async (url: string) => {
                     if (proxyResponse.ok) {
                         displaySrc.value = proxyUrl;
                         isAccessible.value = true;
-                        console.log('✅ 代理视频URL可访问');
                     } else {
                         isAccessible.value = false;
-                        console.warn('代理视频URL也无法访问');
                     }
                 } catch (proxyError) {
-                    console.warn('代理视频URL检查失败:', proxyError);
                     isAccessible.value = false;
                 }
             } else {
@@ -120,8 +112,6 @@ const checkAndFixVideoUrl = async (url: string) => {
             }
         }
     } catch (error) {
-        console.warn('⚠️ 视频URL检查失败:', error.message);
-        console.log('🔄 使用代理方式');
         const proxyUrl = convertToProxyUrl(url);
         displaySrc.value = proxyUrl;
         // 仍然设置为可访问，让浏览器尝试加载
@@ -133,12 +123,10 @@ const checkAndFixVideoUrl = async (url: string) => {
 
 // 处理视频加载错误
 const handleVideoError = (event: Event) => {
-    console.warn('视频加载失败:', displaySrc.value);
 
     // 如果当前URL不是代理URL，尝试代理URL
     if (!displaySrc.value.includes('/api/proxy/oss') && originalSrc.value) {
         const proxyUrl = convertToProxyUrl(originalSrc.value);
-        console.log('🔄 视频加载失败，尝试代理URL:', proxyUrl);
         displaySrc.value = proxyUrl;
     } else {
         // 代理URL也失败了，标记为不可访问
@@ -149,19 +137,16 @@ const handleVideoError = (event: Event) => {
 
 // 处理视频加载成功
 const handleVideoLoaded = (event: Event) => {
-    console.log('✅ 视频加载成功:', displaySrc.value);
     emit('loadeddata', event);
 };
 
 // 处理视频开始加载
 const handleLoadStart = (event: Event) => {
-    console.log('🔄 视频开始加载:', displaySrc.value);
     emit('loadstart', event);
 };
 
 // 重新加载
 const retryLoad = () => {
-    console.log('🔄 重新加载视频');
     isAccessible.value = true;
     displaySrc.value = originalSrc.value;
     checkAndFixVideoUrl(originalSrc.value);

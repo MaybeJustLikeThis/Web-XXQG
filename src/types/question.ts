@@ -74,7 +74,6 @@ export interface QuestionQuery {
     pageSize: number;
     title?: string;
     type?: QuestionType;
-    difficulty?: QuestionDifficulty;
     status?: QuestionStatus;
 }
 

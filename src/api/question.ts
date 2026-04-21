@@ -95,7 +95,7 @@ export const updateQuestionStatus = (id: string | number, status: string) => {
 };
 
 // 批量导入题目
-export const addQuestionsByFile = (file: File, questionType: number) => {
+export const addQuestionsByFile = (file: File, questionType: number, isPublic: boolean = true) => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -103,7 +103,8 @@ export const addQuestionsByFile = (file: File, questionType: number) => {
         url: '/question/add_by_file',
         method: 'post',
         params: {
-            question_type: questionType
+            question_type: questionType,
+            public: isPublic
         },
         data: formData,
         headers: {

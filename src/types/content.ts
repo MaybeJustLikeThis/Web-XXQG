@@ -10,6 +10,7 @@ export interface Article {
     publishTime: string;
     updateTime: string;
     viewCount: number;
+    public: boolean;
     categoryId?: string;
 }
 
@@ -89,5 +90,5 @@ export interface SubjectUserCompletion {
     user_id: number;           // User ID - backend uses 'user_id'
     name: string;         // User name
     department: string;   // Department name/path
-    progress: number;  // Completion percentage (0-100) - backend uses 'progress'
+    progress: number;  // Completion count (number of items completed) - backend uses 'progress'
 }

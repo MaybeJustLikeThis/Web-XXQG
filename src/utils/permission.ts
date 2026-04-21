@@ -56,7 +56,7 @@ export class PermissionChecker {
                 return this._departmentTree;
             }
         } catch (error) {
-            console.warn('获取部门树失败，使用空树:', error);
+            console.error('获取部门树失败:', error);
         }
 
         return [];
@@ -86,7 +86,6 @@ export class PermissionChecker {
                     parent.children!.push(node);
                 } else {
                     // 如果找不到父节点，作为根节点
-                    console.warn(`找不到部门 ${dept.id} 的父部门 ${dept.parent_department_id}，作为根节点处理`);
                     tree.push(node);
                 }
             }
@@ -247,7 +246,6 @@ export class PermissionChecker {
 
             return false;
         } catch (error) {
-            console.warn('检查权限继承时出错:', error);
             // 降级到直接权限检查
             return userProfile.manage_departments.includes(departmentId);
         }
@@ -298,7 +296,6 @@ export class PermissionChecker {
                 collectIds(tree);
                 return allIds;
             } catch (error) {
-                console.warn('获取所有部门ID失败:', error);
                 return [];
             }
         }
@@ -317,10 +314,8 @@ export class PermissionChecker {
                 childIds.forEach(id => manageableIds.add(id));
             }
         } catch (error) {
-            console.warn('获取继承部门权限失败:', error);
+            console.error('获取继承部门权限失败:', error);
         }
-
-        return Array.from(manageableIds);
     }
 
     /**
@@ -391,7 +386,6 @@ export const updatePermissionElement = (el: HTMLElement, binding: any) => {
             el.style.display = '';
         }
     } catch (error) {
-        console.warn('权限检查失败，可能是 Pinia 未初始化:', error);
         // 如果 store 不可用，默认显示元素
         el.style.display = '';
     }

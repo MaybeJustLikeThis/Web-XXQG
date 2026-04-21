@@ -61,19 +61,28 @@ authService.interceptors.request.use(
 
 // 响应拦截器
 const responseInterceptor = (response: AxiosResponse) => {
-    // 检查业务层面的响应码（HTTP 200 + 业务code 401）
-    if (response.data && typeof response.data === 'object' && response.data.code === 401) {
-        console.warn('认证失败: 业务返回code 401，token未验证或已过期');
-        handleAuthError('业务码401');
-        return Promise.reject(new Error('用户未登录'));
+    // 跳过二进制响应的业务码解析
+    if (response.config.responseType === 'blob') {
+        return response;
     }
 
-    // HTTP状态码检查
-    if (response.status === 200) {
-        return response;
-    } else {
-        return Promise.reject(new Error(`HTTP请求失败: ${response.status}`));
+    if (response.data && typeof response.data === 'object') {
+        const { code, msg } = response.data;
+
+        // 业务码 401：认证失败
+        if (code === 401) {
+            handleAuthError('业务码401');
+            return Promise.reject(new Error('用户未登录'));
+        }
+
+        // 业务码非 200：业务错误（如 code 500）
+        if (code !== undefined && code !== 200) {
+            console.error(`业务错误: code ${code}`, msg);
+            return Promise.reject(new Error(msg || '请求失败'));
+        }
     }
+
+    return response;
 };
 
 // 错误响应拦截器
@@ -83,7 +92,6 @@ const errorInterceptor = (error: AxiosError) => {
 
         // 如果返回401或403，说明认证失败，清除本地存储的用户信息
         if (status === 401 || status === 403) {
-            console.warn(`认证失败: HTTP ${status} - 权限不足或token过期`);
             handleAuthError(`HTTP ${status}`);
         } else {
             console.error(`请求错误: HTTP ${status}`, error.response.data);
@@ -105,7 +113,6 @@ authService.interceptors.response.use(responseInterceptor, errorInterceptor);
 
 // 处理认证错误的统一函数
 const handleAuthError = (errorType?: string) => {
-    console.log(`认证错误处理 (${errorType}): 清除用户数据并跳转`);
 
     // 清除所有认证相关的本地存储
     localStorage.removeItem('token');
@@ -116,7 +123,6 @@ const handleAuthError = (errorType?: string) => {
     // 避免在登录页重复跳转
     const currentPath = window.location.hash || window.location.pathname;
     if (currentPath !== '#/login' && currentPath !== '/login') {
-        console.log('跳转到登录页面');
         window.location.href = '/#/login';
     }
 };

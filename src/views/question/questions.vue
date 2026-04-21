@@ -859,7 +859,6 @@ const confirmBatchDelete = async () => {
         } else {
             ElMessage.warning(`删除完成：成功 ${successCount} 道题目，失败 ${failCount} 道题目`);
             if (failedItems.length > 0) {
-                console.warn('删除失败的题目:', failedItems);
             }
         }
 
@@ -960,11 +959,9 @@ const submitForm = async () => {
 
         // 根据是否有ID判断是新增还是编辑
         if (form.id) {
-            console.log('提交编辑数据:', submitData);
             await editQuestion(submitData);
             ElMessage.success('更新成功');
         } else {
-            console.log('提交新增数据:', submitData);
             await addQuestion(submitData);
             ElMessage.success('创建成功');
         }
