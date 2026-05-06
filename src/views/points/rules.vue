@@ -216,6 +216,7 @@ import { ElMessage } from 'element-plus';
 import { Edit, Refresh, User, Reading, EditPen, Trophy, Coin } from '@element-plus/icons-vue';
 import type { PointConfig } from '@/api/points';
 import { getPointConfig, setPointConfig } from '@/api/points';
+import { showError } from '@/utils/errorHandler';
 
 // 表格数据
 interface TableDataItem {
@@ -345,7 +346,7 @@ const getConfig = async () => {
         config.answer = data.answer || { score: 0, limit: 0 };
         config.competition = data.competition || { score: 0, limit: 0 };
     } catch (error) {
-        ElMessage.error('获取配置失败');
+        showError(error, '获取配置失败');
         console.error('获取积分配置失败:', error);
     }
 };
@@ -446,7 +447,7 @@ const handleSave = async () => {
         // 重新获取最新配置以确保数据一致性
         await getConfig();
     } catch (error) {
-        ElMessage.error('保存失败');
+        showError(error, '保存失败');
         console.error('保存积分配置失败:', error);
     }
 };

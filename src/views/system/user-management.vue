@@ -137,6 +137,7 @@ import { ElMessage } from 'element-plus';
 import { Download, Refresh, View, List } from '@element-plus/icons-vue';
 import * as XLSX from 'xlsx';
 import { getPointAllList, getPointRecordForAdmin } from '@/api/user';
+import { showError } from '@/utils/errorHandler';
 
 const permiss = usePermissStore();
 
@@ -175,11 +176,11 @@ const fetchData = async () => {
             pagination.total = res.data.data?.length || 0;
             ElMessage.success('数据加载成功');
         } else {
-            ElMessage.error(res.data?.msg || '获取数据失败');
+            showError(res, '获取数据失败');
         }
     } catch (error: any) {
         console.error('获取用户积分列表失败:', error);
-        ElMessage.error(error.message || '获取数据失败');
+        showError(error, '获取数据失败');
     } finally {
         loading.value = false;
     }
@@ -197,11 +198,11 @@ const viewDetails = async (row: any) => {
         if (res.data && res.data.code === 200) {
             pointRecords.value = res.data.data || [];
         } else {
-            ElMessage.error(res.data?.msg || '获取积分明细失败');
+            showError(res, '获取积分明细失败');
         }
     } catch (error: any) {
         console.error('获取积分记录失败:', error);
-        ElMessage.error(error.message || '获取积分明细失败');
+        showError(error, '获取积分明细失败');
     } finally {
         detailLoading.value = false;
     }
@@ -261,7 +262,7 @@ const exportToExcel = () => {
         ElMessage.success('导出成功');
     } catch (error) {
         console.error('导出Excel失败:', error);
-        ElMessage.error('导出失败');
+        showError(error, '导出失败');
     } finally {
         exportLoading.value = false;
     }

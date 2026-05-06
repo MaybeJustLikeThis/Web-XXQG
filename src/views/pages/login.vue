@@ -60,6 +60,7 @@ import { User, Lock } from '@element-plus/icons-vue';
 import { login as loginApi } from '@/api/auth';
 import UpdatePasswordDialog from '@/components/UpdatePasswordDialog.vue';
 import { isInitialPassword } from '@/utils/password';
+import { showError, getErrorMessage } from '@/utils/errorHandler';
 
 // 加载状态
 const loading = ref(false);
@@ -135,7 +136,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
                             return;
                         }
                     } catch (error) {
-                        ElMessage.error('登录失败：保存用户信息出错');
+                        showError(error, '登录失败：保存用户信息出错');
                         loading.value = false;
                         return;
                     }
@@ -158,10 +159,10 @@ const submitForm = (formEl: FormInstance | undefined) => {
                         localStorage.removeItem('login-param');
                     }
                 } else {
-                    ElMessage.error(response.data?.msg || '登录失败');
+                    showError(response, '登录失败');
                 }
             } catch (error) {
-                ElMessage.error('登录失败，请检查手机号和密码');
+                showError(error, '登录失败，请检查手机号和密码');
                 return false;
             } finally {
                 loading.value = false;

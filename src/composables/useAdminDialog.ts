@@ -2,6 +2,7 @@ import { ref, type Ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getUsersByDepartment } from '@/api/user';
 import { getAllDepartments } from '@/api/department';
+import { showError } from '@/utils/errorHandler';
 
 interface AdminDialogOptions {
     grantFn: (userId: number) => Promise<any>;
@@ -100,8 +101,8 @@ export function useAdminDialog(options: AdminDialogOptions) {
             ElMessage.success(`已授予${permissionName}权限`);
             adminUserId.value = null;
             onSuccess?.();
-        } catch {
-            ElMessage.error('授权失败');
+        } catch (error) {
+            showError(error, '授权失败');
         } finally {
             loading.value = false;
         }
@@ -118,8 +119,8 @@ export function useAdminDialog(options: AdminDialogOptions) {
             ElMessage.success(`已撤销${permissionName}权限`);
             adminUserId.value = null;
             onSuccess?.();
-        } catch {
-            ElMessage.error('撤销失败');
+        } catch (error) {
+            showError(error, '撤销失败');
         } finally {
             loading.value = false;
         }

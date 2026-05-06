@@ -82,6 +82,7 @@
 import { reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { updatePassword } from '@/api/auth';
+import { showError } from '@/utils/errorHandler';
 // import { VueCropper } from 'vue-cropper';
 // import 'vue-cropper/dist/index.css';
 import avatar from '@/assets/img/img.jpg';
@@ -141,11 +142,11 @@ const onSubmit = async () => {
             // 清空表单
             resetForm();
         } else {
-            ElMessage.error(response.data?.msg || '密码修改失败');
+            showError(response, '密码修改失败');
         }
     } catch (error) {
         console.error('修改密码错误:', error);
-        ElMessage.error('修改密码失败，请稍后重试');
+        showError(error, '修改密码失败，请稍后重试');
     } finally {
         loading.value = false;
     }

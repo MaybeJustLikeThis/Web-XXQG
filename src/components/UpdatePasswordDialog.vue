@@ -49,6 +49,7 @@
 import { ref, reactive, watch } from 'vue';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { updatePassword } from '@/api/auth';
+import { showError } from '@/utils/errorHandler';
 
 interface PasswordForm {
     password: string;
@@ -116,11 +117,11 @@ const handleSubmit = async () => {
             emit('success');
             emit('update:modelValue', false);
         } else {
-            ElMessage.error(response.data?.msg || '密码修改失败');
+            showError(response, '密码修改失败');
         }
     } catch (error) {
         console.error('修改密码错误:', error);
-        ElMessage.error('密码修改失败，请重试');
+        showError(error, '密码修改失败');
     } finally {
         loading.value = false;
     }

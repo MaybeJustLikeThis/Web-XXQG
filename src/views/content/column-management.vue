@@ -87,6 +87,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue';
 import type { Column } from '@/types/column';
 import { getAllColumns, createColumn, updateColumn, deleteColumn } from '@/api/column';
+import { showError } from '@/utils/errorHandler';
 
 // 查询参数
 const query = reactive({
@@ -208,7 +209,7 @@ const getColumns = async () => {
             pageTotal.value = filteredData.length;
         }
     } catch (error) {
-        ElMessage.error('获取专栏列表失败');
+        showError(error, '获取专栏列表失败');
         console.error('获取专栏列表错误:', error);
 
         // 使用模拟数据作为fallback
@@ -304,7 +305,7 @@ const handleDelete = async (row: Column) => {
         await getColumns();
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error('删除失败');
+            showError(error, '删除失败');
         }
     }
 };
@@ -340,7 +341,7 @@ const submitForm = async () => {
         dialogVisible.value = false;
         await getColumns();
     } catch (error) {
-        ElMessage.error(form.id ? '更新失败' : '创建失败');
+        showError(error, form.id ? '更新失败' : '添加失败');
     }
 };
 

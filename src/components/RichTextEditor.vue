@@ -23,8 +23,8 @@
 import { ref, shallowRef, onBeforeUnmount, watch } from 'vue';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import '@wangeditor/editor/dist/css/style.css';
-import { ElMessage } from 'element-plus';
 import { uploadFile } from '@/utils/upload';
+import { showError } from '@/utils/errorHandler';
 
 // 编辑器实例，必须用 shallowRef
 const editorRef = shallowRef();
@@ -57,7 +57,7 @@ const customUploadImage = async (file: File, insertFn: Function) => {
         const imageUrl = await uploadFile(file);
         insertFn(imageUrl, file.name, imageUrl);
     } catch (error) {
-        ElMessage.error('图片上传失败');
+        showError(error, '上传失败');
     }
 };
 
@@ -67,7 +67,7 @@ const customUploadVideo = async (file: File, insertFn: Function) => {
         const videoUrl = await uploadFile(file);
         insertFn(videoUrl, file.name, videoUrl);
     } catch (error) {
-        ElMessage.error('视频上传失败');
+        showError(error, '上传失败');
     }
 };
 

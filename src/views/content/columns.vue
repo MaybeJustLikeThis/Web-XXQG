@@ -144,6 +144,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Search } from '@element-plus/icons-vue';
 import { getArticlesByTagId, addArticleToColumn, removeArticleFromColumn } from '@/api/column';
 import { getAllArticles } from '@/api/article';
+import { showError } from '@/utils/errorHandler';
 
 // 专栏列表数据
 const columnList = ref([
@@ -317,7 +318,7 @@ const loadColumnArticles = async () => {
             ElMessage.warning('该专栏暂无文章');
         }
     } catch (error) {
-        ElMessage.error('获取专栏文章失败');
+        showError(error, '获取专栏文章失败');
         console.error('获取专栏文章错误:', error);
         currentArticles.value = [];
         articleTotal.value = 0;
@@ -402,7 +403,7 @@ const handleRemoveFromColumn = async (article: any) => {
         ElMessage.success('文章已从专栏中移除');
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error('移除文章失败');
+            showError(error, '移除文章失败');
         }
     }
 };
@@ -426,7 +427,7 @@ const loadAvailableArticles = async () => {
             availableArticleTotal.value = availableArticles.value.length;
         }
     } catch (error) {
-        ElMessage.error('获取文章列表失败');
+        showError(error, '获取文章列表失败');
         console.error('获取文章列表错误:', error);
     } finally {
         availableArticleLoading.value = false;
@@ -509,7 +510,7 @@ const saveColumnContent = async () => {
             await loadColumnArticles();
         }
     } catch (error) {
-        ElMessage.error('保存失败');
+        showError(error, '保存失败');
         console.error('保存专栏内容失败:', error);
     }
 };
