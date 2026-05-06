@@ -1,7 +1,7 @@
 # 集中化错误处理 — 设计方案
 
 **日期**: 2026-05-06  
-**状态**: 待审查  
+**状态**: 已审查，待批准  
 **目标**: 系统中所有 API 错误提示统一优先展示后端返回的 `msg` 字段，后端无消息时兜底显示简洁通用提示。
 
 ---
@@ -41,6 +41,8 @@
 ┌─ request.ts interceptor ──────────┐
 │ 统一提取 msg → 包装为 Error        │
 │ 确保 error.message = 有效中文消息   │
+│ 区分：业务错误 / HTTP错误 / 网络错误  │
+│ 检测取消请求，不拦截               │
 └──────────────┬────────────────────┘
                │
                ▼
@@ -53,6 +55,7 @@
 ┌─ 各调用方 catch 块 ────────────────┐
 │ showError(error, '操作失败')       │
 │ 一行代码完成错误提取 + 展示         │
+│ 保留 console.error 调试日志        │
 └───────────────────────────────────┘
 ```
 
@@ -86,20 +89,23 @@ const errorInterceptor = (error: AxiosError) => {
 改造后：
 ```typescript
 const errorInterceptor = (error: AxiosError) => {
+    // 取消的请求直接透传，不提示
+    if (axios.isCancel(error) || (error as any).code === 'ERR_CANCELED') {
+        return Promise.reject(error);
+    }
+
     if (error.response) {
         const status = error.response.status;
         const responseData = error.response.data as Record<string, unknown> | undefined;
-        const backendMsg = typeof responseData?.msg === 'string' ? responseData.msg : undefined;
 
         if (status === 401 || status === 403) {
             handleAuthError();
-            if (backendMsg) {
-                return Promise.reject(new Error(backendMsg));
-            }
-            return Promise.reject(new Error('登录已过期，请重新登录'));
+            const msg = typeof responseData?.msg === 'string' ? responseData.msg : '登录已过期，请重新登录';
+            return Promise.reject(new Error(msg));
         }
 
         console.error(`请求错误: HTTP ${status}`, error.response.data);
+        const backendMsg = typeof responseData?.msg === 'string' ? responseData.msg : undefined;
         return Promise.reject(new Error(backendMsg || '服务器异常，请稍后重试'));
     }
 
@@ -113,6 +119,11 @@ const errorInterceptor = (error: AxiosError) => {
 };
 ```
 
+关键变化：
+- **顶部增加取消检测**：`axios.isCancel` / `ERR_CANCELED` 直接透传，避免页面切换时弹出误导性提示
+- **HTTP error 提取 msg**：先从 `response.data.msg` 取后端消息，无则用兜底文案
+- **401/403 也提取 msg**：后端的 msg 优先，无则用 "登录已过期，请重新登录"
+
 **（B）业务错误 code≠200** — 保持现有逻辑不变，已经正确提取 msg。
 
 **（C）`handleAuthError` 清理** — 移除未使用的 `errorType` 参数。
@@ -123,31 +134,39 @@ const errorInterceptor = (error: AxiosError) => {
 import { ElMessage } from 'element-plus';
 
 /**
- * 从任意 error 对象中提取可读的中文错误消息。
- * 优先级：error.message → error.response.data.msg → fallback
+ * 从任意 error/response 对象中提取可读的错误消息。
+ * 优先级：error.message → error.data.msg → error.response.data.msg → fallback
+ *
+ * 注意：ElMessage 默认转义 HTML，此函数的返回值直接传入是安全的。
+ * 禁止将返回值与 dangerouslyUseHTMLString 一起使用。
  */
 export function getErrorMessage(error: unknown, fallback = '操作失败'): string {
     if (!error) return fallback;
 
     const err = error as Record<string, unknown>;
 
-    // 1. interceptor 规范化后的消息（覆盖所有场景）
+    // 1. interceptor 规范化后的消息（覆盖 try/catch 的 catch 路径）
     if (typeof err.message === 'string' && err.message) {
         return err.message;
     }
 
-    // 2. 兜底：未经过 interceptor 的原始 AxiosError
+    // 2. AxiosResponse 直接传入（if/else 分支中的 res.data?.msg 场景）
+    if (typeof err.data?.msg === 'string' && (err.data.msg as string).trim()) {
+        return err.data.msg as string;
+    }
+
+    // 3. 兜底：未经过 interceptor 的原始 AxiosError
     try {
         const response = err.response as Record<string, unknown> | undefined;
         const data = response?.data as Record<string, unknown> | undefined;
-        if (typeof data?.msg === 'string' && data.msg) {
-            return data.msg;
+        if (typeof data?.msg === 'string' && (data.msg as string).trim()) {
+            return data.msg as string;
         }
     } catch {
         // 忽略类型访问错误
     }
 
-    // 3. 最终兜底
+    // 4. 最终兜底
     return fallback;
 }
 
@@ -159,20 +178,26 @@ export function showError(error: unknown, fallback = '操作失败'): void {
 }
 ```
 
+关键变化（相比初版）：
+- **增加 `err.data?.msg`**：处理 AxiosResponse 直接传入的场景（user-management.vue 等文件的 `else` 分支）
+- **XSS 安全注释**：标明 `dangerouslyUseHTMLString` 禁止与此函数联用
+
 ### 2.4 调用方改造策略
 
 #### 时机一：直接用 `showError`（覆盖 ~85% 场景）
 
-绝大多数 catch 块直接替换：
+绝大多数 catch 块直接替换，**保留 console.error**：
 
 ```typescript
 // 改造前
 } catch (error) {
+    console.error('获取专题列表失败:', error);
     ElMessage.error(error?.response?.data?.msg || error?.message || '获取专题列表失败');
 }
 
 // 改造后
 } catch (error) {
+    console.error('获取专题列表失败:', error);
     showError(error, '获取专题列表失败');
 }
 ```
@@ -209,13 +234,19 @@ ElMessage.error(msg);
 // 改造后
 const msg = getErrorMessage(error, '批量添加失败');
 ElMessage.error(msg);
-// 或直接用 showError(error, '批量添加失败');
 ```
 
 #### 时机四：特殊场景保留结构
 
-- **`login.vue`**: 保持现有分段错误逻辑（服务器返回数据异常 / 保存用户信息出错），改用 `getErrorMessage` 提取
-- **`upload.ts`**: 内部只用 `getErrorMessage` 提取消息，移除 throw 避免双重报错
+- **`login.vue`**: 保持现有分段错误逻辑，改用 `getErrorMessage` 提取消息
+- **`upload.ts`**: **移除内部 `ElMessage.error`（第 63 行），保留 `throw error`（第 64 行）**。调用方在 catch 中用 `showError` 展示。这样消除双重报错，同时不破坏调用方的流程控制（RichTextEditor、articles 依赖 throw 来判断上传成败）
+
+#### 时机五：Blob 错误响应保留原始处理
+
+- **`questions.vue` 第 1103-1123 行**（批量导入失败）
+- **`DepartmentManagement.vue` 第 1748-1769 行**（批量导入失败）
+
+这两处的 Blob 错误提取逻辑保留不变，只将最终的 `ElMessage.error(errorMessage)` 替换为直接使用 `errorMessage`（因为 Blob 响应不走 interceptor，errorMessage 已由内部逻辑正确提取）。
 
 ### 2.5 fallback 文案规范
 
@@ -235,25 +266,25 @@ ElMessage.error(msg);
 
 ### 2.6 改造文件清单
 
-| 文件 | 错误点数量 | 主要改造方式 |
-|------|----------|-------------|
-| `src/utils/request.ts` | 1（errorInterceptor） | HTTP error 分支改造 + handleAuthError 清理 |
-| `src/utils/errorHandler.ts` | 新建 | 创建工具函数 |
-| `src/views/content/topics.vue` | 17 | 全部 → `showError` |
-| `src/views/organization/components/DepartmentManagement.vue` | 15 | `showError` + 保留 cancel 判断 |
-| `src/views/question/questions.vue` | 8 | `showError` |
-| `src/views/content/articles.vue` | 5 | `showError` |
-| `src/views/dashboard.vue` | 4 | `showError` |
-| `src/views/content/columns.vue` | 4 | `showError` |
-| `src/views/system/user-management.vue` | 5 | `showError`（含 `res.data?.msg` 场景） |
-| `src/views/content/column-management.vue` | 3 | `showError` |
-| `src/views/pages/login.vue` | 4 | `getErrorMessage` |
-| `src/views/pages/ucenter.vue` | 2 | `showError` |
-| `src/views/points/rules.vue` | 2 | `showError` |
-| `src/components/RichTextEditor.vue` | 2 | `showError` |
-| `src/components/UpdatePasswordDialog.vue` | 2 | `showError` |
-| `src/composables/useAdminDialog.ts` | 2 | `showError` |
-| `src/utils/upload.ts` | 2 | `getErrorMessage`，移除 throw |
+| 文件 | 错误点数量 | 主要改造方式 | 备注 |
+|------|----------|-------------|------|
+| `src/utils/request.ts` | 1（errorInterceptor） | HTTP error 分支改造 + handleAuthError 清理 + 取消检测 | 核心 |
+| `src/utils/errorHandler.ts` | 新建 | 创建工具函数 | 核心 |
+| `src/views/content/topics.vue` | 17 | 全部 → `showError`，保留 console.error | 最严重文件 |
+| `src/views/organization/components/DepartmentManagement.vue` | 15 | `showError` + 保留 cancel 判断 + Blob 特殊保留 | 最复杂文件 |
+| `src/views/question/questions.vue` | 8 | `showError` + Blob 特殊保留 | |
+| `src/views/content/articles.vue` | 5 | `showError`，保留 console.error | |
+| `src/views/dashboard.vue` | 4 | `showError`，保留 console.error | |
+| `src/views/content/columns.vue` | 4 | `showError`，保留 console.error | |
+| `src/views/system/user-management.vue` | 5 | `showError`（catch 路径），else 分支改为 `showError(res, ...)` | AxiosResponse 场景 |
+| `src/views/content/column-management.vue` | 3 | `showError`，保留 console.error | |
+| `src/views/pages/login.vue` | 4 | `getErrorMessage` | 特殊错误逻辑 |
+| `src/views/pages/ucenter.vue` | 2 | `showError` | |
+| `src/views/points/rules.vue` | 2 | `showError`，保留 console.error | |
+| `src/components/RichTextEditor.vue` | 2 | `showError` | |
+| `src/components/UpdatePasswordDialog.vue` | 2 | `showError` | |
+| `src/composables/useAdminDialog.ts` | 2 | `showError` | |
+| `src/utils/upload.ts` | 1 | **移除内部 ElMessage.error，保留 throw** | 修复双重报错 |
 
 ---
 
@@ -273,21 +304,24 @@ ElMessage.error(msg);
 | 6 | 正常操作 | 成功创建/编辑/删除 | 正常完成，无错误提示 |
 | 7 | user-management 业务错误 | 获取用户列表时后端返回 code≠200 | 展示后端 msg，而非"获取数据失败" |
 | 8 | login 登录失败 | 错误密码登录 | 展示后端 msg，而非"登录失败，请检查手机号和密码" |
+| 9 | 页面切换时取消请求 | 在加载中快速切换到其他页面 | 不弹出"网络连接失败"等误导提示 |
+| 10 | upload.ts 上传失败 | 上传文件失败 | 只显示一次错误提示（不再双重报错） |
 
 ### 3.2 非功能验证
 
 - TypeScript 编译通过（`vue-tsc --noEmit`）
 - Vite 构建通过（`npm run build`）
 - 所有页面无 console 报错
+- `console.error` 调试日志保留完整
 
 ---
 
 ## 4. 实现顺序
 
 1. 新建 `src/utils/errorHandler.ts`
-2. 改造 `src/utils/request.ts` 的 `errorInterceptor`
-3. 改造 `src/utils/upload.ts`（移除重复报错）
-4. 按文件逐批改造调用方（从最严重的 topics.vue 开始）
+2. 改造 `src/utils/request.ts` 的 `errorInterceptor`（增加取消检测 + HTTP error msg 提取 + handleAuthError 清理）
+3. 改造 `src/utils/upload.ts`（移除内部 ElMessage.error，保留 throw）
+4. 按文件逐批改造调用方：topics.vue → DepartmentManagement.vue → questions.vue → articles.vue → dashboard.vue → columns.vue → user-management.vue → column-management.vue → login.vue → ucenter.vue → rules.vue → RichTextEditor.vue → UpdatePasswordDialog.vue → useAdminDialog.ts
 5. TypeScript 编译验证
 6. 构建验证
 7. 功能回归测试
@@ -300,3 +334,6 @@ ElMessage.error(msg);
 - **不可引入新依赖** — 仅使用已有的 Element Plus `ElMessage`
 - **Auth 跳转行为不变** — 401/403 仍然清理 token 跳转登录页，仅增加消息提示
 - **`handleAuthError` 移除死参数** — `errorType` 参数从未使用，直接删除
+- **upload.ts 保留 throw** — 调用方（RichTextEditor、articles）依赖 throw 判断上传成败，移除会导致流程错误
+- **Blob 响应不走 interceptor** — 批量导入的错误在业务代码中自行处理，不做统一改造
+- **保留 console.error** — 所有现有 catch 块中的 `console.error` 调试日志全部保留
