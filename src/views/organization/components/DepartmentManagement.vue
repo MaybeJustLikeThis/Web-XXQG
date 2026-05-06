@@ -451,6 +451,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, nextTick, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { showError } from '@/utils/errorHandler';
 import { Plus, Upload } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
@@ -612,8 +613,8 @@ const downloadTemplate = async () => {
         a.download = 'upload_departments_with_admin_users.xls';
         a.click();
         URL.revokeObjectURL(a.href);
-    } catch {
-        ElMessage.error('模板下载失败');
+    } catch (error: any) {
+        showError(error, '模板下载失败');
     } finally {
         templateDownloading.value = false;
     }
@@ -632,7 +633,7 @@ const handleDownloadTemplate = async (fileName: string) => {
         const response = await getTemplate(fileName);
         const url = response.data?.data?.url;
         if (!url) {
-            ElMessage.error('获取模板下载链接失败');
+            showError(null, '获取模板下载链接失败');
             return;
         }
         const link = document.createElement('a');
@@ -643,7 +644,7 @@ const handleDownloadTemplate = async (fileName: string) => {
         document.body.removeChild(link);
     } catch (error: any) {
         console.error('下载模板失败:', error);
-        ElMessage.error('下载模板失败，请重试');
+        showError(error, '下载模板失败');
     }
 };
 
@@ -875,7 +876,7 @@ const getDepartmentData = async () => {
         }
     } catch (error) {
         if (!isUnmounted.value) {
-            ElMessage.error('获取部门数据失败');
+            showError(error, '获取部门数据失败');
             console.error('获取部门数据错误:', error);
         }
 
@@ -1083,8 +1084,7 @@ const handleBatchAddSubmit = async () => {
         await getDepartmentData();
     } catch (error: any) {
         if (error !== 'cancel') {
-            const msg = error?.response?.data?.msg || error?.message || '批量添加失败';
-            ElMessage.error(msg);
+            showError(error, '批量添加失败');
         }
     } finally {
         batchAddSubmitting.value = false;
@@ -1131,8 +1131,7 @@ const handleBatchAddWithAdminSubmit = async () => {
         await getDepartmentData();
     } catch (error: any) {
         if (error !== 'cancel') {
-            const msg = error?.response?.data?.msg || error?.message || '批量添加失败';
-            ElMessage.error(msg);
+            showError(error, '批量添加失败');
         }
     } finally {
         batchAddWithAdminSubmitting.value = false;
@@ -1183,7 +1182,7 @@ const handleDelete = async (department: Department) => {
         await getDepartmentData();
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error('删除失败');
+            showError(error, '删除失败');
         }
     }
 };
@@ -1222,7 +1221,7 @@ const handleSubmit = async () => {
         await getDepartmentData();
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error(isEdit.value ? '编辑失败' : '新增失败');
+            showError(error, isEdit.value ? '更新失败' : '添加失败');
         }
     }
 };
@@ -1328,7 +1327,7 @@ const handleSetAdmin = async () => {
         }
     } catch (error) {
         if (error !== 'cancel' && !isUnmounted.value) {
-            ElMessage.error('设置管理员失败');
+            showError(error, '设置管理员失败');
         }
     }
 };
@@ -1379,7 +1378,7 @@ const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
         } catch (error) {
             if (!isUnmounted.value) {
                 console.error('取消管理员失败:', error);
-                ElMessage.error('取消管理员失败');
+                showError(error, '取消管理员失败');
             }
         }
     }).catch(() => {
@@ -1505,7 +1504,7 @@ const getMemberData = async () => {
         }
     } catch (error) {
         console.error('获取成员数据错误:', error);
-        ElMessage.error('获取成员数据失败');
+        showError(error, '获取成员数据失败');
 
         // 使用模拟数据作为fallback
         const mockData: DepartmentUser[] = [
@@ -1792,7 +1791,7 @@ const toggleMemberStatus = async (user: DepartmentUser) => {
     } catch (error) {
         if (error !== 'cancel') {
             console.error('切换用户状态错误:', error);
-            ElMessage.error(`${action}失败`);
+            showError(error, `${action}失败`);
         }
     }
 };
@@ -1817,7 +1816,7 @@ const handleDeleteUser = async (user: DepartmentUser) => {
     } catch (error) {
         if (error !== 'cancel') {
             console.error('删除用户错误:', error);
-            ElMessage.error('删除失败');
+            showError(error, '删除失败');
         }
     }
 };
@@ -1845,8 +1844,7 @@ const handleMemberSubmit = async () => {
         getMemberData();
     } catch (error: any) {
         console.error('添加成员失败:', error);
-        const msg = error?.response?.data?.msg || error?.message || '添加失败，请重试';
-        ElMessage.error(msg);
+        showError(error, '添加失败');
     } finally {
         memberSubmitting.value = false;
     }
@@ -1874,8 +1872,8 @@ const copyInvitationCode = (code: string) => {
     }
     navigator.clipboard.writeText(code).then(() => {
         ElMessage.success('邀请码已复制到剪贴板');
-    }).catch(() => {
-        ElMessage.error('复制失败');
+    }).catch((error: any) => {
+        showError(error, '复制失败');
     });
 };
 
@@ -1971,7 +1969,7 @@ const handleEditUserSubmit = async () => {
     } catch (error) {
         if (error !== 'cancel') {
             console.error('更新用户信息失败:', error);
-            ElMessage.error('更新用户信息失败');
+            showError(error, '更新用户信息失败');
         }
     } finally {
         editUserSubmitting.value = false;
