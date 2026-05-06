@@ -59,8 +59,7 @@ export const uploadFile = async (file: File): Promise<string> => {
         }
 
     } catch (error) {
-        console.error(`文件上传失败：${error.message}`);
-        ElMessage.error(`文件上传失败: ${error.message || '未知错误'}`);
+        console.error(`文件上传失败：${(error as Error).message}`);
         throw error;
     }
 };

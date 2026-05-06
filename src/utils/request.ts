@@ -71,8 +71,8 @@ const responseInterceptor = (response: AxiosResponse) => {
 
         // 业务码 401：认证失败
         if (code === 401) {
-            handleAuthError('业务码401');
-            return Promise.reject(new Error('用户未登录'));
+            handleAuthError();
+            return Promise.reject(new Error(msg || '用户未登录'));
         }
 
         // 业务码非 200：业务错误（如 code 500）
@@ -87,22 +87,34 @@ const responseInterceptor = (response: AxiosResponse) => {
 
 // 错误响应拦截器
 const errorInterceptor = (error: AxiosError) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((error as any).__CANCEL__ || (error as any).code === 'ERR_CANCELED') {
+        return Promise.reject(error);
+    }
+
     if (error.response) {
         const status = error.response.status;
+        const responseData = error.response.data as Record<string, unknown> | undefined;
 
         // 如果返回401或403，说明认证失败，清除本地存储的用户信息
         if (status === 401 || status === 403) {
-            handleAuthError(`HTTP ${status}`);
-        } else {
-            console.error(`请求错误: HTTP ${status}`, error.response.data);
+            handleAuthError();
+            const msg = typeof responseData?.msg === 'string' ? responseData.msg : '登录已过期，请重新登录';
+            return Promise.reject(new Error(msg));
         }
-    } else if (error.request) {
-        console.error('网络错误: 请求发送失败', error.message);
-    } else {
-        console.error('请求配置错误:', error.message);
+
+        console.error(`请求错误: HTTP ${status}`, error.response.data);
+        const backendMsg = typeof responseData?.msg === 'string' ? responseData.msg : undefined;
+        return Promise.reject(new Error(backendMsg || '服务器异常，请稍后重试'));
     }
 
-    return Promise.reject(error);
+    if (error.request) {
+        console.error('网络错误: 请求发送失败', error.message);
+        return Promise.reject(new Error('网络连接失败，请检查网络'));
+    }
+
+    console.error('请求配置错误:', error.message);
+    return Promise.reject(new Error('请求配置错误，请稍后重试'));
 };
 
 // 为通用服务添加响应拦截器
@@ -112,7 +124,7 @@ service.interceptors.response.use(responseInterceptor, errorInterceptor);
 authService.interceptors.response.use(responseInterceptor, errorInterceptor);
 
 // 处理认证错误的统一函数
-const handleAuthError = (errorType?: string) => {
+const handleAuthError = () => {
 
     // 清除所有认证相关的本地存储
     localStorage.removeItem('token');
