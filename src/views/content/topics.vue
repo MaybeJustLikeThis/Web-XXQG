@@ -462,6 +462,7 @@
 <script setup lang="ts" name="topics">
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { showError } from '@/utils/errorHandler';
 import { Plus, Edit, Delete, Search, Document, Clock, OfficeBuilding, Check, Setting, Link, Download, Refresh } from '@element-plus/icons-vue';
 import type { Topic } from '@/types/content';
 import { getSubjects, updateSubject, addSubject, deleteSubject, addSubjectDepartment, deleteSubjectDepartment, getSubjectCompletion } from '@/api/subject';
@@ -638,7 +639,7 @@ const getTopics = async () => {
 
         }
     } catch (error) {
-        ElMessage.error('获取专题列表失败');
+        showError(error, '获取专题列表失败');
         console.error('获取专题列表失败:', error);
     }
 };
@@ -684,7 +685,7 @@ const refreshTopicData = async () => {
         }
     } catch (error) {
         console.error('刷新专题数据失败:', error);
-        ElMessage.error('刷新数据失败，请稍后重试');
+        showError(error, '刷新数据失败');
     } finally {
         refreshingData.value = false;
     }
@@ -766,7 +767,7 @@ const handleDelete = async (row: any) => {
     } catch (error) {
         if (error !== 'cancel') {
             console.error('删除专题失败:', error);
-            ElMessage.error('删除专题失败，请稍后重试');
+            showError(error, '删除专题失败');
         }
     } finally {
         // 移除删除中状态
@@ -851,7 +852,7 @@ const handleSubmit = async () => {
         dialogVisible.value = false;
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error(form.id ? '更新失败' : '新增失败');
+            showError(error, form.id ? '更新失败' : '添加失败');
             console.error('提交失败:', error);
         }
     }
@@ -898,7 +899,7 @@ const getAvailableArticles = async () => {
         availableArticles.value = data || [];
         articleTotal.value = data?.length || 0;
     } catch (error) {
-        ElMessage.error('获取文章列表失败');
+        showError(error, '获取文章列表失败');
         console.error('获取文章列表失败:', error);
     }
 };
@@ -926,7 +927,7 @@ const getAvailableQuestions = async () => {
         availableQuestions.value = data?.list || [];
         questionTotal.value = data?.total || 0;
     } catch (error) {
-        ElMessage.error('获取题目列表失败');
+        showError(error, '获取题目列表失败');
         console.error('获取题目列表失败:', error);
     }
 };
@@ -1054,7 +1055,7 @@ const getAvailableDepartments = async () => {
         }));
         departmentTotal.value = availableDepartments.value.length;
     } catch (error) {
-        ElMessage.error('获取关联部门列表失败');
+        showError(error, '获取关联部门列表失败');
         console.error('获取关联部门列表失败:', error);
         availableDepartments.value = [];
         departmentTotal.value = 0;
@@ -1082,7 +1083,7 @@ const getAppliedDepartments = async () => {
             fullPath: buildDepartmentPath(dept, allDepts)
         }));
     } catch (error) {
-        ElMessage.error('获取应用部门列表失败');
+        showError(error, '获取应用部门列表失败');
         console.error('获取应用部门列表失败:', error);
         appliedDepartments.value = [];
     }
@@ -1098,7 +1099,7 @@ const getAllDepartmentsList = async () => {
         // 构建部门树结构
         departmentTreeOptions.value = buildDepartmentTree(allDepartments.value);
     } catch (error) {
-        ElMessage.error('获取所有部门列表失败');
+        showError(error, '获取所有部门列表失败');
         console.error('获取所有部门列表失败:', error);
     }
 };
@@ -1211,7 +1212,7 @@ const handleAddDepartment = async () => {
         // 刷新部门列表
         await getAvailableDepartments();
     } catch (error) {
-        ElMessage.error('添加部门失败');
+        showError(error, '添加部门失败');
         console.error('添加部门失败:', error);
     }
 };
@@ -1242,7 +1243,7 @@ const handleRemoveDepartment = async (department: any) => {
         await getAvailableDepartments();
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error('移除部门失败');
+            showError(error, '移除部门失败');
             console.error('移除部门失败:', error);
         }
     }
@@ -1314,7 +1315,7 @@ const saveTopicContent = async () => {
         // 刷新专题数据以确保获取最新的状态
         await refreshAfterOperation('保存专题内容');
     } catch (error) {
-        ElMessage.error('保存失败');
+        showError(error, '保存失败');
         console.error('保存专题内容失败:', error);
     }
 };
@@ -1437,7 +1438,7 @@ const addArticleToTopic = async (article: any) => {
 
         ElMessage.success('文章添加成功');
     } catch (error) {
-        ElMessage.error('添加文章失败');
+        showError(error, '添加文章失败');
         console.error('添加文章失败:', error);
     } finally {
         articleOperations.value[article.id] = false;
@@ -1504,7 +1505,7 @@ const removeArticleFromTopic = async (article: any) => {
 
         ElMessage.success('文章移除成功');
     } catch (error) {
-        ElMessage.error('移除文章失败');
+        showError(error, '移除文章失败');
         console.error('移除文章失败:', error);
     } finally {
         articleOperations.value[article.id] = false;
@@ -1581,7 +1582,7 @@ const addQuestionToTopic = async (question: any) => {
 
         ElMessage.success('题目添加成功');
     } catch (error) {
-        ElMessage.error('添加题目失败');
+        showError(error, '添加题目失败');
         console.error('添加题目失败:', error);
     } finally {
         questionOperations.value[question.id] = false;
@@ -1648,7 +1649,7 @@ const removeQuestionFromTopic = async (question: any) => {
 
         ElMessage.success('题目移除成功');
     } catch (error) {
-        ElMessage.error('移除题目失败');
+        showError(error, '移除题目失败');
         console.error('移除题目失败:', error);
     } finally {
         questionOperations.value[question.id] = false;
@@ -1679,7 +1680,7 @@ const fetchCompletionData = async () => {
             };
         }
     } catch (error) {
-        ElMessage.error('获取完成情况失败');
+        showError(error, '获取完成情况失败');
         console.error('获取完成情况失败:', error);
         completionData.value = {
             total_items: 0,
@@ -1733,7 +1734,7 @@ const exportCompletionToExcel = () => {
 
         ElMessage.success('导出成功');
     } catch (error) {
-        ElMessage.error('导出失败');
+        showError(error, '导出失败');
         console.error('导出Excel失败:', error);
     } finally {
         exportCompletionLoading.value = false;
