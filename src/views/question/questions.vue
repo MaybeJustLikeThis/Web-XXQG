@@ -326,6 +326,7 @@ import { getTemplate } from '@/api/template';
 import { transformQuestionData } from '@/types/question';
 import { usePermissStore } from '@/store/permiss';
 import { useAdminDialog } from '@/composables/useAdminDialog';
+import { showError, getErrorMessage } from '@/utils/errorHandler';
 
 const permiss = usePermissStore();
 
@@ -496,7 +497,7 @@ const handleDownloadTemplate = async (fileName: string) => {
         document.body.removeChild(link);
     } catch (error: any) {
         console.error('下载模板失败:', error);
-        ElMessage.error('下载模板失败，请重试');
+        showError(error, '下载模板失败');
     }
 };
 
@@ -641,7 +642,7 @@ const getQuestions = async () => {
             throw new Error('API返回数据格式不正确');
         }
     } catch (error) {
-        ElMessage.error('获取题目列表失败');
+        showError(error, '获取题目列表失败');
         console.error('获取题目列表错误:', error);
 
         // 使用模拟数据作为fallback
@@ -789,7 +790,7 @@ const handleDelete = async (row: any) => {
     } catch (error) {
         if (error !== 'cancel') {
             console.error('删除题目失败:', error);
-            ElMessage.error('删除失败');
+            showError(error, '删除失败');
         }
     }
 };
@@ -868,7 +869,7 @@ const confirmBatchDelete = async () => {
 
     } catch (error) {
         console.error('批量删除过程中发生错误:', error);
-        ElMessage.error('批量删除过程中发生错误，请重试');
+        showError(error, '批量删除过程中发生错误，请重试');
     } finally {
         batchDeleting.value = false;
     }
@@ -976,7 +977,7 @@ const submitForm = async () => {
         if (error !== 'cancel') {
             console.error('提交失败:', error);
             // 显示更详细的错误信息
-            const errorMessage = error.response?.data?.message || error.message || '操作失败';
+            const errorMessage = getErrorMessage(error, '操作失败');
             ElMessage.error(form.id ? `更新失败: ${errorMessage}` : `创建失败: ${errorMessage}`);
         }
     }

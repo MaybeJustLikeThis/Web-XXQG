@@ -204,6 +204,7 @@ import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts';
 import countup from '@/components/countup.vue';
 import { getTopUsers, getRecentPointRecords, getQuestionNum, getRichTextNum, getUserNum, getTopSchools } from '@/api/dashboard';
+import { showError } from '@/utils/errorHandler';
 
 const activities = [
     {
@@ -321,7 +322,7 @@ const fetchStatistics = async () => {
 
     } catch (error) {
         console.error('获取统计数据失败:', error);
-        ElMessage.error('获取统计数据失败');
+        showError(error, '获取统计数据失败');
     } finally {
         statsLoading.value = false;
     }
@@ -348,7 +349,7 @@ const fetchRankingData = async () => {
         }
     } catch (error) {
         console.error('获取排行榜数据失败:', error);
-        ElMessage.error('获取排行榜数据失败');
+        showError(error, '获取排行榜数据失败');
         initEmptyChart();
     } finally {
         rankingLoading.value = false;
@@ -544,7 +545,7 @@ const fetchTrendData = async () => {
         }
     } catch (error) {
         console.error('获取积分趋势数据失败:', error);
-        ElMessage.error('获取积分趋势数据失败');
+        showError(error, '获取积分趋势数据失败');
         initEmptyTrendChart();
     } finally {
         trendLoading.value = false;
@@ -773,7 +774,7 @@ const fetchSchoolRankingData = async () => {
         }
     } catch (error) {
         console.error('获取学校排行榜数据失败:', error);
-        ElMessage.error('获取学校排行榜数据失败');
+        showError(error, '获取学校排行榜数据失败');
         initEmptySchoolChart();
     } finally {
         schoolRankingLoading.value = false;

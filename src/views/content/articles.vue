@@ -132,6 +132,7 @@ import { grantTextEdit, revokeTextEdit } from '@/api/user';
 import { usePermissStore } from '@/store/permiss';
 import { useAdminDialog } from '@/composables/useAdminDialog';
 import { uploadFile } from '@/utils/upload';
+import { showError } from '@/utils/errorHandler';
 
 const permiss = usePermissStore();
 
@@ -192,7 +193,7 @@ const customUploadImage = async (file: File, insertFn: Function) => {
         const imageUrl = await uploadFile(file);
         insertFn(imageUrl, file.name, imageUrl);
     } catch (error) {
-        ElMessage.error('图片上传失败');
+        showError(error, '上传失败');
     }
 };
 
@@ -221,7 +222,7 @@ const customUploadVideo = async (file: File, insertFn: Function) => {
         ElMessage.success('视频上传成功');
     } catch (error) {
         console.error('视频上传失败:', error);
-        ElMessage.error(error.message || '视频上传失败');
+        showError(error, '上传失败');
     }
 };
 
@@ -299,7 +300,7 @@ const getArticles = async () => {
             throw new Error('API返回数据格式不正确');
         }
     } catch (error) {
-        ElMessage.error('获取文章列表失败');
+        showError(error, '获取文章列表失败');
         console.error('获取文章列表错误:', error);
 
         // 使用模拟数据作为fallback，与真实API数据格式一致
@@ -384,7 +385,7 @@ const handleDelete = async (row: Article) => {
         await getArticles();
     } catch (error) {
         if (error !== 'cancel') {
-            ElMessage.error('删除失败');
+            showError(error, '删除失败');
         }
     }
 };
@@ -437,7 +438,7 @@ const submitForm = async () => {
         }
     } catch (error) {
         console.error('提交文章失败:', error);
-        ElMessage.error(error.message || '提交失败');
+        showError(error, '提交失败');
     }
 };
 
@@ -472,7 +473,7 @@ const handleCoverChange = async (file: any) => {
         form.cover = coverUrl;
         ElMessage.success('封面上传成功');
     } catch (error) {
-        ElMessage.error('封面上传失败');
+        showError(error, '上传失败');
     }
 };
 
