@@ -2,7 +2,13 @@
 node_modules
 /dist
 .worktrees/
+.playwright-mcp/
 
+# Project management files
+TODO.md
+AGENTS.md
+CLAUDE.md
+.claude/
 
 # local env files
 .env.local

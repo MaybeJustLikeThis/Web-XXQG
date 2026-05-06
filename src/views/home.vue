@@ -66,7 +66,33 @@ const tabs = useTabsStore();
 }
 
 .content::-webkit-scrollbar {
-    width: 0;
+    width: 8px;
+}
+
+.content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+    background-color: #c0c4cc;
+    border-radius: 4px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+    background-color: #909399;
+}
+
+/* 暗色模式下的滚动条 */
+:root.dark .content::-webkit-scrollbar-track {
+    background: var(--el-fill-color-lighter, #1f1f20);
+}
+
+:root.dark .content::-webkit-scrollbar-thumb {
+    background-color: var(--el-border-color-dark, #58585b);
+}
+
+:root.dark .content::-webkit-scrollbar-thumb:hover {
+    background-color: var(--el-border-color-darker, #636466);
 }
 
 .content-collapse {
