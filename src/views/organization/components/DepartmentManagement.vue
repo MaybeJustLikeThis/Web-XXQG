@@ -1946,6 +1946,9 @@ const resetMemberManagement = () => {
         total: 0
     });
     currentDepartment.value = null;
+    selectedUsers.value = [];
+    resetPwdDialogVisible.value = false;
+    selectedUserForReset.value = null;
 };
 
 // 用户编辑相关方法
