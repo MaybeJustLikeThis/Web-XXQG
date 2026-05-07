@@ -76,10 +76,23 @@ const validateConfirmPassword = (_rule: any, value: string, callback: (error?: E
     }
 };
 
+const validatePasswordComplexity = (_rule: any, value: string, callback: (error?: Error) => void) => {
+    if (!/[A-Z]/.test(value)) {
+        callback(new Error('密码必须包含大写字母'));
+    } else if (!/[a-z]/.test(value)) {
+        callback(new Error('密码必须包含小写字母'));
+    } else if (!/[0-9]/.test(value)) {
+        callback(new Error('密码必须包含数字'));
+    } else {
+        callback();
+    }
+};
+
 const rules: FormRules = {
     password: [
         { required: true, message: '请输入新密码', trigger: 'blur' },
-        { min: 8, message: '密码长度不能少于8位', trigger: 'blur' }
+        { min: 8, message: '密码长度不能少于8位', trigger: 'blur' },
+        { validator: validatePasswordComplexity, trigger: 'blur' }
     ],
     confirmPassword: [
         { required: true, message: '请确认密码', trigger: 'blur' },
