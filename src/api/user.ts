@@ -158,3 +158,12 @@ export const getPointRecordForAdmin = (user_id: number) => {
         params: { user_id }
     });
 };
+
+// 管理员修改用户密码
+export const adminUpdatePassword = (data: { user_id: number; password: string }) => {
+    return request({
+        url: '/user/update_password_admin',
+        method: 'post',
+        data
+    });
+};
