@@ -269,7 +269,7 @@
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="权限" width="200">
+                        <el-table-column label="文章/题目管理权限" width="200">
                             <template #default="{ row }">
                                 <el-tag v-if="row.edit_text" type="success" size="small" class="permission-tag">
                                     文章管理员
@@ -317,8 +317,8 @@
                 </el-form-item>
                 <el-form-item label="性别" prop="sex">
                     <el-select v-model="memberFormData.sex" placeholder="请选择性别" style="width: 100%">
-                        <el-option label="男" :value="1"></el-option>
-                        <el-option label="女" :value="0"></el-option>
+                        <el-option label="男" :value="0"></el-option>
+                        <el-option label="女" :value="1"></el-option>
                     </el-select>
                 </el-form-item>
                 <el-form-item label="民族" prop="race">
@@ -1907,13 +1907,20 @@ const resetMemberManagement = () => {
 };
 
 // 用户编辑相关方法
+// 性别值转换：后端返回"男"/"女"文本或0/1数字，表单需"0"/"1"字符串
+const sexToFormValue = (sex: string | number): string => {
+    if (sex === '男' || sex === '0' || sex === 0) return '0';
+    if (sex === '女' || sex === '1' || sex === 1) return '1';
+    return '0';
+};
+
 // 显示用户编辑对话框
 const showEditUserDialog = (user: DepartmentUser) => {
     // 将用户数据填充到表单中
     Object.assign(editUserFormData, {
         id: user.id,
         name: user.name || '',
-        sex: user.sex || '',
+        sex: sexToFormValue(user.sex),
         race: user.race || '',
         political_status: user.political_status || '',
         id_number: user.id_number || ''
