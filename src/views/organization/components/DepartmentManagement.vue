@@ -225,6 +225,12 @@
                         </el-icon>
                         批量导出
                     </el-button>
+                    <el-button type="danger" @click="handleShowResetPassword">
+                        <el-icon>
+                            <Edit />
+                        </el-icon>
+                        修改密码
+                    </el-button>
                     <el-button v-if="permiss.isSuperAdmin" type="warning" @click="textAdmin.openDialog()">
                         添加文章管理员
                     </el-button>
@@ -249,7 +255,8 @@
 
                 <!-- 成员表格 -->
                 <div class="member-table">
-                    <el-table :data="memberTableData" border style="width: 100%" v-loading="memberLoading">
+                    <el-table ref="memberTableRef" :data="memberTableData" border style="width: 100%" v-loading="memberLoading"
+                        @selection-change="handleMemberSelectionChange">
                         <el-table-column type="selection" width="55" />
                         <el-table-column type="index" label="序号" width="60" align="center" />
                         <el-table-column prop="name" label="姓名" min-width="100" />
@@ -309,6 +316,13 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 修改密码弹窗 -->
+            <AdminResetPasswordDialog
+                v-model="resetPwdDialogVisible"
+                :user="selectedUserForReset"
+                @success="handleResetPasswordSuccess"
+            />
         </el-dialog>
 
         <!-- 添加成员弹窗 -->
@@ -458,7 +472,8 @@
 import { ref, reactive, onMounted, computed, nextTick, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { showError } from '@/utils/errorHandler';
-import { Plus, Upload, Download } from '@element-plus/icons-vue';
+import { Plus, Upload, Download, Edit } from '@element-plus/icons-vue';
+import AdminResetPasswordDialog from '@/components/AdminResetPasswordDialog.vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment, addDepartmentWithAdminsByFile } from '@/api/department';
@@ -656,6 +671,34 @@ const memberFormData = reactive({
     race: '',
     political_status: ''
 });
+
+const memberTableRef = ref();
+const selectedUsers = ref<DepartmentUser[]>([]);
+const resetPwdDialogVisible = ref(false);
+const selectedUserForReset = ref<{ id: number; name: string } | null>(null);
+
+const handleMemberSelectionChange = (rows: DepartmentUser[]) => {
+    selectedUsers.value = rows;
+};
+
+const handleShowResetPassword = () => {
+    if (selectedUsers.value.length === 0) {
+        ElMessage.warning('请选择一位用户');
+        return;
+    }
+    if (selectedUsers.value.length > 1) {
+        ElMessage.warning('只能选择一位用户');
+        return;
+    }
+    const user = selectedUsers.value[0];
+    selectedUserForReset.value = { id: user.id, name: user.name };
+    resetPwdDialogVisible.value = true;
+};
+
+const handleResetPasswordSuccess = () => {
+    memberTableRef.value?.clearSelection();
+    selectedUsers.value = [];
+};
 
 const ethnicGroups = [
     '汉族', '蒙古族', '回族', '藏族', '维吾尔族', '苗族', '彝族', '壮族', '布依族', '朝鲜族',
