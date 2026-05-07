@@ -322,7 +322,7 @@ import { Plus, Edit, Delete, Search, Upload, Warning, UserFilled } from '@elemen
 import type { QuestionQuery } from '@/types/question';
 import { getAllQuestions, addQuestion, editQuestion, deleteQuestion, addQuestionsByFile } from '@/api/question';
 import { grantQuestionEdit, revokeQuestionEdit } from '@/api/user';
-import { getTemplate } from '@/api/template';
+import { downloadTemplate } from '@/utils/download';
 import { transformQuestionData } from '@/types/question';
 import { usePermissStore } from '@/store/permiss';
 import { useAdminDialog } from '@/composables/useAdminDialog';
@@ -483,21 +483,9 @@ const importForm = reactive({
 
 const handleDownloadTemplate = async (fileName: string) => {
     try {
-        const response = await getTemplate(fileName);
-        const url = response.data?.data?.url;
-        if (!url) {
-            ElMessage.error('获取模板下载链接失败');
-            return;
-        }
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        await downloadTemplate(fileName);
     } catch (error: any) {
-        console.error('下载模板失败:', error);
-        showError(error, '下载模板失败');
+        showError(error, "模板下载失败");
     }
 };
 

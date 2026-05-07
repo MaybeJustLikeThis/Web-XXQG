@@ -78,6 +78,16 @@ export const getDepartmentUsers = (id: string | number) => {
     });
 };
 
+// 导出部门用户 Excel
+export const exportDepartmentUsers = (departmentId: number) => {
+    return request({
+        url: '/department/export_users',
+        method: 'get',
+        params: { department_id: departmentId },
+        responseType: 'blob'
+    });
+};
+
 // 批量新增子部门及管理员（Excel上传）
 export const addDepartmentWithAdminsByFile = (parentDepartmentId: number, file: File) => {
     const formData = new FormData();

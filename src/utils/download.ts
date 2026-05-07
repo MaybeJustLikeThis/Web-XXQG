@@ -1,4 +1,6 @@
 import { getFileDownloadUrl } from '@/api/article';
+import { getTemplate } from '@/api/template';
+import { exportDepartmentUsers } from '@/api/department';
 import { ElMessage } from 'element-plus';
 
 // 从OSS URL中提取文件key
@@ -71,3 +73,36 @@ export const getAccessibleUrl = async (url: string): Promise<string> => {
         return url;
     }
 };
+
+// 下载模板文件（blob 方式，浏览器直接下载不跳转）
+export async function downloadTemplate(fileName: string): Promise<void> {
+    const response = await getTemplate(fileName);
+    const url = response.data?.data?.url;
+    if (!url) {
+        throw new Error('模板链接为空');
+    }
+
+    const fileRes = await fetch(url);
+    if (!fileRes.ok) {
+        throw new Error('模板文件下载失败');
+    }
+    const blob = await fileRes.blob();
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// 导出部门用户 Excel（blob 方式，浏览器直接下载不跳转）
+export async function exportUsers(departmentId: number, departmentName: string): Promise<void> {
+    const response = await exportDepartmentUsers(departmentId);
+    const blob = new Blob([response.data]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${departmentName}_成员列表.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+}

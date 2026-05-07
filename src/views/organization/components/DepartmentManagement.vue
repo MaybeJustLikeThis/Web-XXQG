@@ -111,7 +111,7 @@
                     <el-input :model-value="batchAddParentName" readonly />
                 </el-form-item>
                 <el-form-item label="模板文件">
-                    <el-link type="primary" @click="downloadTemplate" :underline="false" :loading="templateDownloading">
+                    <el-link type="primary" @click="handleDownloadTemplate('upload_departments_with_admin_users.xls')" :underline="false" :loading="templateDownloading">
                         {{ templateDownloading ? '下载中...' : '下载导入模板' }}
                     </el-link>
                 </el-form-item>
@@ -218,6 +218,12 @@
                             <Upload />
                         </el-icon>
                         批量导入
+                    </el-button>
+                    <el-button type="warning" :loading="exporting" @click="handleExportMembers">
+                        <el-icon>
+                            <Download />
+                        </el-icon>
+                        批量导出
                     </el-button>
                     <el-button v-if="permiss.isSuperAdmin" type="warning" @click="textAdmin.openDialog()">
                         添加文章管理员
@@ -452,12 +458,12 @@
 import { ref, reactive, onMounted, computed, nextTick, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { showError } from '@/utils/errorHandler';
-import { Plus, Upload } from '@element-plus/icons-vue';
+import { Plus, Upload, Download } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import { Department, DepartmentUser, UserGroup } from '@/types/organization';
 import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment, addDepartmentWithAdminsByFile } from '@/api/department';
 import { getUsersByDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser, grantTextEdit, revokeTextEdit, grantQuestionEdit, revokeQuestionEdit } from '@/api/user';
-import { getTemplate } from '@/api/template';
+import { downloadTemplate, exportUsers } from '@/utils/download';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
 import { useAdminDialog } from '@/composables/useAdminDialog';
@@ -547,6 +553,15 @@ const handleNodeExpand = (data: Department) => {
 };
 
 const handleNodeCollapse = (data: Department) => {
+    // 阻止折叠第一级节点
+    const isFirstLevel = departmentTree.value.some(d => d.id === data.id);
+    if (isFirstLevel) {
+        nextTick(() => {
+            const node = treeRef.value?.getNode(data.id);
+            node?.expand();
+        });
+        return;
+    }
     expandedKeys.value = expandedKeys.value.filter(id => id !== data.id);
     saveExpandedKeys(expandedKeys.value);
 };
@@ -593,32 +608,18 @@ const batchAddWithAdminSubmitting = ref(false);
 const batchAddSelectedFile = ref<File | null>(null);
 const batchUploadRef = ref();
 const templateDownloading = ref(false);
-
-const downloadTemplate = async () => {
-    if (templateDownloading.value) return;
-    templateDownloading.value = true;
-    const baseUrl = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'https://api.xuexi.9998k.cn');
-    const url = `${baseUrl}/template/get_template?file_name=upload_departments_with_admin_users.xls`;
-    const token = localStorage.getItem('token');
+const handleDownloadTemplate = async (fileName: string) => {
     try {
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) throw new Error('获取模板链接失败');
-        const json = await res.json();
-        const fileUrl = json?.data?.url;
-        if (!fileUrl) throw new Error('模板链接为空');
-        const fileRes = await fetch(fileUrl);
-        const blob = await fileRes.blob();
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'upload_departments_with_admin_users.xls';
-        a.click();
-        URL.revokeObjectURL(a.href);
+        templateDownloading.value = true;
+        await downloadTemplate(fileName);
     } catch (error: any) {
-        showError(error, '模板下载失败');
+        showError(error, "模板下载失败");
     } finally {
         templateDownloading.value = false;
     }
 };
+
+
 
 // 批量导入相关
 const importDialogVisible = ref(false);
@@ -628,29 +629,11 @@ const uploading = ref(false);
 const fileList = ref([]);
 const importUrl = ref('');
 
-const handleDownloadTemplate = async (fileName: string) => {
-    try {
-        const response = await getTemplate(fileName);
-        const url = response.data?.data?.url;
-        if (!url) {
-            showError(null, '获取模板下载链接失败');
-            return;
-        }
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } catch (error: any) {
-        console.error('下载模板失败:', error);
-        showError(error, '下载模板失败');
-    }
-};
 
 // 成员管理弹窗相关
 const memberDialogVisible = ref(false);
 const memberFormDialogVisible = ref(false);
+const exporting = ref(false);
 const memberFormRef = ref<FormInstance>();
 const currentDepartment = ref<Department | null>(null);
 const memberLoading = ref(false);
@@ -818,10 +801,13 @@ const getDepartmentData = async () => {
             // 验证展开缓存的 key 是否仍然存在，移除无效的 key
             const allIds = departments.map((d: any) => d.id);
             const validKeys = expandedKeys.value.filter(id => allIds.includes(id));
-            if (validKeys.length !== expandedKeys.value.length) {
-                expandedKeys.value = validKeys;
-                saveExpandedKeys(validKeys);
-            }
+
+            // 确保第一级节点始终展开
+            const firstLevelIds = departmentTree.value.map(d => d.id);
+            const mergedKeys = [...new Set([...validKeys, ...firstLevelIds])];
+
+            expandedKeys.value = mergedKeys;
+            saveExpandedKeys(mergedKeys);
 
             // 清除过期缓存
             clearExpiredCache();
@@ -1456,6 +1442,19 @@ const showMemberManagement = (department: Department) => {
     memberDialogVisible.value = true;
     getMemberData();
     getGroupData();
+};
+
+// 批量导出成员
+const handleExportMembers = async () => {
+    if (!currentDepartment.value) return;
+    exporting.value = true;
+    try {
+        await exportUsers(currentDepartment.value.id, currentDepartment.value.name);
+    } catch (error: any) {
+        showError(error, '导出成员失败');
+    } finally {
+        exporting.value = false;
+    }
 };
 
 // 获取成员数据

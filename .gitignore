@@ -3,6 +3,7 @@ node_modules
 /dist
 .worktrees/
 .playwright-mcp/
+/docs
 
 # Project management files
 TODO.md
