@@ -20,11 +20,14 @@
                         <div class="node-info">
                             <span class="node-name">{{ data.name }}</span>
                             <!-- 人数统计显示 -->
-                            <el-tag v-if="data.userCount > 0" size="small" type="info">
+                            <el-tag v-if="data.userCount >= 0" size="small" type="info">
                                 ({{ data.activeCount || 0 }}/{{ data.userCount }})
                             </el-tag>
-                            <el-tag v-else-if="data.userCount === 0" size="small" type="info">
-                                (0/0)
+                            <el-tag v-else size="small" type="info">
+                                (-/-)
+                            </el-tag>
+                            <el-tag v-if="schoolStats.get(data.id)" size="small" color="#409eff" effect="dark">
+                                激活/导入：{{ schoolStats.get(data.id)!.activated_count }}/{{ schoolStats.get(data.id)!.user_count }}
                             </el-tag>
                             <el-tag v-if="data.admin && data.admin.length > 0" size="small" type="success">
                                 部门管理员：{{data.admin.map(a => a.name).join('，')}}
@@ -138,328 +141,19 @@
             </template>
         </el-dialog>
 
-        <!-- 设置管理员弹窗 -->
-        <el-dialog v-model="adminDialogVisible" title="部门管理员管理" width="600px" @close="handleDialogClose">
-            <el-tabs v-model="activeTab" type="border-card" @tab-click="handleTabClick">
-                <!-- 设置管理员标签页 -->
-                <el-tab-pane label="设置管理员" name="set">
-                    <el-form ref="adminFormRef" :model="adminFormData" :rules="adminFormRules" label-width="100px">
-                        <el-form-item label="部门名称">
-                            <el-input v-model="currentDepartmentName" readonly />
-                        </el-form-item>
-                        <el-form-item label="选择管理员" prop="admin_id">
-                            <el-select v-model="adminFormData.admin_id" placeholder="请选择管理员" style="width: 100%"
-                                clearable filterable :key="departmentMembers.length">
-                                <el-option v-for="member in departmentMembers" :key="`member-${member.id}`"
-                                    :label="member.name" :value="member.id" />
-                                <template v-if="departmentMembers.length === 0">
-                                    <el-option disabled value="" label="暂无可选择的成员" />
-                                </template>
-                            </el-select>
-                            <div v-if="departmentMembers.length > 0"
-                                style="font-size: 12px; color: #999; margin-top: 4px;">
-                                共 {{ departmentMembers.length }} 个可选成员
-                            </div>
-                        </el-form-item>
-                    </el-form>
-                    <div style="text-align: right; margin-top: 20px;">
-                        <el-button type="primary" @click="handleSetAdmin">确认设置</el-button>
-                    </div>
-                </el-tab-pane>
+        <AdminManagementDialog
+            v-model:visible="adminDialogVisible"
+            :department-id="currentDepartmentId"
+            :department-name="currentDepartmentName"
+            :admins="currentDepartmentAdmins"
+            @data-changed="onChildDataChanged"
+        />
 
-                <!-- 取消管理员标签页 -->
-                <el-tab-pane label="取消管理员" name="unset"
-                    :disabled="!currentDepartmentAdmins || currentDepartmentAdmins.length === 0">
-                    <div v-if="!currentDepartmentAdmins || currentDepartmentAdmins.length === 0"
-                        style="text-align: center; padding: 40px; color: #999;">
-                        该部门暂无管理员
-                    </div>
-                    <div v-else>
-                        <div style="margin-bottom: 16px;">
-                            <strong>部门：</strong>{{ currentDepartmentName }}
-                        </div>
-                        <div style="margin-bottom: 16px;">
-                            <strong>当前管理员列表：</strong>
-                        </div>
-                        <el-table :data="currentDepartmentAdmins" border>
-                            <el-table-column prop="name" label="管理员姓名" />
-                            <el-table-column prop="id" label="ID" width="80" />
-                            <el-table-column label="操作" width="100">
-                                <template #default="{ row }">
-                                    <el-button type="danger" size="small" @click="confirmUnsetAdmin(row)">
-                                        取消
-                                    </el-button>
-                                </template>
-                            </el-table-column>
-                        </el-table>
-                    </div>
-                </el-tab-pane>
-            </el-tabs>
-
-            <template #footer>
-                <el-button @click="adminDialogVisible = false">关闭</el-button>
-            </template>
-        </el-dialog>
-
-        <!-- 成员管理弹窗 -->
-        <el-dialog v-model="memberDialogVisible" :title="`${currentDepartment?.name || ''} - 成员管理`" width="90%"
-            :close-on-click-modal="false" @close="resetMemberManagement">
-            <div class="member-management-content">
-                <!-- 操作区域 -->
-                <div class="member-actions">
-                    <el-button type="primary" @click="showAddMemberDialog">
-                        <el-icon>
-                            <Plus />
-                        </el-icon>
-                        新增成员
-                    </el-button>
-                    <el-button type="success" @click="showImportMemberDialog">
-                        <el-icon>
-                            <Upload />
-                        </el-icon>
-                        批量导入
-                    </el-button>
-                    <el-button type="warning" :loading="exporting" @click="handleExportMembers">
-                        <el-icon>
-                            <Download />
-                        </el-icon>
-                        批量导出
-                    </el-button>
-                    <el-button v-if="permiss.isSuperAdmin" type="warning" @click="textAdmin.openDialog()">
-                        添加文章管理员
-                    </el-button>
-                    <el-button v-if="permiss.isSuperAdmin" type="warning" @click="questionAdmin.openDialog()">
-                        添加题目管理员
-                    </el-button>
-                </div>
-
-                <!-- 搜索区域 -->
-                <div class="member-search">
-                    <el-form :model="memberSearchForm" inline>
-                        <el-form-item label="姓名">
-                            <el-input v-model="memberSearchForm.name" placeholder="请输入姓名" clearable
-                                style="width: 200px" />
-                        </el-form-item>
-                        <el-form-item>
-                            <el-button type="primary" @click="handleMemberSearch">搜索</el-button>
-                            <el-button @click="resetMemberSearch">重置</el-button>
-                        </el-form-item>
-                    </el-form>
-                </div>
-
-                <!-- 成员表格 -->
-                <div class="member-table">
-                    <el-table :data="memberTableData" border style="width: 100%" v-loading="memberLoading">
-                        <el-table-column type="selection" width="55" />
-                        <el-table-column type="index" label="序号" width="60" align="center" />
-                        <el-table-column prop="name" label="姓名" min-width="100" />
-                        <el-table-column prop="sex" label="性别" width="60" />
-                        <el-table-column prop="race" label="民族" width="80" />
-                        <el-table-column prop="political_status" label="政治面貌" width="100" />
-                        <el-table-column prop="id_number" label="手机号" width="180" show-overflow-tooltip />
-                        <el-table-column prop="department" label="部门" width="120" />
-                        <el-table-column prop="wx_id" label="微信ID" min-width="150" show-overflow-tooltip />
-                        <el-table-column prop="invite_code" label="邀请码" width="120" show-overflow-tooltip>
-                            <template #default="{ row }">
-                                <span v-if="row.invite_code" class="invite-code"
-                                    @click="copyInvitationCode(row.invite_code)" title="点击复制邀请码">
-                                    {{ row.invite_code }}
-                                </span>
-                                <span v-else class="no-invite-code">无邀请码</span>
-                            </template>
-                        </el-table-column>
-                        <el-table-column prop="is_super_admin" label="超级管理员" width="100">
-                            <template #default="{ row }">
-                                <el-tag :type="row.is_super_admin ? 'warning' : 'info'" size="small">
-                                    {{ row.is_super_admin ? '是' : '否' }}
-                                </el-tag>
-                            </template>
-                        </el-table-column>
-                        <el-table-column label="文章/题目管理权限" width="200">
-                            <template #default="{ row }">
-                                <el-tag v-if="row.edit_text" type="success" size="small" class="permission-tag">
-                                    文章管理员
-                                </el-tag>
-                                <el-tag v-if="row.edit_question" type="primary" size="small" class="permission-tag">
-                                    题目管理员
-                                </el-tag>
-                                <span v-if="!row.edit_text && !row.edit_question" class="no-permission">
-                                    暂无权限
-                                </span>
-                            </template>
-                        </el-table-column>
-                        <el-table-column label="操作" width="260" fixed="right">
-                            <template #default="{ row }">
-                                <el-button type="warning" size="small" @click="handleShowResetPassword(row)">
-                                    修改密码
-                                </el-button>
-                                <el-button type="primary" size="small" @click="showEditUserDialog(row)">
-                                    编辑
-                                </el-button>
-                                <el-button type="danger" size="small" @click="handleDeleteUser(row)">
-                                    删除
-                                </el-button>
-                            </template>
-                        </el-table-column>
-                    </el-table>
-
-                    <!-- 分页 -->
-                    <div class="pagination">
-                        <el-pagination v-model:current-page="memberPagination.page"
-                            v-model:page-size="memberPagination.size" :page-sizes="[10, 20, 50, 100]"
-                            :total="memberPagination.total" layout="total, sizes, prev, pager, next, jumper"
-                            @size-change="handleMemberSizeChange" @current-change="handleMemberCurrentChange" />
-                    </div>
-                </div>
-            </div>
-
-            <!-- 修改密码弹窗 -->
-            <AdminResetPasswordDialog
-                v-model="resetPwdDialogVisible"
-                :user="selectedUserForReset"
-                @success="handleResetPasswordSuccess"
-            />
-        </el-dialog>
-
-        <!-- 添加成员弹窗 -->
-        <el-dialog v-model="memberFormDialogVisible" title="新增成员" width="600px"
-            @close="resetMemberForm">
-            <el-form ref="memberFormRef" :model="memberFormData" :rules="memberFormRules" label-width="100px">
-                <el-form-item label="姓名" prop="name">
-                    <el-input v-model="memberFormData.name" placeholder="请输入姓名" />
-                </el-form-item>
-                <el-form-item label="手机号" prop="id_number">
-                    <el-input v-model="memberFormData.id_number" placeholder="请输入手机号" />
-                </el-form-item>
-                <el-form-item label="性别" prop="sex">
-                    <el-select v-model="memberFormData.sex" placeholder="请选择性别" style="width: 100%">
-                        <el-option label="男" :value="0"></el-option>
-                        <el-option label="女" :value="1"></el-option>
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="民族" prop="race">
-                    <el-select v-model="memberFormData.race" filterable placeholder="请选择或搜索民族" style="width: 100%">
-                        <el-option v-for="item in ethnicGroups" :key="item" :label="item" :value="item"></el-option>
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="政治面貌" prop="political_status">
-                    <el-select v-model="memberFormData.political_status" placeholder="请选择政治面貌" style="width: 100%">
-                        <el-option label="群众" value="群众"></el-option>
-                        <el-option label="共青团员" value="共青团员"></el-option>
-                        <el-option label="中共党员" value="中共党员"></el-option>
-                        <el-option label="预备党员" value="预备党员"></el-option>
-                        <el-option label="其他党派" value="其他党派"></el-option>
-                    </el-select>
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <el-button @click="memberFormDialogVisible = false">取消</el-button>
-                <el-button type="primary" :loading="memberSubmitting" @click="handleMemberSubmit">确认</el-button>
-            </template>
-        </el-dialog>
-
-        <!-- 批量导入成员弹窗 -->
-        <el-dialog v-model="importDialogVisible" title="批量导入成员" width="500px" :close-on-click-modal="false"
-            @open="resetImportDialog" @closed="resetImportDialog">
-            <el-form ref="importFormRef" :model="{ file: fileList }" label-width="80px">
-                <el-form-item label="上传文件">
-                    <el-upload ref="uploadRef" :auto-upload="false" :show-file-list="true" :limit="1"
-                        accept=".xlsx,.xls" :on-change="handleFileChange" :before-upload="beforeUpload"
-                        style="width: 100%">
-                        <el-button type="primary">选择文件</el-button>
-                        <template #tip>
-                            <div class="el-upload__tip">
-                                请上传 .xlsx 或 .xls 格式的 Excel 文件，必须使用下方模板填写
-                                <div style="margin-top: 4px;">
-                                    下载模板：
-                                    <el-link type="primary" :underline="false"
-                                        @click="handleDownloadTemplate('upload_users.xls')">
-                                        用户导入模板
-                                    </el-link>
-                                </div>
-                            </div>
-                        </template>
-                    </el-upload>
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <el-button @click="importDialogVisible = false">取消</el-button>
-                <el-button type="primary" :loading="uploading" @click="handleImport">导入</el-button>
-            </template>
-        </el-dialog>
-
-        <!-- 用户编辑弹窗 -->
-        <el-dialog v-model="editUserDialogVisible" title="编辑用户信息" width="600px" :close-on-click-modal="false"
-            @close="resetEditUserForm">
-            <el-form ref="editUserFormRef" :model="editUserFormData" :rules="editUserFormRules" label-width="100px">
-                <el-form-item label="用户名" prop="name">
-                    <el-input v-model="editUserFormData.name" placeholder="请输入用户名" />
-                </el-form-item>
-                <el-form-item label="性别" prop="sex">
-                    <el-select v-model="editUserFormData.sex" placeholder="请选择性别" style="width: 100%">
-                        <el-option label="男" value="0"></el-option>
-                        <el-option label="女" value="1"></el-option>
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="民族" prop="race">
-                    <el-input v-model="editUserFormData.race" placeholder="请输入民族" />
-                </el-form-item>
-                <el-form-item label="政治面貌" prop="political_status">
-                    <el-input v-model="editUserFormData.political_status" placeholder="请输入政治面貌" />
-                </el-form-item>
-                <el-form-item label="手机号" prop="id_number">
-                    <el-input v-model="editUserFormData.id_number" placeholder="请输入手机号" />
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <el-button @click="editUserDialogVisible = false">取消</el-button>
-                <el-button type="primary" :loading="editUserSubmitting" @click="handleEditUserSubmit">
-                    确认修改
-                </el-button>
-            </template>
-        </el-dialog>
-
-        <!-- 文章管理员弹窗 -->
-        <el-dialog v-model="textAdmin.adminDialogVisible.value" title="文章管理员管理" width="450px" destroy-on-close>
-            <el-form label-width="80px">
-                <el-form-item label="选择部门">
-                    <el-select v-model="textAdmin.selectedDepartmentId.value" filterable disabled style="width: 100%">
-                        <el-option v-for="dept in textAdmin.allDepartments.value" :key="dept.id" :label="dept.name" :value="dept.id" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="选择用户">
-                    <el-select v-model="textAdmin.adminUserId.value" filterable placeholder="请搜索用户姓名" style="width: 100%">
-                        <el-option v-for="user in textAdmin.departmentUsers.value" :key="user.id" :label="user.name" :value="user.id" />
-                    </el-select>
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <el-button @click="textAdmin.closeDialog()">关闭</el-button>
-                <el-button type="success" @click="textAdmin.handleGrant()">授权</el-button>
-                <el-button type="danger" @click="textAdmin.handleRevoke()">撤销</el-button>
-            </template>
-        </el-dialog>
-
-        <!-- 题目管理员弹窗 -->
-        <el-dialog v-model="questionAdmin.adminDialogVisible.value" title="题目管理员管理" width="450px" destroy-on-close>
-            <el-form label-width="80px">
-                <el-form-item label="选择部门">
-                    <el-select v-model="questionAdmin.selectedDepartmentId.value" filterable disabled style="width: 100%">
-                        <el-option v-for="dept in questionAdmin.allDepartments.value" :key="dept.id" :label="dept.name" :value="dept.id" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="选择用户">
-                    <el-select v-model="questionAdmin.adminUserId.value" filterable placeholder="请搜索用户姓名" style="width: 100%">
-                        <el-option v-for="user in questionAdmin.departmentUsers.value" :key="user.id" :label="user.name" :value="user.id" />
-                    </el-select>
-                </el-form-item>
-            </el-form>
-            <template #footer>
-                <el-button @click="questionAdmin.closeDialog()">关闭</el-button>
-                <el-button type="success" @click="questionAdmin.handleGrant()">授权</el-button>
-                <el-button type="danger" @click="questionAdmin.handleRevoke()">撤销</el-button>
-            </template>
-        </el-dialog>
+        <MemberManagementDialog
+            v-model:visible="memberDialogVisible"
+            :department="currentDepartment"
+            @data-changed="onChildDataChanged"
+        />
 
     </div>
 </template>
@@ -468,16 +162,17 @@
 import { ref, reactive, onMounted, computed, nextTick, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { showError } from '@/utils/errorHandler';
-import { Plus, Upload, Download } from '@element-plus/icons-vue';
-import AdminResetPasswordDialog from '@/components/AdminResetPasswordDialog.vue';
+import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
-import { Department, DepartmentUser, UserGroup } from '@/types/organization';
-import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, setDepartmentAdmin, unsetDepartmentAdmin, addBatchDepartment, addDepartmentWithAdminsByFile } from '@/api/department';
-import { getUsersByDepartment, toggleUserStatus, addUsersByFile, updateUserByAdmin, createUser, deleteUser, grantTextEdit, revokeTextEdit, grantQuestionEdit, revokeQuestionEdit } from '@/api/user';
-import { downloadTemplate, exportUsers } from '@/utils/download';
+import { Department } from '@/types/organization';
+import { getAllDepartments, updateDepartment, createDepartment, deleteDepartment, addBatchDepartment, addDepartmentWithAdminsByFile } from '@/api/department';
+import { getUsersByDepartment } from '@/api/user';
+import { getSchoolUserCount } from '@/api/dashboard';
+import { downloadTemplate } from '@/utils/download';
 import { usePermissStore } from '@/store/permiss';
 import { permission } from '@/utils/permission';
-import { useAdminDialog } from '@/composables/useAdminDialog';
+import AdminManagementDialog from './AdminManagementDialog.vue';
+import MemberManagementDialog from './MemberManagementDialog.vue';
 
 // 响应式数据
 const departmentTree = ref<Department[]>([]);
@@ -488,13 +183,85 @@ const permiss = usePermissStore();
 const isUnmounted = ref(false); // 组件是否已卸载
 const abortController = new AbortController(); // 用于取消异步请求
 
-// 管理员授权弹窗（声明前向引用，在 getMemberData 之后初始化）
-let textAdmin: ReturnType<typeof useAdminDialog>;
-let questionAdmin: ReturnType<typeof useAdminDialog>;
 
-// 权限状态管理
-const departmentPermissions = ref<Record<number, boolean>>({}); // 缓存部门权限状态
-const permissionLoading = ref(false); // 权限检查加载状态
+
+// ========== 权限预计算：避免每次渲染重复遍历树 ==========
+const deptNodeMap = computed(() => {
+    const map = new Map<number, Department>();
+    const collect = (depts: Department[]) => {
+        for (const dept of depts) {
+            map.set(dept.id, dept);
+            if (dept.children) collect(dept.children);
+        }
+    };
+    collect(departmentTree.value);
+    return map;
+});
+
+const userManagedDeptIds = computed(() => {
+    if (permission.isSuperAdmin()) return null; // null = 超级管理员，无限制
+    const p = permiss.userProfile;
+    if (!p?.manage_departments?.length) return new Set<number>();
+    return new Set(p.manage_departments);
+});
+
+// 用户可查看的部门ID集合：直接管理 + 祖先链 + 后代
+const visibleDeptIds = computed(() => {
+    const managed = userManagedDeptIds.value;
+    if (managed === null) return null; // 超级管理员
+    if (managed.size === 0) return new Set<number>();
+
+    const visible = new Set(managed);
+    const map = deptNodeMap.value;
+
+    for (const managedId of managed) {
+        // 向上遍历祖先
+        let dept = map.get(managedId);
+        while (dept && dept.parentId != null && dept.parentId !== 0) {
+            visible.add(dept.parentId);
+            dept = map.get(dept.parentId);
+        }
+    }
+
+    for (const managedId of managed) {
+        // 向下遍历后代
+        const descend = (node: Department) => {
+            if (!node.children) return;
+            for (const child of node.children) {
+                visible.add(child.id);
+                descend(child);
+            }
+        };
+        const managedDept = map.get(managedId);
+        if (managedDept) descend(managedDept);
+    }
+
+    return visible;
+});
+
+// 用户可管理的部门ID集合：直接管理 + 后代（不含祖先）
+const manageableDeptIds = computed(() => {
+    const managed = userManagedDeptIds.value;
+    if (managed === null) return null;
+    if (managed.size === 0) return new Set<number>();
+
+    const manageable = new Set(managed);
+    const map = deptNodeMap.value;
+
+    for (const managedId of managed) {
+        const descend = (node: Department) => {
+            if (!node.children) return;
+            for (const child of node.children) {
+                manageable.add(child.id);
+                descend(child);
+            }
+        };
+        const managedDept = map.get(managedId);
+        if (managedDept) descend(managedDept);
+    }
+
+    return manageable;
+});
 
 // ========== 优化：请求缓存机制 ==========
 interface CacheItem {
@@ -504,6 +271,8 @@ interface CacheItem {
 
 const userCountCache = ref<Map<number, CacheItem>>(new Map());
 const CACHE_TTL = 5 * 60 * 1000; // 缓存5分钟
+const loadingDeptIds = ref<Set<number>>(new Set()); // 正在加载中的部门ID，防止重复请求
+const schoolStats = ref<Map<number, { user_count: number; activated_count: number }>>(new Map());
 
 // 清除过期缓存
 const clearExpiredCache = () => {
@@ -540,7 +309,7 @@ const treeRef = ref();
 const getInitialExpandedKeys = (): number[] => {
     try {
         const cached = localStorage.getItem(DEPT_EXPAND_CACHE_KEY);
-        return cached ? JSON.parse(cached) : [];
+        return cached ? JSON.parse(cached).map(Number) : [];
     } catch {
         return [];
     }
@@ -555,12 +324,28 @@ const saveExpandedKeys = (keys: number[]) => {
     }
 };
 
-const handleNodeExpand = (data: Department) => {
+const handleNodeExpand = async (data: Department) => {
     const key = data.id;
     if (!expandedKeys.value.includes(key)) {
         expandedKeys.value = [...expandedKeys.value, key];
         saveExpandedKeys(expandedKeys.value);
     }
+    // 展开时按需加载子部门的用户数量
+    if (data.children && data.children.length > 0) {
+        await processBatchRequests(data.children, loadUserCountForDept, 5);
+    }
+};
+
+// 收集节点所有后代的 ID
+const collectDescendantIds = (node: Department): number[] => {
+    const ids: number[] = [];
+    if (node.children) {
+        for (const child of node.children) {
+            ids.push(child.id);
+            ids.push(...collectDescendantIds(child));
+        }
+    }
+    return ids;
 };
 
 const handleNodeCollapse = (data: Department) => {
@@ -573,11 +358,58 @@ const handleNodeCollapse = (data: Department) => {
         });
         return;
     }
-    expandedKeys.value = expandedKeys.value.filter(id => id !== data.id);
+    // 收起节点时同时清除所有后代的展开状态，避免 el-tree 为展开后代而自动重新展开当前节点
+    const descendantIds = collectDescendantIds(data);
+    const removedIds = new Set([data.id, ...descendantIds]);
+    expandedKeys.value = expandedKeys.value.filter(id => !removedIds.has(id));
     saveExpandedKeys(expandedKeys.value);
 };
 
-// ========== 优化：请求批量处理器（无并发限制，更高效） ==========
+// ========== 直接从树遍历收集可见节点（展开节点 + 根节点 + 祖先链） ==========
+const collectVisibleTreeNodes = (nodes: Department[], effectiveExpanded: Set<number>): Department[] => {
+    const result: Department[] = [];
+    for (const node of nodes) {
+        result.push(node);
+        if (effectiveExpanded.has(node.id) && node.children && node.children.length > 0) {
+            result.push(...collectVisibleTreeNodes(node.children, effectiveExpanded));
+        }
+    }
+    return result;
+};
+
+// ========== 按需加载单个部门用户数量（带去重） ==========
+const loadUserCountForDept = async (dept: Department) => {
+    const deptId = dept.id;
+
+    if (loadingDeptIds.value.has(deptId)) return; // 正在加载中，去重
+    const cached = getCachedUserCount(deptId);
+    if (cached) {
+        updateDepartmentTreeNode(departmentTree.value, deptId, cached);
+        return;
+    }
+
+    loadingDeptIds.value = new Set([...loadingDeptIds.value, deptId]);
+
+    try {
+        const userRes = await getUsersByDepartment(deptId);
+        if (userRes.data && userRes.data.code === 200 && Array.isArray(userRes.data.data)) {
+            const users = userRes.data.data;
+            const activeUsers = users.filter((user: any) => user.wx_id && user.wx_id.trim() !== '');
+            const data = { userCount: users.length, activeCount: activeUsers.length };
+
+            setCachedUserCount(deptId, data);
+            updateDepartmentTreeNode(departmentTree.value, deptId, data);
+        }
+    } catch {
+        // 加载失败静默处理
+    } finally {
+        const next = new Set(loadingDeptIds.value);
+        next.delete(deptId);
+        loadingDeptIds.value = next;
+    }
+};
+
+// ========== 请求批量处理器（按批次并发，每批 batchSize 个） ==========
 const processBatchRequests = async <T,>(
     items: T[],
     processor: (item: T) => Promise<void>,
@@ -588,15 +420,6 @@ const processBatchRequests = async <T,>(
         await Promise.all(batch.map(processor));
     }
 };
-
-// 设置管理员弹窗相关
-const adminDialogVisible = ref(false);
-const adminFormRef = ref<FormInstance>();
-const currentDepartmentId = ref<number | null>(null);
-const currentDepartmentName = ref('');
-const departmentMembers = ref<DepartmentUser[]>([]); // 部门成员列表
-const currentDepartmentAdmins = ref<{ id: number; name: string }[]>([]); // 当前部门管理员列表
-const activeTab = ref('set'); // 当前激活的标签页
 
 // 批量添加子部门相关
 const batchAddDialogVisible = ref(false);
@@ -630,114 +453,43 @@ const handleDownloadTemplate = async (fileName: string) => {
     }
 };
 
+    const adminDialogVisible = ref(false);
+    const memberDialogVisible = ref(false);
+    const currentDepartmentId = ref<number | null>(null);
+    const currentDepartmentName = ref('');
+    const currentDepartmentAdmins = ref<{ id: number; name: string }[]>([]);
+    const currentDepartment = ref<Department | null>(null);
+
+    const showSetAdminDialog = async (department: Department) => {
+        const hasPermission = await canManageDepartment(department.id);
+        if (!hasPermission) {
+            ElMessage.warning('您没有管理部门的权限');
+            return;
+        }
+        currentDepartmentId.value = department.id;
+        currentDepartmentName.value = department.name;
+        currentDepartmentAdmins.value = department.admin || [];
+        adminDialogVisible.value = true;
+    };
+
+    const showMemberManagement = (department: Department) => {
+        currentDepartment.value = { ...department };
+        memberDialogVisible.value = true;
+    };
+
+    const onChildDataChanged = () => {
+        userCountCache.value.clear();
+        getDepartmentData();
+    };
 
 
-// 批量导入相关
-const importDialogVisible = ref(false);
-const importFormRef = ref<FormInstance>();
-const uploadRef = ref();
-const uploading = ref(false);
-const fileList = ref([]);
-const importUrl = ref('');
 
-
-// 成员管理弹窗相关
-const memberDialogVisible = ref(false);
-const memberFormDialogVisible = ref(false);
-const exporting = ref(false);
-const memberFormRef = ref<FormInstance>();
-const currentDepartment = ref<Department | null>(null);
-const memberLoading = ref(false);
-const isEditMember = ref(false);
-const memberSubmitting = ref(false);
-
-// 成员管理相关数据
-const memberTableData = ref<DepartmentUser[]>([]);
-const groupOptions = ref<UserGroup[]>([]);
-
-const memberSearchForm = reactive({
-    name: '',
-    status: ''
-});
-
-const memberFormData = reactive({
-    name: '',
-    id_number: '',
-    sex: null as number | null,
-    race: '',
-    political_status: ''
-});
-
-const resetPwdDialogVisible = ref(false);
-const selectedUserForReset = ref<{ id: number; name: string } | null>(null);
-
-const handleShowResetPassword = (user: DepartmentUser) => {
-    selectedUserForReset.value = { id: user.id, name: user.name };
-    resetPwdDialogVisible.value = true;
-};
-
-const handleResetPasswordSuccess = () => {
-    resetPwdDialogVisible.value = false;
-};
-
-const ethnicGroups = [
-    '汉族', '蒙古族', '回族', '藏族', '维吾尔族', '苗族', '彝族', '壮族', '布依族', '朝鲜族',
-    '满族', '侗族', '瑶族', '白族', '土家族', '哈尼族', '哈萨克族', '傣族', '黎族', '傈僳族',
-    '佤族', '畲族', '高山族', '拉祜族', '水族', '东乡族', '纳西族', '景颇族', '柯尔克孜族', '土族',
-    '达斡尔族', '仫佬族', '羌族', '布朗族', '撒拉族', '毛南族', '仡佬族', '锡伯族', '阿昌族', '普米族',
-    '塔吉克族', '怒族', '乌孜别克族', '俄罗斯族', '鄂温克族', '德昂族', '保安族', '裕固族', '京族', '塔塔尔族',
-    '独龙族', '鄂伦春族', '赫哲族', '门巴族', '珞巴族', '基诺族'
-];
-
-const memberPagination = reactive({
-    page: 1,
-    size: 10,
-    total: 0
-});
 
 const formData = reactive({
     id: 0,
     name: '',
     parentId: undefined as number | undefined
 });
-
-const adminFormData = reactive({
-    admin_id: null as number | null
-});
-
-// 用户编辑相关
-const editUserDialogVisible = ref(false);
-const editUserFormRef = ref<FormInstance>();
-const editUserSubmitting = ref(false);
-
-const editUserFormData = reactive({
-    id: 0,
-    name: '',
-    sex: '0',
-    race: '',
-    political_status: '',
-    id_number: ''
-});
-
-const editUserFormRules = {
-    name: [
-        { required: true, message: '请输入用户名', trigger: 'blur' },
-        { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'blur' }
-    ],
-    sex: [
-        { required: true, message: '请选择性别', trigger: 'change' }
-    ],
-    race: [
-        { required: true, message: '请输入民族', trigger: 'blur' }
-    ],
-    political_status: [
-        { required: true, message: '请输入政治面貌', trigger: 'blur' }
-    ],
-    id_number: [
-        { required: true, message: '请输入手机号', trigger: 'blur' },
-        { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' }
-    ]
-};
 
 const treeProps = {
     children: 'children',
@@ -800,13 +552,13 @@ const getDepartmentData = async () => {
             // 将API数据转换为前端需要的格式
             const departments = res.data.data.map((item: any) => {
                 return {
-                    id: item.id,
+                    id: Number(item.id),
                     name: item.name || '未命名部门',
-                    parentId: item.parent_department_id === -1 ? null : item.parent_department_id,
+                    parentId: Number(item.parent_department_id) === -1 ? null : Number(item.parent_department_id),
                     level: item.level || 1,
                     createTime: item.create_time || '',
-                    userCount: item.user_count || 0, // 优先使用后端返回的user_count
-                    activeCount: 0, // 初始化为0，后面会获取实际数据
+                    userCount: -1, // -1 表示未加载，>=0 表示已加载
+                    activeCount: -1,
                     admin: item.admin || [], // 添加管理员信息
                     parent_department_name: item.parent_department_name || '',
                     children: [] // 先初始化为空，后面会构建树结构
@@ -821,8 +573,15 @@ const getDepartmentData = async () => {
             // 过滤显示用户有权限查看的部门（包含权限继承链）
             departmentTree.value = filterDepartmentTreeForDisplay(fullTree);
 
-            // 验证展开缓存的 key 是否仍然存在，移除无效的 key
-            const allIds = departments.map((d: any) => d.id);
+            // 从展示树中收集所有有效 ID，确保不含被过滤掉的节点
+            const allIds: number[] = [];
+            const collectAllIds = (nodes: Department[]) => {
+                for (const node of nodes) {
+                    allIds.push(node.id);
+                    if (node.children) collectAllIds(node.children);
+                }
+            };
+            collectAllIds(departmentTree.value);
             const validKeys = expandedKeys.value.filter(id => allIds.includes(id));
 
             // 确保第一级节点始终展开
@@ -830,55 +589,54 @@ const getDepartmentData = async () => {
             const mergedKeys = [...new Set([...validKeys, ...firstLevelIds])];
 
             expandedKeys.value = mergedKeys;
+
+            // ========== 展开祖先链：确保深层展开节点的完整路径可遍历 ==========
+            // el-tree 的 default-expanded-keys 会自动展开祖先链，但我们的遍历代码不会
+            // 所以需要手动把祖先节点也加入 expandedKeys
+            const effectiveExpanded = new Set(expandedKeys.value);
+            const parentMap = new Map<number, number | null>();
+            const buildParentMap = (nodes: Department[], pid: number | null) => {
+                for (const node of nodes) {
+                    parentMap.set(node.id, pid);
+                    if (node.children) buildParentMap(node.children, node.id);
+                }
+            };
+            buildParentMap(departmentTree.value, null);
+            for (const key of expandedKeys.value) {
+                let pid = parentMap.get(key);
+                while (pid != null) {
+                    effectiveExpanded.add(pid);
+                    pid = parentMap.get(pid) ?? null;
+                }
+            }
+
             saveExpandedKeys(mergedKeys);
 
             // 清除过期缓存
             clearExpiredCache();
 
-            // ========== 异步获取用户数据，不阻塞渲染 ==========
-            // 使用分批处理，每批10个并发请求，避免浏览器限制
-            const fetchUserData = async (dept: any) => {
-                // 检查缓存
-                const cached = getCachedUserCount(dept.id);
-                if (cached) {
-                    dept.userCount = cached.userCount;
-                    dept.activeCount = cached.activeCount;
-
-                    // 更新树中对应的节点
-                    updateDepartmentTreeNode(departmentTree.value, dept.id, {
-                        userCount: cached.userCount,
-                        activeCount: cached.activeCount
-                    });
-                    return;
-                }
-
-                // 缓存未命中，发起请求
-                try {
-                    const userRes = await getUsersByDepartment(dept.id);
-
-                    if (userRes.data && userRes.data.code === 200 && Array.isArray(userRes.data.data)) {
-                        const users = userRes.data.data;
-                        const activeUsers = users.filter((user: any) => user.wx_id && user.wx_id.trim() !== '');
-
-                        const userCount = users.length;
-                        const activeCount = activeUsers.length;
-
-                        // 存入缓存
-                        setCachedUserCount(dept.id, { userCount, activeCount });
-
-                        // 更新树中对应的节点
-                        updateDepartmentTreeNode(departmentTree.value, dept.id, {
-                            userCount,
-                            activeCount
-                        });
-
+            // 优先加载学校用户统计数据，后续用户数据逐个加载即可即时匹配
+            try {
+                const statsRes = await getSchoolUserCount();
+                if (statsRes.data && statsRes.data.code === 200 && Array.isArray(statsRes.data.data)) {
+                    const statsMap = new Map<number, { user_count: number; activated_count: number }>();
+                    for (const item of statsRes.data.data) {
+                        if (item.school?.id && item.user_count != null && item.activated_count != null) {
+                            statsMap.set(Number(item.school.id), {
+                                user_count: Number(item.user_count),
+                                activated_count: Number(item.activated_count)
+                            });
+                        }
                     }
-                } catch (error) {
+                    schoolStats.value = statsMap;
                 }
-            };
+            } catch {
+                // 学校统计数据加载失败，静默处理
+            }
 
-            // 使用分批处理，每批10个并发请求
-            await processBatchRequests(departments, fetchUserData, 10);
+            // ========== 只加载当前可见部门（展开的 + 根节点 + 祖先链）的用户数据 ==========
+            const visibleNodes = collectVisibleTreeNodes(departmentTree.value, effectiveExpanded);
+            await processBatchRequests(visibleNodes, loadUserCountForDept, 10);
 
         } else {
             throw new Error('API返回数据格式不正确');
@@ -894,7 +652,7 @@ const getDepartmentData = async () => {
     }
 };
 
-// 更新部门树中的节点数据
+// 更新部门树中节点的用户数量（直接修改树节点，触发响应式更新）
 const updateDepartmentTreeNode = (tree: Department[], deptId: number, data: { userCount: number; activeCount: number }): boolean => {
     for (const dept of tree) {
         if (dept.id === deptId) {
@@ -903,14 +661,11 @@ const updateDepartmentTreeNode = (tree: Department[], deptId: number, data: { us
             return true;
         }
         if (dept.children && dept.children.length > 0) {
-            if (updateDepartmentTreeNode(dept.children, deptId, data)) {
-                return true;
-            }
+            if (updateDepartmentTreeNode(dept.children, deptId, data)) return true;
         }
     }
     return false;
 };
-
 
 // 构建部门树结构
 const buildDepartmentTree = (departments: Department[]): Department[] => {
@@ -1168,7 +923,7 @@ const handleDelete = async (department: Department) => {
         return;
     }
 
-    if (department.userCount && department.userCount > 0) {
+    if ((department.userCount ?? 0) > 0) {
         ElMessage.error('该部门下还有用户，无法删除');
         return;
     }
@@ -1235,209 +990,6 @@ const handleSubmit = async () => {
     }
 };
 
-// 显示设置管理员对话框
-const showSetAdminDialog = async (department: Department) => {
-    // 检查权限（包含继承逻辑）
-    const hasPermission = await canManageDepartment(department.id);
-    if (!hasPermission) {
-        ElMessage.warning('您没有管理部门的权限');
-        return;
-    }
-
-    // 设置部门信息
-    currentDepartmentId.value = department.id;
-    currentDepartmentName.value = department.name;
-
-    // 设置当前部门管理员列表
-    currentDepartmentAdmins.value = department.admin || [];
-
-    // 重置表单和标签页
-    resetAdminForm();
-    activeTab.value = 'set';
-
-    // 获取该部门的成员列表
-    await getDepartmentMembers(department.id);
-
-    // 等待下一个tick确保数据更新完成
-    await nextTick();
-
-    adminDialogVisible.value = true;
-};
-
-// 获取部门成员列表
-const getDepartmentMembers = async (departmentId: number) => {
-    if (isUnmounted.value || abortController.signal.aborted) return;
-
-    try {
-        const res = await getUsersByDepartment(departmentId);
-        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-            departmentMembers.value = res.data.data.map((item: any) => ({
-                id: item.id,
-                wx_id: item.wx_id || '',
-                name: item.name || '未命名用户',
-                sex: item.sex || '',
-                race: item.race || '',
-                political_status: item.political_status || '',
-                id_number: item.id_number || '',
-                department: item.department || '未分配',
-                points: item.points || 0,
-                is_super_admin: item.is_super_admin || false,
-                edit_text: item.edit_text || false,
-                edit_question: item.edit_question || false,
-                manage_departments: item.manage_departments || [],
-                // 兼容旧字段
-                email: item.email || '',
-                phone: item.phone || '',
-                status: 'active',
-                departmentId: departmentId,
-                departmentName: item.department || '未分配',
-                groupIds: [],
-                groups: [],
-                createTime: '',
-                lastLoginTime: undefined
-            }));
-
-        } else {
-            departmentMembers.value = [];
-        }
-    } catch (error) {
-        if (!isUnmounted.value) {
-            console.error('获取部门成员失败:', error);
-            departmentMembers.value = [];
-        }
-    }
-};
-
-// 处理设置管理员
-const handleSetAdmin = async () => {
-    if (!adminFormRef.value || currentDepartmentId.value === null) return;
-
-    try {
-        await adminFormRef.value.validate();
-
-        const adminData = {
-            admin_id: adminFormData.admin_id!,
-            department_id: currentDepartmentId.value
-        };
-
-        await setDepartmentAdmin(adminData);
-
-        if (isUnmounted.value) return;
-
-        ElMessage.success('设置管理员成功');
-        adminDialogVisible.value = false;
-
-        // 清除缓存
-        userCountCache.value.clear();
-
-        // 重新获取数据以更新显示
-        if (!isUnmounted.value) {
-            await getDepartmentData();
-        }
-    } catch (error) {
-        if (error !== 'cancel' && !isUnmounted.value) {
-            showError(error, '设置管理员失败');
-        }
-    }
-};
-
-// 确认取消管理员
-const confirmUnsetAdmin = (admin: { id: number; name: string }) => {
-
-    ElMessageBox.confirm(
-        `确定要取消管理员"${admin.name}"吗？取消后该管理员将失去部门管理权限。`,
-        '确认取消管理员',
-        {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        }
-    ).then(async () => {
-        if (isUnmounted.value) return;
-
-        if (!currentDepartmentId.value) {
-            ElMessage.error('部门ID为空，无法取消管理员');
-            return;
-        }
-
-        try {
-            const adminData = {
-                admin_id: admin.id,
-                department_id: currentDepartmentId.value
-            };
-
-            await unsetDepartmentAdmin(adminData);
-
-            if (isUnmounted.value) return;
-
-            ElMessage.success('取消管理员成功');
-
-            // 更新本地管理员列表
-            if (!isUnmounted.value && currentDepartmentAdmins.value) {
-                currentDepartmentAdmins.value = currentDepartmentAdmins.value.filter(a => a.id !== admin.id);
-            }
-
-            // 清除缓存
-            userCountCache.value.clear();
-
-            // 重新获取部门数据以更新显示
-            if (!isUnmounted.value) {
-                await getDepartmentData();
-            }
-        } catch (error) {
-            if (!isUnmounted.value) {
-                console.error('取消管理员失败:', error);
-                showError(error, '取消管理员失败');
-            }
-        }
-    }).catch(() => {
-        // 用户取消操作
-    });
-};
-
-// 处理标签页点击
-const handleTabClick = (tab: any) => {
-    activeTab.value = tab.props.name;
-};
-
-// 处理对话框关闭
-const handleDialogClose = () => {
-    // 重置表单但保留关键数据
-    try {
-        if (adminFormRef.value && !isUnmounted.value) {
-            adminFormRef.value.resetFields();
-        }
-    } catch (error) {
-        // 忽略表单重置过程中的错误
-    }
-
-    if (!isUnmounted.value) {
-        Object.assign(adminFormData, {
-            admin_id: null
-        });
-        // 不要清空部门ID和管理员列表，只在重新打开对话框时才更新
-        activeTab.value = 'set';
-    }
-};
-
-// 重置管理员表单
-const resetAdminForm = () => {
-    try {
-        if (adminFormRef.value && !isUnmounted.value) {
-            adminFormRef.value.resetFields();
-        }
-    } catch (error) {
-        // 忽略表单重置过程中的错误
-    }
-
-    if (!isUnmounted.value) {
-        Object.assign(adminFormData, {
-            admin_id: null
-        });
-        activeTab.value = 'set';
-    }
-};
-
 // 重置表单
 const resetForm = () => {
     try {
@@ -1456,575 +1008,6 @@ const resetForm = () => {
         });
     }
 };
-
-// 成员管理相关函数
-// 显示成员管理弹窗
-const showMemberManagement = (department: Department) => {
-    // 创建部门对象的副本以避免只读计算属性错误
-    currentDepartment.value = { ...department };
-    memberDialogVisible.value = true;
-    getMemberData();
-    getGroupData();
-};
-
-// 批量导出成员
-const handleExportMembers = async () => {
-    if (!currentDepartment.value) return;
-    exporting.value = true;
-    try {
-        await exportUsers(currentDepartment.value.id, currentDepartment.value.name);
-    } catch (error: any) {
-        showError(error, '导出成员失败');
-    } finally {
-        exporting.value = false;
-    }
-};
-
-// 获取成员数据
-const getMemberData = async () => {
-    if (!currentDepartment.value) return;
-
-    memberLoading.value = true;
-    try {
-        // 调用API获取当前部门的成员
-        const res = await getUsersByDepartment(currentDepartment.value.id);
-
-        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-            // 直接使用API数据，字段已经匹配
-            const apiData: DepartmentUser[] = res.data.data.map((item: any) => ({
-                id: item.id,
-                wx_id: item.wx_id || '',
-                name: item.name || '未命名用户',
-                sex: item.sex || '',
-                race: item.race || '',
-                political_status: item.political_status || '',
-                id_number: item.id_number || '',
-                department: item.department || currentDepartment.value!.name,
-                invite_code: item.invite_code || '',
-                points: item.points || 0,
-                is_super_admin: item.is_super_admin || false,
-                edit_text: item.edit_text || false,
-                edit_question: item.edit_question || false,
-                manage_departments: item.manage_departments || [],
-                // 兼容字段
-                status: item.status || 'active'
-            }));
-
-            // 应用筛选条件
-            let filteredData = apiData.filter((user) => {
-                if (memberSearchForm.name && !user.name?.includes(memberSearchForm.name)) return false;
-                if (memberSearchForm.status && (user.status || 'active') !== memberSearchForm.status) return false;
-                return true;
-            });
-
-            memberPagination.total = filteredData.length;
-            const start = (memberPagination.page - 1) * memberPagination.size;
-            const end = start + memberPagination.size;
-            memberTableData.value = filteredData.slice(start, end);
-        } else {
-            throw new Error('API返回数据格式不正确');
-        }
-    } catch (error) {
-        console.error('获取成员数据错误:', error);
-        showError(error, '获取成员数据失败');
-
-        // 使用模拟数据作为fallback
-        const mockData: DepartmentUser[] = [
-            {
-                id: 2010,
-                wx_id: 'oj8Jj4_rBxL2IRU1HR7Ucq4S_KQI',
-                name: '张三',
-                sex: '男',
-                race: '汉族',
-                political_status: '中共党员',
-                id_number: '223456781234567810',
-                department: currentDepartment.value.name || '技术部',
-                invite_code: 'INV2010',
-                points: 85,
-                is_super_admin: false,
-                edit_text: true,
-                edit_question: false,
-                manage_departments: []
-            },
-            {
-                id: 2011,
-                wx_id: 'oj8Jj4_rBxL2IRU1HR7Ucq4S_KQJ',
-                name: '李四',
-                sex: '女',
-                race: '汉族',
-                political_status: '共青团员',
-                id_number: '223456781234567811',
-                department: currentDepartment.value.name || '技术部',
-                invite_code: 'INV2011',
-                points: 92,
-                is_super_admin: false,
-                edit_text: true,
-                edit_question: true,
-                manage_departments: []
-            },
-            {
-                id: 2012,
-                wx_id: '',
-                name: '王五',
-                sex: '男',
-                race: '回族',
-                political_status: '群众',
-                id_number: '223456781234567812',
-                department: currentDepartment.value.name || '技术部',
-                invite_code: 'INV2012',
-                points: 0,
-                is_super_admin: false,
-                edit_text: false,
-                edit_question: false,
-                manage_departments: []
-            }
-        ];
-
-        // 应用筛选条件
-        let filteredData = mockData.filter((user) => {
-            if (memberSearchForm.name && !user.name?.includes(memberSearchForm.name)) return false;
-            if (memberSearchForm.status && (user.status || 'active') !== memberSearchForm.status) return false;
-            return true;
-        });
-
-        memberPagination.total = filteredData.length;
-        const start = (memberPagination.page - 1) * memberPagination.size;
-        const end = start + memberPagination.size;
-        memberTableData.value = filteredData.slice(start, end);
-    } finally {
-        memberLoading.value = false;
-    }
-};
-
-// 管理员授权弹窗初始化
-textAdmin = useAdminDialog({
-    grantFn: grantTextEdit,
-    revokeFn: revokeTextEdit,
-    permissionName: '文章管理员',
-    lockedDepartmentId: computed(() => currentDepartment.value?.id ?? null),
-    lockedDepartmentName: computed(() => currentDepartment.value?.name ?? ''),
-    onSuccess: getMemberData,
-});
-
-questionAdmin = useAdminDialog({
-    grantFn: grantQuestionEdit,
-    revokeFn: revokeQuestionEdit,
-    permissionName: '题目管理员',
-    lockedDepartmentId: computed(() => currentDepartment.value?.id ?? null),
-    lockedDepartmentName: computed(() => currentDepartment.value?.name ?? ''),
-    onSuccess: getMemberData,
-});
-
-// 获取用户分组数据
-const getGroupData = async () => {
-    // 模拟数据
-    groupOptions.value = [
-        {
-            id: 1,
-            name: '开发者',
-            description: '技术开发人员',
-            userCount: 5,
-            createTime: '2023-01-01'
-        },
-        {
-            id: 2,
-            name: '管理员',
-            description: '系统管理员',
-            userCount: 2,
-            createTime: '2023-01-01'
-        },
-        {
-            id: 3,
-            name: '营销',
-            description: '市场营销人员',
-            userCount: 3,
-            createTime: '2023-01-01'
-        }
-    ];
-};
-
-// 成员搜索
-const handleMemberSearch = () => {
-    memberPagination.page = 1;
-    getMemberData();
-};
-
-// 重置成员搜索
-const resetMemberSearch = () => {
-    Object.assign(memberSearchForm, {
-        name: ''
-    });
-    handleMemberSearch();
-};
-
-// 成员分页处理
-const handleMemberSizeChange = (size: number) => {
-    memberPagination.size = size;
-    getMemberData();
-};
-
-const handleMemberCurrentChange = (page: number) => {
-    memberPagination.page = page;
-    getMemberData();
-};
-
-// 显示添加成员对话框
-const showAddMemberDialog = () => {
-    resetMemberForm();
-    memberFormDialogVisible.value = true;
-};
-
-// 显示编辑成员对话框
-const showEditMemberDialog = (user: DepartmentUser) => {
-    isEditMember.value = true;
-    Object.assign(memberFormData, {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        groupIds: user.groupIds
-    });
-    memberFormDialogVisible.value = true;
-};
-
-// 显示导入成员对话框
-const showImportMemberDialog = () => {
-    importDialogVisible.value = true;
-};
-
-const handleFileChange = (uploadFile: any) => {
-    fileList.value = [uploadFile];
-};
-
-const beforeUpload = (uploadFile: any) => {
-    const isExcel = uploadFile.type === 'application/vnd.ms-excel' ||
-        uploadFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    if (!isExcel) {
-        ElMessage.error('只能上传 Excel 文件!');
-        return false;
-    }
-    return true;
-};
-
-const handleImport = async () => {
-    if (fileList.value.length === 0) {
-        ElMessage.warning('请选择要上传的文件');
-        return;
-    }
-
-    uploading.value = true;
-    try {
-        const file = fileList.value[0].raw || fileList.value[0];
-        const response = await addUsersByFile(currentDepartment.value.id, file);
-
-        // 检查响应类型，如果是JSON错误响应则处理错误
-        if (response.data instanceof Blob && response.data.type === 'application/json') {
-            const errorText = await response.data.text();
-            const errorData = JSON.parse(errorText);
-            throw new Error(errorData.message || '服务器返回错误');
-        }
-
-        // 直接下载返回的文件（无论成功或失败）
-        const blob = new Blob([response.data], {
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `批量导入结果_${new Date().toLocaleDateString()}.xlsx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        // 检查导入结果并显示相应消息
-        // 只检查 x-import-success header 字段
-        const importSuccessFlag = response.headers['x-import-success'];
-        const isImportSuccess = importSuccessFlag === 'true' || importSuccessFlag === true;
-
-
-        if (isImportSuccess) {
-            // 成功：显示绿色success组件
-            ElMessage.success('批量导入成功，处理结果已下载');
-            // 等待后端处理完成后刷新数据
-            setTimeout(async () => {
-                await getMemberData(); // 刷新成员列表
-                // 同时刷新部门统计数据
-                await getDepartmentData();
-            }, 1000);
-        } else {
-            // 失败：显示红色error组件
-            ElMessage.error('批量导入失败，请查看下载的结果文件了解详情');
-            // 即使失败也尝试刷新数据
-            setTimeout(async () => {
-                await getMemberData(); // 刷新成员列表
-            }, 1000);
-        }
-
-        // 关闭弹窗并清空文件列表
-        importDialogVisible.value = false;
-        fileList.value = [];
-
-        // 重置上传组件状态
-        if (uploadRef.value) {
-            uploadRef.value.clearFiles();
-        }
-    } catch (error: any) {
-        console.error('批量导入失败:', error);
-
-        // 尝试从错误响应中提取详细错误信息
-        let errorMessage = '批量导入失败，请重试';
-        if (error.response?.data instanceof Blob) {
-            try {
-                const errorText = await error.response.data.text();
-                const errorData = JSON.parse(errorText);
-                errorMessage = errorData.message || errorData.error || errorMessage;
-            } catch (parseError) {
-                console.error('解析错误响应失败:', parseError);
-            }
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-
-        // 失败：显示红色error组件
-        ElMessage.error(errorMessage);
-    } finally {
-        uploading.value = false;
-    }
-};
-
-// 切换成员状态
-const toggleMemberStatus = async (user: DepartmentUser) => {
-    const action = user.status === 'active' ? '禁用' : '启用';
-    try {
-        await ElMessageBox.confirm(`确定要${action}成员 ${user.name} 吗？`, '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        });
-
-        // 调用API切换用户状态
-        const newStatus = user.status === 'active' ? 'disabled' : 'active';
-        await toggleUserStatus(user.id, newStatus);
-
-        // 更新本地状态
-        user.status = newStatus;
-        ElMessage.success(`${action}成功`);
-    } catch (error) {
-        if (error !== 'cancel') {
-            console.error('切换用户状态错误:', error);
-            showError(error, `${action}失败`);
-        }
-    }
-};
-
-// 移除成员
-const handleDeleteUser = async (user: DepartmentUser) => {
-    try {
-        await ElMessageBox.confirm(
-            `确定要删除用户 ${user.name} 吗？此操作不可恢复！`,
-            '删除确认',
-            { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'error' }
-        );
-
-        await deleteUser({ user_id: user.id });
-
-        const index = memberTableData.value.findIndex(item => item.id === user.id);
-        if (index > -1) {
-            memberTableData.value.splice(index, 1);
-            memberPagination.total--;
-        }
-        ElMessage.success('删除成功');
-    } catch (error) {
-        if (error !== 'cancel') {
-            console.error('删除用户错误:', error);
-            showError(error, '删除失败');
-        }
-    }
-};
-
-
-// 提交成员表单
-const handleMemberSubmit = async () => {
-    if (!memberFormRef.value || !currentDepartment.value) return;
-
-    try {
-        await memberFormRef.value.validate();
-
-        memberSubmitting.value = true;
-        await createUser({
-            name: memberFormData.name,
-            id_number: memberFormData.id_number,
-            department_id: currentDepartment.value.id,
-            sex: memberFormData.sex,
-            race: memberFormData.race,
-            political_status: memberFormData.political_status
-        });
-
-        ElMessage.success('添加成功');
-        memberFormDialogVisible.value = false;
-        getMemberData();
-    } catch (error: any) {
-        console.error('添加成员失败:', error);
-        showError(error, '添加失败');
-    } finally {
-        memberSubmitting.value = false;
-    }
-};
-
-// 重置成员表单
-const resetMemberForm = () => {
-    if (memberFormRef.value) {
-        memberFormRef.value.resetFields();
-    }
-    Object.assign(memberFormData, {
-        name: '',
-        id_number: '',
-        sex: null,
-        race: '',
-        political_status: ''
-    });
-};
-
-// 复制邀请码
-const copyInvitationCode = (code: string) => {
-    if (!code) {
-        ElMessage.warning('邀请码为空');
-        return;
-    }
-    navigator.clipboard.writeText(code).then(() => {
-        ElMessage.success('邀请码已复制到剪贴板');
-    }).catch((error: any) => {
-        showError(error, '复制失败');
-    });
-};
-
-// 重置导入弹窗
-const resetImportDialog = () => {
-    fileList.value = [];
-    uploading.value = false;
-
-    // 重置上传组件
-    if (uploadRef.value) {
-        try {
-            uploadRef.value.clearFiles();
-        } catch (error) {
-        }
-    }
-};
-
-// 重置成员管理
-const resetMemberManagement = () => {
-    memberTableData.value = [];
-    Object.assign(memberSearchForm, {
-        name: '',
-        status: ''
-    });
-    Object.assign(memberPagination, {
-        page: 1,
-        size: 10,
-        total: 0
-    });
-    currentDepartment.value = null;
-    resetPwdDialogVisible.value = false;
-    selectedUserForReset.value = null;
-};
-
-// 用户编辑相关方法
-// 性别值转换：后端返回"男"/"女"文本或0/1数字，表单需"0"/"1"字符串
-const sexToFormValue = (sex: string | number): string => {
-    if (sex === '男' || sex === '0' || sex === 0) return '0';
-    if (sex === '女' || sex === '1' || sex === 1) return '1';
-    return '0';
-};
-
-// 显示用户编辑对话框
-const showEditUserDialog = (user: DepartmentUser) => {
-    // 将用户数据填充到表单中
-    Object.assign(editUserFormData, {
-        id: user.id,
-        name: user.name || '',
-        sex: sexToFormValue(user.sex),
-        race: user.race || '',
-        political_status: user.political_status || '',
-        id_number: user.id_number || ''
-    });
-    editUserDialogVisible.value = true;
-};
-
-// 重置用户编辑表单
-const resetEditUserForm = () => {
-    if (editUserFormRef.value) {
-        editUserFormRef.value.resetFields();
-    }
-    Object.assign(editUserFormData, {
-        id: 0,
-        name: '',
-        sex: '0',
-        race: '',
-        political_status: '',
-        id_number: ''
-    });
-    editUserSubmitting.value = false;
-};
-
-// 提交用户编辑表单
-const handleEditUserSubmit = async () => {
-    if (!editUserFormRef.value) return;
-
-    try {
-        await editUserFormRef.value.validate();
-        editUserSubmitting.value = true;
-
-        // 构造更新数据，按照API要求的格式
-        const updateData = {
-            name: editUserFormData.name,
-            sex: parseInt(editUserFormData.sex), // 转换为数字
-            race: editUserFormData.race,
-            political_status: editUserFormData.political_status,
-            id_number: editUserFormData.id_number
-        };
-
-
-        // 调用管理员更新API，user_id作为查询参数，其他数据作为请求体
-        await updateUserByAdmin(editUserFormData.id, updateData);
-
-        ElMessage.success('用户信息更新成功');
-        editUserDialogVisible.value = false;
-
-        // 刷新成员数据
-        if (memberDialogVisible.value) {
-            getMemberData();
-        }
-
-    } catch (error) {
-        if (error !== 'cancel') {
-            console.error('更新用户信息失败:', error);
-            showError(error, '更新用户信息失败');
-        }
-    } finally {
-        editUserSubmitting.value = false;
-    }
-};
-
-/**
- * 权限系统说明：
- *
- * 1. shouldDisplayDepartment(departmentId) - 第一层权限检查
- *    作用：决定是否显示该部门节点
- *    逻辑：显示用户权限部门的上级单链 + 所有下级部门，隐藏同级部门
- *    使用场景：树形组件中决定部门节点是否渲染
- *
- * 2. hasManagementPermission(departmentId) - 第二层权限检查
- *    作用：决定是否显示操作按钮
- *    逻辑：只能操作有权限的部门及其子部门
- *    使用场景：在已显示的部门节点中，决定操作按钮的显示/隐藏
- *
- * 3. canManageDepartment(departmentId) - 异步权限验证
- *    作用：执行具体操作前的最终权限验证
- *    逻辑：与 hasManagementPermission 相同，但是异步版本
- *    使用场景：点击按钮后，执行实际操作前的最后权限检查
- */
 
 // 检查是否可以管理部门（支持权限继承） - 用于异步操作前的权限验证
 const canManageDepartment = async (departmentId: number): Promise<boolean> => {
@@ -2045,157 +1028,17 @@ const canManageDepartment = async (departmentId: number): Promise<boolean> => {
 };
 
 // 检查部门是否应该显示（展示权限） - 第一层权限检查
-// 决定是否显示该部门节点
 const shouldDisplayDepartment = (departmentId: number): boolean => {
-    // 超级管理员可以看到所有部门
-    if (permission.isSuperAdmin()) {
-        return true;
-    }
-
-    const userProfile = permiss.userProfile;
-    if (!userProfile?.manage_departments || userProfile.manage_departments.length === 0) {
-        return false;
-    }
-
-    const userDeptIds = new Set(userProfile.manage_departments);
-
-    // 构建部门映射用于查找父子关系
-    const allDepartments = new Map<number, Department>();
-    const collectAllDepartments = (depts: Department[]) => {
-        depts.forEach(dept => {
-            allDepartments.set(dept.id, dept);
-            if (dept.children) {
-                collectAllDepartments(dept.children);
-            }
-        });
-    };
-    collectAllDepartments(departmentTree.value);
-
-    // 1. 检查是否为用户直接管理的部门
-    if (userDeptIds.has(departmentId)) {
-        return true;
-    }
-
-    // 2. 检查是否为用户可管理部门的上级部门（权限链向上）
-    // 对于用户管理的每个部门，获取其完整的上级路径
-    const getUpwardChain = (targetDeptId: number): number[] => {
-        const upwardChain: number[] = [];
-        let currentDept = allDepartments.get(targetDeptId);
-
-        while (currentDept && currentDept.parentId !== null && currentDept.parentId !== 0) {
-            upwardChain.push(currentDept.parentId);
-            currentDept = allDepartments.get(currentDept.parentId);
-        }
-
-        return upwardChain;
-    };
-
-    // 收集用户管理部门的所有上级部门
-    const allVisibleParentDepts = new Set<number>();
-    for (const managedDeptId of userDeptIds) {
-        const parentChain = getUpwardChain(managedDeptId);
-        parentChain.forEach(parentId => allVisibleParentDepts.add(parentId));
-    }
-
-    if (allVisibleParentDepts.has(departmentId)) {
-        return true;
-    }
-
-    // 3. 检查是否为用户可管理部门的下级部门（权限继承向下）
-    const findAllChildDepartments = (parentId: number): number[] => {
-        const childIds: number[] = [];
-        const parent = allDepartments.get(parentId);
-
-        if (parent && parent.children) {
-            const collectChildren = (children: Department[]) => {
-                children.forEach(child => {
-                    childIds.push(child.id);
-                    if (child.children) {
-                        collectChildren(child.children);
-                    }
-                });
-            };
-            collectChildren(parent.children);
-        }
-
-        return childIds;
-    };
-
-    // 收集用户管理部门的所有下级部门
-    const allVisibleChildDepts = new Set<number>();
-    for (const managedDeptId of userDeptIds) {
-        const childIds = findAllChildDepartments(managedDeptId);
-        childIds.forEach(childId => allVisibleChildDepts.add(childId));
-    }
-
-    if (allVisibleChildDepts.has(departmentId)) {
-        return true;
-    }
-
-    return false;
+    const ids = visibleDeptIds.value;
+    if (ids === null) return true; // 超级管理员
+    return ids.has(departmentId);
 };
 
 // 检查是否有管理权限（操作权限） - 第二层权限检查
-// 决定是否显示操作按钮
 const hasManagementPermission = (departmentId: number): boolean => {
-    // 超级管理员可以管理所有部门
-    if (permission.isSuperAdmin()) {
-        return true;
-    }
-
-    const userProfile = permiss.userProfile;
-    if (!userProfile?.manage_departments || userProfile.manage_departments.length === 0) {
-        return false;
-    }
-
-    const userDeptIds = new Set(userProfile.manage_departments);
-
-    // 1. 检查是否为用户直接管理的部门
-    if (userDeptIds.has(departmentId)) {
-        return true;
-    }
-
-    // 2. 检查权限继承：如果用户有某个部门的权限，那么他对该部门的所有子部门都有权限
-    const buildDepartmentMap = (depts: Department[]): Map<number, Department> => {
-        const map = new Map<number, Department>();
-        const collect = (departments: Department[]) => {
-            departments.forEach(dept => {
-                map.set(dept.id, dept);
-                if (dept.children) {
-                    collect(dept.children);
-                }
-            });
-        };
-        collect(depts);
-        return map;
-    };
-
-    const deptMap = buildDepartmentMap(departmentTree.value);
-
-    // 检查目标部门是否为用户可管理部门的子部门
-    for (const managedDeptId of userDeptIds) {
-        const managedDept = deptMap.get(managedDeptId);
-        if (managedDept && managedDept.children) {
-            // 递归查找子部门
-            const findInChildren = (children: Department[], targetId: number): boolean => {
-                for (const child of children) {
-                    if (child.id === targetId) {
-                        return true;
-                    }
-                    if (child.children && findInChildren(child.children, targetId)) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-
-            if (findInChildren(managedDept.children, departmentId)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    const ids = manageableDeptIds.value;
+    if (ids === null) return true; // 超级管理员
+    return ids.has(departmentId);
 };
 
 onMounted(() => {
@@ -2215,7 +1058,6 @@ onUnmounted(() => {
     dialogVisible.value = false;
     adminDialogVisible.value = false;
     memberDialogVisible.value = false;
-    importDialogVisible.value = false;
 
     // 使用 setTimeout 延迟清理，确保 Vue 完成卸载过程
     setTimeout(() => {
@@ -2223,10 +1065,8 @@ onUnmounted(() => {
             // 清理所有可能引起问题的引用
             currentDepartmentId.value = null;
             currentDepartmentName.value = '';
-            departmentMembers.value = [];
-            // currentDepartmentAdmins 不需要清空，因为它会被组件卸载自动清理
-            activeTab.value = 'set';
-        } catch (error) {
+                    // currentDepartmentAdmins 不需要清空，因为它会被组件卸载自动清理
+                } catch (error) {
             // 忽略清理过程中的任何错误
         }
     }, 0);

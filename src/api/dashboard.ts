@@ -66,3 +66,11 @@ export const getTopSchools = () => {
         method: 'get'
     });
 };
+
+// 获取各学校用户数量统计
+export const getSchoolUserCount = () => {
+    return request({
+        url: '/dashboard/school_user_count',
+        method: 'get'
+    });
+};
