@@ -54,8 +54,8 @@ export const updateUser = (data: { id: number; [key: string]: any }) => {
     });
 };
 
-// 管理员更新用户信息
-export const updateUserByAdmin = (user_id: number, data: { name: string; sex: number; race: string; political_status: string; id_number: string }) => {
+// 管理员更新用户信息（sex 与全项目类型定义一致为 string："男"/"女"）
+export const updateUserByAdmin = (user_id: number, data: { name: string; sex: string; race: string; political_status: string; id_number: string }) => {
     return request({
         url: '/user/update_by_admin',
         method: 'post',
