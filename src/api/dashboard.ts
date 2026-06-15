@@ -35,6 +35,17 @@ export const getRecentPointRecords = (limit: number = 10) => {
     });
 };
 
+// 获取每日在线用户数量趋势
+export const getDailyOnlineUsers = (limit: number = 10) => {
+    return request({
+        url: '/dashboard/daily_online_users',
+        method: 'get',
+        params: {
+            limit
+        }
+    });
+};
+
 // 获取问题总数
 export const getQuestionNum = () => {
     return request({

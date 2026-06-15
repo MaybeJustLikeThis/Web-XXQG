@@ -104,6 +104,32 @@
                             </div>
                         </el-card>
                     </div>
+
+                    <div class="online-users-section">
+                        <el-card shadow="never" class="chart-card">
+                            <template #header>
+                                <div class="chart-header">
+                                    <div class="chart-title">
+                                        <el-icon><TrendCharts /></el-icon>
+                                        <span>在线用户数量趋势</span>
+                                    </div>
+                                    <div class="chart-controls">
+                                        <el-select v-model="onlineUserDays" @change="refreshDailyOnlineUsers" size="small">
+                                            <el-option label="最近7天" :value="7"></el-option>
+                                            <el-option label="最近10天" :value="10"></el-option>
+                                            <el-option label="最近15天" :value="15"></el-option>
+                                            <el-option label="最近30天" :value="30"></el-option>
+                                        </el-select>
+                                        <el-button type="primary" size="small" @click="refreshDailyOnlineUsers" :loading="onlineUsersLoading">
+                                            <el-icon><Refresh /></el-icon>
+                                            刷新
+                                        </el-button>
+                                    </div>
+                                </div>
+                            </template>
+                            <div ref="dailyOnlineUsersChart" class="chart-container online-users-chart"></div>
+                        </el-card>
+                    </div>
                 </el-col>
 
                 <!-- 右侧内容 -->
@@ -203,7 +229,7 @@ import { User, ChatDotRound, Goods, ShoppingBag, TrendCharts, Refresh } from '@e
 import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts';
 import countup from '@/components/countup.vue';
-import { getTopUsers, getRecentPointRecords, getQuestionNum, getRichTextNum, getUserNum, getTopSchools } from '@/api/dashboard';
+import { getTopUsers, getRecentPointRecords, getQuestionNum, getRichTextNum, getUserNum, getTopSchools, getDailyOnlineUsers } from '@/api/dashboard';
 import { showError } from '@/utils/errorHandler';
 
 const activities = [
@@ -248,6 +274,13 @@ const trendChart = ref();
 let trendChartInstance: echarts.ECharts | null = null;
 const trendLoading = ref(false);
 const trendDays = ref(10);
+
+// 在线用户数量趋势图相关
+const dailyOnlineUsersChart = ref();
+let dailyOnlineUsersChartInstance: echarts.ECharts | null = null;
+const onlineUsersLoading = ref(false);
+const onlineUserDays = ref(10);
+
 const statsLoading = ref(false);
 const chartView = ref('both');
 
@@ -256,7 +289,7 @@ const statistics = reactive({
     activeUsers: 6666,
     articles: 168,
     questionNum: 888,
-    pointRecords: 234
+    todayOnlineUsers: 0
 });
 
 // 统计卡片配置
@@ -279,19 +312,32 @@ const statsCards = reactive([
     {
         icon: markRaw(ShoppingBag),
         value: 0,
-        label: '积分记录'
+        label: '今日在线用户'
     }
 ]);
+
+const getTodayDate = () => {
+    const now = new Date();
+    const month = `${now.getMonth() + 1}`.padStart(2, '0');
+    const day = `${now.getDate()}`.padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+};
+
+const getTodayOnlineCount = (data: Array<{ date: string; online_user_count: number }>) => {
+    const todayItem = data.find(item => item.date === getTodayDate());
+    return todayItem?.online_user_count ?? data[0]?.online_user_count ?? 0;
+};
 
 // 获取统计数据
 const fetchStatistics = async () => {
     statsLoading.value = true;
     try {
         // 并行获取统计数据
-        const [questionResponse, articleResponse, userResponse] = await Promise.all([
+        const [questionResponse, articleResponse, userResponse, onlineUsersResponse] = await Promise.all([
             getQuestionNum(),
             getRichTextNum(),
-            getUserNum()
+            getUserNum(),
+            getDailyOnlineUsers(10)
         ]);
 
         // 获取用户数量
@@ -315,10 +361,12 @@ const fetchStatistics = async () => {
             statsCards[2].value = questionCount;
         }
 
-        // 积分记录暂时使用模拟数据
-        const pointRecordCount = 234;
-        statistics.pointRecords = pointRecordCount;
-        statsCards[3].value = pointRecordCount;
+        // 获取今日在线用户数量
+        if (onlineUsersResponse.data?.code === 200 && Array.isArray(onlineUsersResponse.data.data)) {
+            const todayOnlineUsers = getTodayOnlineCount(onlineUsersResponse.data.data);
+            statistics.todayOnlineUsers = todayOnlineUsers;
+            statsCards[3].value = todayOnlineUsers;
+        }
 
     } catch (error) {
         console.error('获取统计数据失败:', error);
@@ -750,6 +798,197 @@ const refreshTrend = () => {
     fetchTrendData();
 };
 
+// 获取在线用户数量趋势数据
+const fetchDailyOnlineUsersData = async () => {
+    onlineUsersLoading.value = true;
+    try {
+        const response = await getDailyOnlineUsers(onlineUserDays.value);
+        const data = response.data?.data || response.data || [];
+
+        if (Array.isArray(data) && data.length > 0) {
+            const sortedData = data.slice().sort((a: any, b: any) =>
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+            );
+            initDailyOnlineUsersChart(sortedData);
+        } else {
+            initEmptyDailyOnlineUsersChart();
+        }
+    } catch (error) {
+        console.error('获取在线用户数量趋势失败:', error);
+        showError(error, '获取在线用户数量趋势失败');
+        initEmptyDailyOnlineUsersChart();
+    } finally {
+        onlineUsersLoading.value = false;
+    }
+};
+
+const initDailyOnlineUsersChart = (data: Array<{ date: string; online_user_count: number }>) => {
+    if (!dailyOnlineUsersChart.value) return;
+
+    if (dailyOnlineUsersChartInstance) {
+        dailyOnlineUsersChartInstance.dispose();
+    }
+
+    dailyOnlineUsersChartInstance = echarts.init(dailyOnlineUsersChart.value);
+
+    const dates = data.map(item => {
+        const date = new Date(item.date);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+    });
+
+    const option = {
+        title: {
+            text: `最近${onlineUserDays.value}天在线用户数量`,
+            left: 'center',
+            textStyle: {
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: '#333'
+            }
+        },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(50, 50, 50, 0.9)',
+            borderColor: '#10b981',
+            borderWidth: 1,
+            textStyle: {
+                color: '#fff'
+            },
+            formatter: function(params: any) {
+                const data = params[0];
+                const originalDataItem = data.data;
+                return `<div style="font-weight: bold; margin-bottom: 5px;">${originalDataItem.fullDate}</div>
+                        <div style="color: #10b981;">在线用户：${originalDataItem.value} 人</div>
+                        <div style="color: #909399; font-size: 12px;">${originalDataItem.weekday}</div>`;
+            },
+            axisPointer: {
+                type: 'line',
+                lineStyle: {
+                    color: '#10b981',
+                    width: 1
+                }
+            }
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '12%',
+            top: '20%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'category',
+            data: dates,
+            boundaryGap: false,
+            axisLabel: {
+                color: '#666',
+                fontSize: 11
+            },
+            axisLine: {
+                lineStyle: {
+                    color: '#ddd'
+                }
+            },
+            axisTick: {
+                show: false
+            }
+        },
+        yAxis: {
+            type: 'value',
+            name: '人数',
+            nameTextStyle: {
+                color: '#666',
+                fontSize: 12
+            },
+            axisLabel: {
+                color: '#666',
+                fontSize: 11
+            },
+            splitLine: {
+                lineStyle: {
+                    color: '#f0f0f0',
+                    type: 'dashed'
+                }
+            }
+        },
+        series: [
+            {
+                name: '在线用户',
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                data: data.map(item => ({
+                    value: item.online_user_count,
+                    fullDate: item.date,
+                    weekday: getWeekday(item.date)
+                })),
+                itemStyle: {
+                    color: '#10b981',
+                    borderColor: '#fff',
+                    borderWidth: 2
+                },
+                lineStyle: {
+                    color: '#10b981',
+                    width: 3
+                },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(16, 185, 129, 0.35)' },
+                        { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }
+                    ])
+                }
+            }
+        ]
+    };
+
+    dailyOnlineUsersChartInstance.setOption(option);
+    window.addEventListener('resize', handleDailyOnlineUsersResize);
+};
+
+const initEmptyDailyOnlineUsersChart = () => {
+    if (!dailyOnlineUsersChart.value) return;
+
+    if (dailyOnlineUsersChartInstance) {
+        dailyOnlineUsersChartInstance.dispose();
+    }
+
+    dailyOnlineUsersChartInstance = echarts.init(dailyOnlineUsersChart.value);
+    dailyOnlineUsersChartInstance.setOption({
+        title: {
+            text: `最近${onlineUserDays.value}天在线用户数量`,
+            left: 'center',
+            textStyle: {
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: '#333'
+            }
+        },
+        graphic: [
+            {
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: {
+                    text: '暂无在线用户趋势数据',
+                    fontSize: 14,
+                    fill: '#999'
+                }
+            }
+        ]
+    });
+};
+
+const handleDailyOnlineUsersResize = () => {
+    if (dailyOnlineUsersChartInstance) {
+        dailyOnlineUsersChartInstance.resize();
+    }
+};
+
+const refreshDailyOnlineUsers = () => {
+    fetchDailyOnlineUsersData();
+};
+
 // 获取学校积分排行榜数据
 const fetchSchoolRankingData = async () => {
     schoolRankingLoading.value = true;
@@ -957,6 +1196,7 @@ onMounted(() => {
         fetchRankingData();
         fetchSchoolRankingData();
         fetchTrendData();
+        fetchDailyOnlineUsersData();
     });
 });
 
@@ -971,9 +1211,13 @@ onUnmounted(() => {
     if (trendChartInstance) {
         trendChartInstance.dispose();
     }
+    if (dailyOnlineUsersChartInstance) {
+        dailyOnlineUsersChartInstance.dispose();
+    }
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('resize', handleSchoolRankingResize);
     window.removeEventListener('resize', handleTrendResize);
+    window.removeEventListener('resize', handleDailyOnlineUsersResize);
 });
 </script>
 
@@ -1090,6 +1334,7 @@ onUnmounted(() => {
 }
 
 .chart-section,
+.online-users-section,
 .activity-section,
 .actions-section {
     margin-bottom: 24px;
@@ -1164,6 +1409,10 @@ onUnmounted(() => {
 }
 
 .school-ranking-chart {
+    height: 350px;
+}
+
+.online-users-chart {
     height: 350px;
 }
 

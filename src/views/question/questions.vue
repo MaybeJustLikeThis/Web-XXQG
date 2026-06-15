@@ -37,8 +37,8 @@
             </el-table-column>
             <el-table-column label="公开" width="80" align="center">
                 <template #default="scope">
-                    <el-tag :type="scope.row.public ? 'success' : 'info'">
-                        {{ scope.row.public ? '公开' : '私有' }}
+                    <el-tag :type="scope.row.public === true ? 'success' : scope.row.public === false ? 'info' : 'warning'">
+                        {{ scope.row.public === true ? '公开' : scope.row.public === false ? '私有' : '未知' }}
                     </el-tag>
                 </template>
             </el-table-column>
@@ -88,11 +88,26 @@
                 <el-form-item v-if="isChoiceQuestion" label="选项配置">
                     <div class="options-container">
                         <div v-for="(option, index) in form.detail.options" :key="index" class="option-item">
+                            <span class="option-label">{{ getOptionLabel(index) }}.</span>
                             <el-input v-model="form.detail.options[index]"
-                                :placeholder="`选项${String.fromCharCode(65 + index)}`">
-                                <template #prepend>{{ String.fromCharCode(65 + index) }}.</template>
-                            </el-input>
+                                type="textarea"
+                                resize="none"
+                                :autosize="{ minRows: 1, maxRows: 4 }"
+                                :placeholder="`选项${getOptionLabel(index)}`" />
+                            <el-button
+                                :icon="Delete"
+                                circle
+                                :disabled="form.detail.options.length <= MIN_OPTION_COUNT"
+                                @click="removeOption(index)" />
                         </div>
+                        <el-button
+                            type="primary"
+                            plain
+                            :icon="Plus"
+                            :disabled="form.detail.options.length >= MAX_OPTION_COUNT"
+                            @click="addOption">
+                            添加选项
+                        </el-button>
                     </div>
                 </el-form-item>
 
@@ -100,8 +115,8 @@
                 <el-form-item v-if="form.type === 1" label="正确答案">
                     <el-radio-group v-model="form.detail.standard_answer[0]">
                         <el-radio v-for="(option, index) in form.detail.options" :key="index"
-                            :label="String.fromCharCode(65 + index)">
-                            {{ String.fromCharCode(65 + index) }}. {{ option }}
+                            :label="getOptionLabel(index)">
+                            {{ getOptionLabel(index) }}. {{ option }}
                         </el-radio>
                     </el-radio-group>
                 </el-form-item>
@@ -110,8 +125,8 @@
                 <el-form-item v-if="form.type === 2" label="正确答案">
                     <el-checkbox-group v-model="form.detail.standard_answer">
                         <el-checkbox v-for="(option, index) in form.detail.options" :key="index"
-                            :label="String.fromCharCode(65 + index)">
-                            {{ String.fromCharCode(65 + index) }}. {{ option }}
+                            :label="getOptionLabel(index)">
+                            {{ getOptionLabel(index) }}. {{ option }}
                         </el-checkbox>
                     </el-checkbox-group>
                 </el-form-item>
@@ -130,9 +145,14 @@
             </el-form>
             <template #footer>
                 <span class="dialog-footer">
-                    <el-button @click="dialogVisible = false">取 消</el-button>
-                    <el-button v-if="!form.id" type="info" @click="handleSaveDraft">保存草稿</el-button>
-                    <el-button type="primary" @click="handleSubmit">确 定</el-button>
+                    <span>
+                        <el-button @click="dialogVisible = false">取 消</el-button>
+                        <el-button v-if="!form.id" type="info" @click="handleSaveDraft">保存草稿</el-button>
+                        <el-button v-if="!form.id" type="success" plain @click="handleSubmitAndContinue">
+                            继续添加题目
+                        </el-button>
+                        <el-button type="primary" @click="handleSubmit">确 定</el-button>
+                    </span>
                 </span>
             </template>
         </el-dialog>
@@ -157,9 +177,9 @@
                 </div>
                 <div v-if="previewQuestion.options" class="question-options">
                     <div v-for="option in previewQuestion.options" :key="option.id" class="option-item">
-                        <el-tag :type="option.isCorrect ? 'success' : 'info'">
+                        <div class="preview-option" :class="{ 'is-correct': option.isCorrect }">
                             {{ option.text }}
-                        </el-tag>
+                        </div>
                     </div>
                 </div>
                 <div class="question-answer">
@@ -347,6 +367,7 @@ const query = reactive<QuestionQuery>({
 
 // 存储所有题目数据（用于客户端分页）
 const allQuestionsData = ref<any[]>([]);
+const QUESTION_FETCH_SIZE = 10000;
 
 // 表格数据
 const tableData = ref<any[]>([]);
@@ -358,6 +379,50 @@ const previewVisible = ref(false);
 const reviewVisible = ref(false);
 const dialogTitle = ref('新增题目');
 const formRef = ref();
+const MIN_OPTION_COUNT = 2;
+const MAX_OPTION_COUNT = 26;
+const DEFAULT_OPTION_COUNT = 4;
+
+const getOptionLabel = (index: number) => String.fromCharCode(65 + index);
+const getOptionIndex = (label: string) => label.charCodeAt(0) - 65;
+const createDefaultOptions = (count = DEFAULT_OPTION_COUNT) =>
+    Array.from({ length: Math.min(Math.max(count, MIN_OPTION_COUNT), MAX_OPTION_COUNT) }, (_, index) => `选项${getOptionLabel(index)}`);
+const createEmptyOptions = (count = DEFAULT_OPTION_COUNT) =>
+    Array.from({ length: Math.min(Math.max(count, MIN_OPTION_COUNT), MAX_OPTION_COUNT) }, () => '');
+const normalizeOptions = (options?: string[], fallbackCount = DEFAULT_OPTION_COUNT) => {
+    const normalized = options?.length ? options.slice(0, MAX_OPTION_COUNT) : createDefaultOptions(fallbackCount);
+    while (normalized.length < MIN_OPTION_COUNT) {
+        normalized.push('');
+    }
+    return normalized;
+};
+const buildPreviewOptions = (detail: any, type: string | number) => {
+    const numericType = normalizeQuestionType(type);
+    if (numericType === 3) return [];
+
+    const answers = detail?.standard_answer || [];
+    return normalizeOptions(detail?.options).map((option, index) => {
+        const label = getOptionLabel(index);
+        return {
+            id: label,
+            text: `${label}. ${option || `选项${label}`}`,
+            isCorrect: answers.includes(label),
+        };
+    });
+};
+const formatCorrectAnswer = (detail: any, type: string | number) => {
+    const answers = detail?.standard_answer || [];
+    if (normalizeQuestionType(type) === 2) {
+        return answers.join('、');
+    }
+    return answers[0] || '';
+};
+const normalizeQuestionType = (type: string | number) => {
+    if (typeof type !== 'string') return type;
+    if (type === 'single_choice') return 1;
+    if (type === 'multiple_choice') return 2;
+    return 3;
+};
 
 // 表单数据
 const form = reactive({
@@ -366,12 +431,13 @@ const form = reactive({
     type: 1,
     detail: {
         title: '',
-        options: ['选项一', '选项二', '选项三', '选项四'],
+        options: createDefaultOptions(),
         fixed_answer: true,
         standard_answer: [],
         reference_answer: ''
     },
     public: true,
+    publicFieldKnown: true,
     status: 1,
 });
 
@@ -499,141 +565,81 @@ const isChoiceQuestion = computed(() => {
     return form.type === 1 || form.type === 2;
 });
 
+const getQueryTypeValue = () => {
+    if (!query.type) return undefined;
+    return normalizeQuestionType(query.type);
+};
+
+const buildQuestionTableRow = (item: any) => {
+    const transformedData = transformQuestionData(item);
+
+    return {
+        ...transformedData,
+        originalData: item,
+        title: transformedData.detail.title,
+        type: transformedData.type,
+        typeText: getQuestionTypeText(transformedData.type),
+        difficulty: 'medium',
+        status: transformedData.status,
+        statusText: transformedData.status === 1 ? 'active' : 'inactive',
+        content: transformedData.detail.title,
+        options: buildPreviewOptions(transformedData.detail, transformedData.type),
+        correctAnswer: formatCorrectAnswer(transformedData.detail, transformedData.type),
+        explanation: transformedData.detail.reference_answer || '',
+        points: 10,
+        fixed_answer: transformedData.detail.fixed_answer,
+        answered: false,
+        creatorId: transformedData.creator,
+        createTime: '',
+        updateTime: '',
+    };
+};
+
+const getFilteredQuestions = () => {
+    const keyword = query.title?.trim().toLowerCase();
+    const selectedType = getQueryTypeValue();
+
+    return allQuestionsData.value.filter((item: any) => {
+        const title = (item.detail?.title || item.title || '').toLowerCase();
+        const matchesTitle = !keyword || title.includes(keyword);
+        const matchesType = !selectedType || item.type === selectedType;
+        return matchesTitle && matchesType;
+    });
+};
+
 // 获取题目列表
 const getQuestions = async () => {
     try {
-        // 构造分页参数
+        // ?? admin ??????????????????????????????
         const params = {
-            page: query.page,
-            size: query.pageSize
+            page: 0,
+            size: QUESTION_FETCH_SIZE
         };
 
         const res = await getAllQuestions(params);
 
         if (res.data && res.data.code === 200) {
-            // 检查是否是分页数据结构
             const apiData = res.data.data;
-            let questionsData: any[] = [];
-            let totalCount = 0;
-
+            let rawQuestions: any[] = [];
 
             if (Array.isArray(apiData)) {
-                // 直接返回数组（无分页）- 进行客户端分页
-
-                // 转换所有数据
-                const allQuestions = apiData.map((item: any) => {
-                    const transformedData = transformQuestionData(item);
-
-                    // 创建兼容对象，包含旧格式的字段
-                    return {
-                        ...transformedData,
-                        // 保存原始数据用于编辑
-                        originalData: item,
-                        // 兼容旧字段
-                        title: transformedData.detail.title,
-                        type: (() => {
-                            // 将数字类型转换为前端需要的字符串类型
-                            switch (transformedData.type) {
-                                case 1: return 'single_choice';
-                                case 2: return 'multiple_choice';
-                                case 3: return 'essay';
-                                default: return 'single_choice';
-                            }
-                        })(),
-                        difficulty: 'medium', // API没有返回难度信息
-                        status: transformedData.status === 1 ? 'active' : 'inactive',
-                        content: transformedData.detail.title,
-                        options: transformedData.type === 3 ? [] : (transformedData.detail.options?.map((opt: string, index: number) => ({
-                            id: (index + 1).toString(),
-                            text: opt,
-                            isCorrect: transformedData.detail.standard_answer?.includes(index.toString()) || false
-                        })) || []),
-                        correctAnswer: (() => {
-                            if (transformedData.type === 1) { // 单选题
-                                return transformedData.detail.standard_answer?.[0] || '';
-                            } else if (transformedData.type === 2) { // 多选题
-                                return transformedData.detail.standard_answer?.join(',') || '';
-                            } else {
-                                return transformedData.detail.standard_answer?.[0] || '';
-                            }
-                        })(),
-                        explanation: transformedData.detail.reference_answer || '',
-                        points: 10, // API没有返回分值
-                        fixed_answer: transformedData.detail.fixed_answer,
-                        answered: false, // API没有返回此字段
-                        // 兼容原有字段
-                        creatorId: transformedData.creator,
-                        createTime: '',
-                        updateTime: '',
-                    };
-                });
-
-                // 保存所有数据
-                allQuestionsData.value = allQuestions;
-                totalCount = allQuestions.length;
-
-                // 应用客户端分页
-                const startIndex = query.page * query.pageSize;
-                const endIndex = startIndex + query.pageSize;
-                questionsData = allQuestions.slice(startIndex, endIndex);
-
+                rawQuestions = apiData;
             } else if (apiData && apiData.list && Array.isArray(apiData.list)) {
-                // 分页数据结构 { list: [], total: number }
-                questionsData = apiData.list.map((item: any) => {
-                    const transformedData = transformQuestionData(item);
-                    return {
-                        ...transformedData,
-                        // 兼容旧字段转换...
-                        title: transformedData.detail.title,
-                        type: (() => {
-                            switch (transformedData.type) {
-                                case 1: return 'single_choice';
-                                case 2: return 'multiple_choice';
-                                case 3: return 'essay';
-                                default: return 'single_choice';
-                            }
-                        })(),
-                        difficulty: 'medium',
-                        status: transformedData.status === 1 ? 'active' : 'inactive',
-                        content: transformedData.detail.title,
-                        options: transformedData.type === 3 ? [] : (transformedData.detail.options?.map((opt: string, index: number) => ({
-                            id: (index + 1).toString(),
-                            text: opt,
-                            isCorrect: transformedData.detail.standard_answer?.includes(index.toString()) || false
-                        })) || []),
-                        correctAnswer: (() => {
-                            if (transformedData.type === 1) {
-                                return transformedData.detail.standard_answer?.[0] || '';
-                            } else if (transformedData.type === 2) {
-                                return transformedData.detail.standard_answer?.join(',') || '';
-                            } else {
-                                return transformedData.detail.standard_answer?.[0] || '';
-                            }
-                        })(),
-                        explanation: transformedData.detail.reference_answer || '',
-                        points: 10,
-                        fixed_answer: transformedData.detail.fixed_answer,
-                        answered: false,
-                        creatorId: transformedData.creator,
-                        createTime: '',
-                        updateTime: '',
-                    };
-                });
-                totalCount = apiData.total || apiData.list.length;
+                rawQuestions = apiData.list;
             } else {
-                throw new Error('API返回数据格式不正确');
+                throw new Error('API?????????');
             }
 
-            tableData.value = questionsData;
-            pageTotal.value = totalCount;
+            allQuestionsData.value = rawQuestions.map(buildQuestionTableRow);
+            applyClientPagination();
         } else {
-            throw new Error('API返回数据格式不正确');
+            throw new Error('API?????????');
         }
     } catch (error) {
-        showError(error, '获取题目列表失败');
-        console.error('获取题目列表错误:', error);
+        showError(error, '????????');
+        console.error('????????:', error);
 
-        // 使用模拟数据作为fallback
+        allQuestionsData.value = [];
         tableData.value = [];
         pageTotal.value = 0;
     }
@@ -642,40 +648,33 @@ const getQuestions = async () => {
 // 搜索
 const handleSearch = async () => {
     query.page = 0; // 重置到第一页
-    await getQuestions();
+    if (allQuestionsData.value.length > 0) {
+        applyClientPagination();
+    } else {
+        await getQuestions();
+    }
 };
 
 // 分页切换
 const handlePageChange = (val: number) => {
     query.page = val - 1; // 前端分页从1开始，后端从0开始
-
-    // 如果有全量数据，直接进行客户端分页
-    if (allQuestionsData.value.length > 0) {
-        applyClientPagination();
-    } else {
-        getQuestions();
-    }
+    applyClientPagination();
 };
 
 // 客户端分页处理
 const applyClientPagination = () => {
+    const filteredQuestions = getFilteredQuestions();
     const startIndex = query.page * query.pageSize;
     const endIndex = startIndex + query.pageSize;
-    tableData.value = allQuestionsData.value.slice(startIndex, endIndex);
-    pageTotal.value = allQuestionsData.value.length;
+    tableData.value = filteredQuestions.slice(startIndex, endIndex);
+    pageTotal.value = filteredQuestions.length;
 };
 
 // 分页大小切换
 const handleSizeChange = async (val: number) => {
     query.pageSize = val;
     query.page = 0; // 重置到第一页
-
-    // 如果有全量数据，直接进行客户端分页
-    if (allQuestionsData.value.length > 0) {
-        applyClientPagination();
-    } else {
-        await getQuestions();
-    }
+    applyClientPagination();
 };
 
 // 新增题目
@@ -700,29 +699,30 @@ const handleEdit = (row: any) => {
 
     // 使用 nextTick 确保数据更新后视图重新渲染
     nextTick(() => {
+        const normalizedData = transformQuestionData(originalData);
+
         // 将数据赋值给form对象，使用新的数据结构
-        form.id = row.id;
-        form.creator = originalData.creator || 'admin';
+        form.id = normalizedData.id;
+        form.creator = normalizedData.creator || 'admin';
         // 确保type是数字格式
-        form.type = typeof originalData.type === 'string' ?
-            (originalData.type === 'single_choice' ? 1 : originalData.type === 'multiple_choice' ? 2 : 3) :
-            (originalData.type || 1);
+        form.type = normalizedData.type;
 
         // 更新详情数据 - 直接从原始数据获取
         form.detail = {
-            title: originalData.detail?.title || '',
-            options: [...(originalData.detail?.options || ['选项一', '选项二', '选项三', '选项四'])],
-            fixed_answer: originalData.detail?.fixed_answer !== undefined ? originalData.detail.fixed_answer : true,
-            standard_answer: keepAnswerFormat(originalData.detail?.standard_answer || []),
-            reference_answer: originalData.detail?.reference_answer || ''
+            title: normalizedData.detail.title,
+            options: normalizeOptions(normalizedData.detail.options),
+            fixed_answer: normalizedData.detail.fixed_answer,
+            standard_answer: keepAnswerFormat(normalizedData.detail.standard_answer || []),
+            reference_answer: normalizedData.detail.reference_answer || ''
         };
 
-        form.public = originalData.public !== undefined ? originalData.public : true;
-        form.status = originalData.status || 1;
+        form.publicFieldKnown = typeof normalizedData.public === 'boolean';
+        form.public = normalizedData.public ?? true;
+        form.status = normalizedData.status;
 
         // 确保选择题有选项
         if (isChoiceQuestion.value && (!form.detail.options || form.detail.options.length === 0)) {
-            form.detail.options = ['选项一', '选项二', '选项三', '选项四'];
+            form.detail.options = createDefaultOptions();
         }
     });
 };
@@ -736,8 +736,8 @@ const handleView = (row: any) => {
         difficulty: 'medium',
         status: row.status === 1 ? 'active' : 'inactive',
         content: row.detail?.title || row.title || '',
-        options: row.options || [],
-        correctAnswer: row.detail?.standard_answer?.[0] || '',
+        options: buildPreviewOptions(row.detail, row.type),
+        correctAnswer: formatCorrectAnswer(row.detail, row.type),
         explanation: row.detail?.reference_answer || '',
         points: 10,
     };
@@ -753,8 +753,8 @@ const handleReview = (row: any) => {
         difficulty: 'medium',
         status: row.status === 1 ? 'active' : 'inactive',
         content: row.detail?.title || row.title || '',
-        options: row.options || [],
-        correctAnswer: row.detail?.standard_answer?.[0] || '',
+        options: buildPreviewOptions(row.detail, row.type),
+        correctAnswer: formatCorrectAnswer(row.detail, row.type),
         explanation: row.detail?.reference_answer || '',
         points: 10,
     };
@@ -870,12 +870,33 @@ const handleTypeChange = (type: number) => {
     form.detail.standard_answer = [];
 
     if (type === 1 || type === 2) { // 单选题或多选题
-        form.detail.options = ['选项一', '选项二', '选项三', '选项四'];
+        form.detail.options = createDefaultOptions();
         form.detail.fixed_answer = true;
     } else { // 简答题
         form.detail.options = [];
         form.detail.fixed_answer = false;
     }
+};
+
+const addOption = () => {
+    if (form.detail.options.length >= MAX_OPTION_COUNT) {
+        ElMessage.warning('选项最多添加到 Z');
+        return;
+    }
+    form.detail.options.push('');
+};
+
+const removeOption = (index: number) => {
+    if (form.detail.options.length <= MIN_OPTION_COUNT) return;
+
+    form.detail.options.splice(index, 1);
+    form.detail.standard_answer = form.detail.standard_answer
+        .map((answer: string) => {
+            const answerIndex = getOptionIndex(answer);
+            if (answerIndex === index) return '';
+            return answerIndex > index ? getOptionLabel(answerIndex - 1) : answer;
+        })
+        .filter(Boolean);
 };
 
 
@@ -891,8 +912,13 @@ const handleSubmit = () => {
     submitForm();
 };
 
+const handleSubmitAndContinue = () => {
+    form.status = 1;
+    submitForm(true);
+};
+
 // 提交表单逻辑
-const submitForm = async () => {
+const submitForm = async (continueAdding = false) => {
     if (!formRef.value) return;
 
     try {
@@ -936,9 +962,12 @@ const submitForm = async () => {
                 standard_answer: standard_answer,
                 reference_answer: form.detail.reference_answer || undefined
             },
-            public: form.public,
             status: form.status
         };
+
+        if (!form.id || form.publicFieldKnown) {
+            submitData.public = form.public;
+        }
 
         // 只有编辑时才添加id字段
         if (form.id) {
@@ -955,7 +984,13 @@ const submitForm = async () => {
             ElMessage.success('创建成功');
         }
 
-        dialogVisible.value = false;
+        if (continueAdding && !form.id) {
+            resetFormKeepTypeAndOptionCount();
+            await nextTick();
+            formRef.value?.clearValidate?.();
+        } else {
+            dialogVisible.value = false;
+        }
         // 创建成功后重置到第一页
         if (!form.id) {
             query.page = 0;
@@ -987,12 +1022,34 @@ const resetForm = () => {
         type: 1,
         detail: {
             title: '',
-            options: ['选项一', '选项二', '选项三', '选项四'],
+            options: createDefaultOptions(),
             fixed_answer: true,
             standard_answer: [],
             reference_answer: ''
         },
         public: true,
+        publicFieldKnown: true,
+        status: 1,
+    });
+};
+
+const resetFormKeepTypeAndOptionCount = () => {
+    const currentType = form.type;
+    const optionCount = isChoiceQuestion.value ? form.detail.options.length : DEFAULT_OPTION_COUNT;
+
+    Object.assign(form, {
+        id: '',
+        creator: 'admin',
+        type: currentType,
+        detail: {
+            title: '',
+            options: currentType === 1 || currentType === 2 ? createEmptyOptions(optionCount) : [],
+            fixed_answer: currentType === 1 || currentType === 2,
+            standard_answer: [],
+            reference_answer: ''
+        },
+        public: true,
+        publicFieldKnown: true,
         status: 1,
     });
 };
@@ -1187,7 +1244,28 @@ onMounted(async () => {
 }
 
 .option-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     margin-bottom: 10px;
+}
+
+.option-label {
+    flex: 0 0 28px;
+    padding-top: 6px;
+    color: #606266;
+    font-weight: 500;
+    text-align: right;
+}
+
+.option-item .el-textarea {
+    flex: 1;
+}
+
+.dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
 }
 
 .question-preview {
@@ -1221,6 +1299,25 @@ onMounted(async () => {
 
 .question-options .option-item {
     margin-bottom: 8px;
+}
+
+.preview-option {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    background: #fff;
+    color: #606266;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.preview-option.is-correct {
+    border-color: #b3e19d;
+    background: #f0f9eb;
+    color: #529b2e;
 }
 
 .question-answer {

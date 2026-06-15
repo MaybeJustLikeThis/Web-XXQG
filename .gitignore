@@ -1,6 +1,27 @@
 .DS_Store
 node_modules
 /dist
+
+# Build/package artifacts
+*.zip
+*.tar
+*.tgz
+*.rar
+*.7z
+
+# Local screenshots and visual test artifacts
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.gif
+test-results/
+playwright-report/
+coverage/
+
+# AI/agent local workspace files
+.agents/
+.codex/
 .worktrees/
 .playwright-mcp/
 /docs
@@ -20,6 +41,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.vite-dev-*.log
 
 # Editor directories and files
 .idea

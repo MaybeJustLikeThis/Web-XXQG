@@ -44,7 +44,7 @@ export interface Question {
     creator: string;                   // 创建者
     type: number;                      // 题目类型：1=单选, 2=多选, 3=填空/简答
     detail: QuestionDetail;            // 题目详情
-    public: boolean;                   // 是否公开
+    public?: boolean;                  // 是否公开，列表接口可能不返回
     status: number;                     // 题目状态：1=启用
 }
 
@@ -101,21 +101,48 @@ export interface ImportResult {
     }>;
 }
 
+const parseMaybeJson = (value: any) => {
+    if (typeof value !== 'string') return value;
+
+    try {
+        return JSON.parse(value);
+    } catch {
+        return value;
+    }
+};
+
+const normalizeQuestionType = (type: any): number => {
+    if (type === 1 || type === '1' || type === 'single_choice') return 1;
+    if (type === 2 || type === '2' || type === 'multiple_choice') return 2;
+    if (type === 3 || type === '3' || type === 'essay' || type === 'fill_blank' || type === 'judge') return 3;
+    return 1;
+};
+
+const normalizeStringArray = (value: any): string[] => {
+    const parsed = parseMaybeJson(value);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item));
+    if (typeof parsed === 'string' && parsed.trim()) return [parsed];
+    return [];
+};
+
 // 数据转换工具函数
 export const transformQuestionData = (apiData: any): Question => {
+    const detail = parseMaybeJson(apiData.detail) || {};
+    const type = normalizeQuestionType(apiData.type);
+
     return {
-        id: apiData.id.toString(),
-        creator: apiData.creator.toString(),
-        type: apiData.type, // 1=单选, 2=多选, 3=填空/简答
+        id: apiData.id?.toString() || '',
+        creator: apiData.creator?.toString() || '',
+        type, // 1=单选, 2=多选, 3=填空/简答
         detail: {
-            title: apiData.detail.title,
-            options: apiData.detail.options,
-            fixed_answer: apiData.detail.fixed_answer,
-            standard_answer: apiData.detail.standard_answer || [],
-            reference_answer: apiData.detail.reference_answer
+            title: detail.title || apiData.title || '',
+            options: normalizeStringArray(detail.options ?? apiData.options),
+            fixed_answer: detail.fixed_answer ?? apiData.fixed_answer ?? type !== 3,
+            standard_answer: normalizeStringArray(detail.standard_answer ?? apiData.standard_answer),
+            reference_answer: detail.reference_answer ?? apiData.reference_answer ?? null
         },
-        public: apiData.public,
-        status: apiData.status // 1=启用
+        public: typeof apiData.public === 'boolean' ? apiData.public : undefined,
+        status: apiData.status ?? 1 // 1=启用
     };
 };
 
