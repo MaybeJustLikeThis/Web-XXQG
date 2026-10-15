@@ -12,7 +12,7 @@
             </el-form-item>
             <el-form-item label="性别" prop="sex">
                 <el-select v-model="form.sex" placeholder="请选择性别" style="width: 100%">
-                    <el-option v-for="opt in SEX_OPTIONS" :key="opt" :label="opt" :value="opt" />
+                    <el-option v-for="opt in SEX_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
             </el-form-item>
             <el-form-item label="民族" prop="race">
@@ -39,9 +39,23 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { createUser, updateUserByAdmin } from '@/api/user';
 import { showError } from '@/utils/errorHandler';
 import type { DepartmentUser } from '@/types/organization';
+import type { UserSexCode } from '@/types/user';
 
-// 性别可选项。若后端要求数字编码，仅需把此处改成 [{ label: '男', value: 1 }, ...] 并同步 value 绑定。
-const SEX_OPTIONS = ['男', '女'] as const;
+// 界面仍显示中文；提交值为数字：0 男，1 女，2 未确定。
+const SEX_OPTIONS: { label: string; value: UserSexCode }[] = [
+    { label: '男', value: 0 },
+    { label: '女', value: 1 },
+    { label: '未确定', value: 2 }
+];
+
+/** 列表里的中文（或历史空值）转成写入接口要求的数字。未知一律按未确定。 */
+function toUserSexCode(sex: unknown): UserSexCode {
+    if (sex === 0 || sex === 1 || sex === 2) return sex;
+    const text = typeof sex === 'string' ? sex.trim() : '';
+    if (text === '男' || text === '0') return 0;
+    if (text === '女' || text === '1') return 1;
+    return 2;
+}
 
 const props = defineProps<{
     visible: boolean;
@@ -60,7 +74,7 @@ const submitting = ref(false);
 
 interface MemberForm {
     name: string;
-    sex: string;
+    sex: UserSexCode;
     race: string;
     political_status: string;
     id_number: string;
@@ -68,7 +82,7 @@ interface MemberForm {
 
 const form = reactive<MemberForm>({
     name: '',
-    sex: '',
+    sex: 2,
     race: '',
     political_status: '',
     id_number: ''
@@ -85,13 +99,13 @@ watch(
         if (!v) return;
         if (props.mode === 'edit' && props.user) {
             form.name = props.user.name || '';
-            form.sex = props.user.sex || '';
+            form.sex = toUserSexCode(props.user.sex);
             form.race = props.user.race || '';
             form.political_status = props.user.political_status || '';
             form.id_number = props.user.id_number || '';
         } else {
             form.name = '';
-            form.sex = '';
+            form.sex = 2;
             form.race = '';
             form.political_status = '';
             form.id_number = '';
@@ -109,6 +123,13 @@ const handleSubmit = async () => {
 
     submitting.value = true;
     try {
+        const payload = {
+            name: form.name,
+            sex: toUserSexCode(form.sex),
+            race: form.race,
+            political_status: form.political_status,
+            id_number: form.id_number
+        };
         if (props.mode === 'add') {
             if (!props.departmentId) {
                 ElMessage.warning('未选择部门');
@@ -116,7 +137,7 @@ const handleSubmit = async () => {
             }
             const res = await createUser({
                 department_id: props.departmentId,
-                ...form
+                ...payload
             });
             if (res.data && res.data.code === 200) {
                 ElMessage.success('新增成功');
@@ -127,7 +148,7 @@ const handleSubmit = async () => {
             }
         } else {
             if (!props.user) return;
-            const res = await updateUserByAdmin(props.user.id, { ...form });
+            const res = await updateUserByAdmin(props.user.id, payload);
             if (res.data && res.data.code === 200) {
                 ElMessage.success('修改成功');
                 emit('success');
