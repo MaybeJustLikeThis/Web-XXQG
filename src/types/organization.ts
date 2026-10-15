@@ -20,6 +20,7 @@ export interface DepartmentUser {
     id: number;
     wx_id: string;
     name: string;
+    /** 列表接口返回的展示文案（如「男」「女」「未确定」），创建/更新请提交数字 0/1/2 */
     sex: string;
     race: string;
     political_status: string;

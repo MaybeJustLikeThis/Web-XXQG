@@ -9,6 +9,7 @@ export interface UserProfile {
     id: number;
     wx_id: string;
     name: string;
+    /** 登录资料里的展示文案，不是创建/更新提交的数字编码 */
     sex: string;
     race: string;
     political_status: string;

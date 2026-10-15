@@ -1,4 +1,5 @@
 import request from '@/utils/request';
+import type { CreateUserPayload, UserAdminWritePayload } from '@/types/user';
 
 // 根据部门ID获取用户列表
 export const getUsersByDepartment = (department_id: number) => {
@@ -27,8 +28,8 @@ export const getUserById = (id: string | number) => {
     });
 };
 
-// 创建用户
-export const createUser = (data: any) => {
+// 创建用户（sex 为数字：0 男，1 女，2 未确定）
+export const createUser = (data: CreateUserPayload) => {
     return request({
         url: '/user/add',
         method: 'post',
@@ -54,8 +55,8 @@ export const updateUser = (data: { id: number; [key: string]: any }) => {
     });
 };
 
-// 管理员更新用户信息（sex 与全项目类型定义一致为 string："男"/"女"）
-export const updateUserByAdmin = (user_id: number, data: { name: string; sex: string; race: string; political_status: string; id_number: string }) => {
+// 管理员更新用户信息（sex 为数字：0 男，1 女，2 未确定）
+export const updateUserByAdmin = (user_id: number, data: UserAdminWritePayload) => {
     return request({
         url: '/user/update_by_admin',
         method: 'post',
