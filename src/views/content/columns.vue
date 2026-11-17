@@ -228,6 +228,16 @@ const columnList = ref([
         textColor: 'text-pink-600',
         titleColor: 'text-pink-800',
     },
+    {
+        id: 10,
+        name: '思政名家三晋有约',
+        icon: '🎙️',
+        color: 'red',
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-200',
+        textColor: 'text-red-600',
+        titleColor: 'text-red-800',
+    },
 ]);
 
 // 选中的专栏
