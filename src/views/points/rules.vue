@@ -3,12 +3,17 @@
         <el-card v-if="isSuperAdmin" class="comment-config" shadow="never" v-loading="configLoading">
             <template #header>评论设置</template>
             <el-form label-width="130px">
+                <el-form-item label="显示评论区">
+                    <el-switch v-model="commentSectionEnabled" :disabled="!configReady || savingComment || dialogVisible"
+                        active-text="显示" inactive-text="隐藏" aria-label="显示评论区" />
+                </el-form-item>
                 <el-form-item label="允许发送评论">
                     <el-switch v-model="commentEnabled" :disabled="!configReady || savingComment || dialogVisible"
                         active-text="开启" inactive-text="关闭" aria-label="允许发送评论" />
                 </el-form-item>
             </el-form>
-            <p>关闭后暂停接收新评论，不保存评论，也不会进入审核队列。保存成功后立即生效。</p>
+            <p>关闭“显示评论区”后，用户端可根据状态接口隐藏评论区，文章接口返回空评论列表；不会改变“允许发送评论”设置。</p>
+            <p>关闭“允许发送评论”后暂停接收新评论，不保存评论，也不会进入审核队列。保存成功后立即生效。</p>
             <el-button type="primary" :loading="savingComment" :disabled="!configReady || dialogVisible"
                 @click="saveCommentSetting">保存评论设置</el-button>
         </el-card>
@@ -208,6 +213,7 @@ import { usePermissStore } from '@/store/permiss';
 const permiss = usePermissStore();
 const isSuperAdmin = computed(() => permiss.userProfile?.is_super_admin === true);
 const commentEnabled = ref(true);
+const commentSectionEnabled = ref(true);
 const configLoading = ref(false);
 const configReady = ref(false);
 const savingComment = ref(false);
@@ -344,6 +350,11 @@ const getConfig = async () => {
         if (data.comment_enabled != null && typeof data.comment_enabled !== 'boolean') {
             throw new Error('评论开关配置格式不正确');
         }
+        if (data.comment_section_enabled != null && typeof data.comment_section_enabled !== 'boolean') {
+            throw new Error('评论区显示配置格式不正确');
+        }
+        config.comment_section_enabled = data.comment_section_enabled ?? true;
+        commentSectionEnabled.value = config.comment_section_enabled;
         config.comment_enabled = data.comment_enabled ?? true;
         commentEnabled.value = config.comment_enabled;
         configReady.value = true;
@@ -366,14 +377,17 @@ const saveCommentSetting = async () => {
     savingComment.value = true;
     try {
         const requested = commentEnabled.value;
+        const requestedSection = commentSectionEnabled.value;
         const res = await setPointConfig({
             login: { ...config.login }, read: { ...config.read },
             answer: { ...config.answer }, competition: { ...config.competition },
-            comment_enabled: requested
+            comment_enabled: requested,
+            comment_section_enabled: requestedSection
         });
         if (res.data?.code !== 200) throw new Error('保存评论设置失败');
         await getConfig();
-        if (!configReady.value || config.comment_enabled !== requested) {
+        if (!configReady.value || config.comment_enabled !== requested
+            || config.comment_section_enabled !== requestedSection) {
             throw new Error('未确认设置生效，请检查后端部署后刷新重试');
         }
         ElMessage.success('评论设置已保存');
@@ -451,6 +465,7 @@ const handleSave = async () => {
         // 数据转换：从editConfig转换到API需要的格式
         const apiData = {
             comment_enabled: config.comment_enabled ?? true,
+            comment_section_enabled: config.comment_section_enabled ?? true,
             login: {
                 score: editConfig.login.score,
                 limit: editConfig.login.limit
