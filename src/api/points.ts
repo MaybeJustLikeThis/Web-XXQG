@@ -2,6 +2,8 @@ import request from '../utils/request';
 
 // 积分配置相关接口
 export interface PointConfig {
+    comment_enabled?: boolean;
+    comment_section_enabled?: boolean;
     login: { score: number; limit: number };
     read: { score: number; limit: number };
     answer: { score: number; limit: number };
