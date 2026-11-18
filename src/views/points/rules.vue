@@ -1,8 +1,21 @@
 <template>
     <div class="container">
+        <el-card v-if="isSuperAdmin" class="comment-config" shadow="never" v-loading="configLoading">
+            <template #header>评论设置</template>
+            <el-form label-width="130px">
+                <el-form-item label="允许发送评论">
+                    <el-switch v-model="commentEnabled" :disabled="!configReady || savingComment || dialogVisible"
+                        active-text="开启" inactive-text="关闭" aria-label="允许发送评论" />
+                </el-form-item>
+            </el-form>
+            <p>关闭后暂停接收新评论，不保存评论，也不会进入审核队列。保存成功后立即生效。</p>
+            <el-button type="primary" :loading="savingComment" :disabled="!configReady || dialogVisible"
+                @click="saveCommentSetting">保存评论设置</el-button>
+        </el-card>
         <div class="handle-box">
-            <el-button type="primary" :icon="Edit" @click="handleEdit">编辑积分配置</el-button>
-            <el-button type="success" :icon="Refresh" @click="handleRefresh">刷新</el-button>
+            <el-button type="primary" :icon="Edit" :disabled="!configReady || savingComment"
+                @click="handleEdit">编辑积分配置</el-button>
+            <el-button type="success" :icon="Refresh" :disabled="configLoading || savingComment || dialogVisible" @click="handleRefresh">刷新</el-button>
         </div>
 
         <el-table :data="tableData" border class="table" header-cell-class-name="table-header">
@@ -14,7 +27,8 @@
             </el-table-column>
             <el-table-column prop="times" label="获取次数上限" width="130" align="center">
                 <template #default="scope">
-                    <span v-if="scope.row.limit === 0 || scope.row.limit === null || scope.row.score === 0" class="no-limit">无限制</span>
+                    <span v-if="scope.row.limit === 0 || scope.row.limit === null || scope.row.score === 0"
+                        class="no-limit">无限制</span>
                     <span v-else class="times-text">{{ scope.row.times }}次</span>
                 </template>
             </el-table-column>
@@ -32,57 +46,43 @@
         </el-table>
 
         <!-- 编辑弹窗 -->
-        <el-dialog
-            title="编辑积分配置"
-            v-model="dialogVisible"
-            width="800px"
-            destroy-on-close
-            class="points-config-dialog">
+        <el-dialog title="编辑积分配置" v-model="dialogVisible" width="800px" destroy-on-close class="points-config-dialog">
 
             <div class="config-container">
                 <!-- 配置说明 -->
                 <div class="config-notice">
-                    <el-alert
-                        title="配置说明"
-                        type="info"
-                        :closable="false"
-                        description="单次积分：每次操作获得的积分；获取次数：每日可获得积分的最大次数；总上限：每日可获得的总积分上限，由前两者自动计算得出。"
-                        show-icon />
+                    <el-alert title="配置说明" type="info" :closable="false"
+                        description="单次积分：每次操作获得的积分；获取次数：每日可获得积分的最大次数；总上限：每日可获得的总积分上限，由前两者自动计算得出。" show-icon />
                 </div>
 
                 <div class="config-grid">
                     <!-- 登录积分配置卡片 -->
                     <div class="config-card">
                         <div class="card-header">
-                            <el-icon class="card-icon"><User /></el-icon>
+                            <el-icon class="card-icon">
+                                <User />
+                            </el-icon>
                             <span class="card-title">登录积分</span>
                         </div>
                         <div class="card-content">
                             <div class="form-row">
                                 <label class="form-label">单次积分</label>
-                                <el-input-number
-                                    v-model="editConfig.login.score"
-                                    :min="0" :max="1000"
-                                    placeholder="积分值"
-                                    size="small"
-                                    @change="calculateLoginLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.login.score" :min="0" :max="1000" placeholder="积分值"
+                                    size="small" @change="calculateLoginLimit" class="form-input" />
                             </div>
                             <div class="form-row">
                                 <label class="form-label">获取次数</label>
-                                <el-input-number
-                                    v-model="editConfig.login.times"
-                                    :min="editConfig.login.score > 0 ? 1 : 0"
-                                    placeholder="0=无限制"
-                                    size="small"
-                                    @change="calculateLoginLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.login.times"
+                                    :min="editConfig.login.score > 0 ? 1 : 0" placeholder="0=无限制" size="small"
+                                    @change="calculateLoginLimit" class="form-input" />
                             </div>
                             <div class="form-row result-row">
                                 <label class="form-label">总上限</label>
                                 <div class="result-display">
                                     <span class="result-value">{{ editConfig.login.displayLimit }}</span>
-                                    <el-icon class="result-icon"><Coin /></el-icon>
+                                    <el-icon class="result-icon">
+                                        <Coin />
+                                    </el-icon>
                                 </div>
                             </div>
                         </div>
@@ -91,35 +91,30 @@
                     <!-- 阅读积分配置卡片 -->
                     <div class="config-card">
                         <div class="card-header">
-                            <el-icon class="card-icon"><Reading /></el-icon>
+                            <el-icon class="card-icon">
+                                <Reading />
+                            </el-icon>
                             <span class="card-title">阅读积分</span>
                         </div>
                         <div class="card-content">
                             <div class="form-row">
                                 <label class="form-label">单次积分</label>
-                                <el-input-number
-                                    v-model="editConfig.read.score"
-                                    :min="0" :max="1000"
-                                    placeholder="积分值"
-                                    size="small"
-                                    @change="calculateReadLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.read.score" :min="0" :max="1000" placeholder="积分值"
+                                    size="small" @change="calculateReadLimit" class="form-input" />
                             </div>
                             <div class="form-row">
                                 <label class="form-label">获取次数</label>
-                                <el-input-number
-                                    v-model="editConfig.read.times"
-                                    :min="editConfig.read.score > 0 ? 1 : 0"
-                                    placeholder="0=无限制"
-                                    size="small"
-                                    @change="calculateReadLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.read.times"
+                                    :min="editConfig.read.score > 0 ? 1 : 0" placeholder="0=无限制" size="small"
+                                    @change="calculateReadLimit" class="form-input" />
                             </div>
                             <div class="form-row result-row">
                                 <label class="form-label">总上限</label>
                                 <div class="result-display">
                                     <span class="result-value">{{ editConfig.read.displayLimit }}</span>
-                                    <el-icon class="result-icon"><Coin /></el-icon>
+                                    <el-icon class="result-icon">
+                                        <Coin />
+                                    </el-icon>
                                 </div>
                             </div>
                         </div>
@@ -128,35 +123,30 @@
                     <!-- 答题积分配置卡片 -->
                     <div class="config-card">
                         <div class="card-header">
-                            <el-icon class="card-icon"><EditPen /></el-icon>
+                            <el-icon class="card-icon">
+                                <EditPen />
+                            </el-icon>
                             <span class="card-title">答题积分</span>
                         </div>
                         <div class="card-content">
                             <div class="form-row">
                                 <label class="form-label">单次积分</label>
-                                <el-input-number
-                                    v-model="editConfig.answer.score"
-                                    :min="0" :max="1000"
-                                    placeholder="积分值"
-                                    size="small"
-                                    @change="calculateAnswerLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.answer.score" :min="0" :max="1000"
+                                    placeholder="积分值" size="small" @change="calculateAnswerLimit" class="form-input" />
                             </div>
                             <div class="form-row">
                                 <label class="form-label">获取次数</label>
-                                <el-input-number
-                                    v-model="editConfig.answer.times"
-                                    :min="editConfig.answer.score > 0 ? 1 : 0"
-                                    placeholder="0=无限制"
-                                    size="small"
-                                    @change="calculateAnswerLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.answer.times"
+                                    :min="editConfig.answer.score > 0 ? 1 : 0" placeholder="0=无限制" size="small"
+                                    @change="calculateAnswerLimit" class="form-input" />
                             </div>
                             <div class="form-row result-row">
                                 <label class="form-label">总上限</label>
                                 <div class="result-display">
                                     <span class="result-value">{{ editConfig.answer.displayLimit }}</span>
-                                    <el-icon class="result-icon"><Coin /></el-icon>
+                                    <el-icon class="result-icon">
+                                        <Coin />
+                                    </el-icon>
                                 </div>
                             </div>
                         </div>
@@ -165,35 +155,31 @@
                     <!-- PK积分配置卡片 -->
                     <div class="config-card">
                         <div class="card-header">
-                            <el-icon class="card-icon"><Trophy /></el-icon>
+                            <el-icon class="card-icon">
+                                <Trophy />
+                            </el-icon>
                             <span class="card-title">PK积分</span>
                         </div>
                         <div class="card-content">
                             <div class="form-row">
                                 <label class="form-label">单次积分</label>
-                                <el-input-number
-                                    v-model="editConfig.competition.score"
-                                    :min="0" :max="1000"
-                                    placeholder="积分值"
-                                    size="small"
-                                    @change="calculateCompetitionLimit"
+                                <el-input-number v-model="editConfig.competition.score" :min="0" :max="1000"
+                                    placeholder="积分值" size="small" @change="calculateCompetitionLimit"
                                     class="form-input" />
                             </div>
                             <div class="form-row">
                                 <label class="form-label">获取次数</label>
-                                <el-input-number
-                                    v-model="editConfig.competition.times"
-                                    :min="editConfig.competition.score > 0 ? 1 : 0"
-                                    placeholder="0=无限制"
-                                    size="small"
-                                    @change="calculateCompetitionLimit"
-                                    class="form-input" />
+                                <el-input-number v-model="editConfig.competition.times"
+                                    :min="editConfig.competition.score > 0 ? 1 : 0" placeholder="0=无限制" size="small"
+                                    @change="calculateCompetitionLimit" class="form-input" />
                             </div>
                             <div class="form-row result-row">
                                 <label class="form-label">总上限</label>
                                 <div class="result-display">
                                     <span class="result-value">{{ editConfig.competition.displayLimit }}</span>
-                                    <el-icon class="result-icon"><Coin /></el-icon>
+                                    <el-icon class="result-icon">
+                                        <Coin />
+                                    </el-icon>
                                 </div>
                             </div>
                         </div>
@@ -217,6 +203,15 @@ import { Edit, Refresh, User, Reading, EditPen, Trophy, Coin } from '@element-pl
 import type { PointConfig } from '@/api/points';
 import { getPointConfig, setPointConfig } from '@/api/points';
 import { showError } from '@/utils/errorHandler';
+import { usePermissStore } from '@/store/permiss';
+
+const permiss = usePermissStore();
+const isSuperAdmin = computed(() => permiss.userProfile?.is_super_admin === true);
+const commentEnabled = ref(true);
+const configLoading = ref(false);
+const configReady = ref(false);
+const savingComment = ref(false);
+
 
 // 表格数据
 interface TableDataItem {
@@ -336,10 +331,22 @@ const tableData = computed<TableDataItem[]>(() => {
 
 // 获取积分配置
 const getConfig = async () => {
+    configLoading.value = true;
+    configReady.value = false;
     try {
         const res = await getPointConfig();
         // API 返回的数据结构是 { code: 200, msg: null, data: {...} }
-        const data = res.data.data || res.data;
+        if (res.data?.code !== 200) throw new Error('获取配置失败');
+        const data = res.data.data;
+        if (!data || !['login', 'read', 'answer', 'competition'].every(key => data[key])) {
+            throw new Error('配置数据不完整，无法保存');
+        }
+        if (data.comment_enabled != null && typeof data.comment_enabled !== 'boolean') {
+            throw new Error('评论开关配置格式不正确');
+        }
+        config.comment_enabled = data.comment_enabled ?? true;
+        commentEnabled.value = config.comment_enabled;
+        configReady.value = true;
         // 处理数据
         config.login = data.login || { score: 0, limit: 0 };
         config.read = data.read || { score: 0, limit: 0 };
@@ -348,13 +355,40 @@ const getConfig = async () => {
     } catch (error) {
         showError(error, '获取配置失败');
         console.error('获取积分配置失败:', error);
+    } finally {
+        configLoading.value = false;
+    }
+};
+
+// 评论开关独立保存，始终携带原有四项积分配置。
+const saveCommentSetting = async () => {
+    if (!isSuperAdmin.value || !configReady.value || savingComment.value || dialogVisible.value) return;
+    savingComment.value = true;
+    try {
+        const requested = commentEnabled.value;
+        const res = await setPointConfig({
+            login: { ...config.login }, read: { ...config.read },
+            answer: { ...config.answer }, competition: { ...config.competition },
+            comment_enabled: requested
+        });
+        if (res.data?.code !== 200) throw new Error('保存评论设置失败');
+        await getConfig();
+        if (!configReady.value || config.comment_enabled !== requested) {
+            throw new Error('未确认设置生效，请检查后端部署后刷新重试');
+        }
+        ElMessage.success('评论设置已保存');
+    } catch (error) {
+        showError(error, '保存评论设置失败');
+    } finally {
+        savingComment.value = false;
     }
 };
 
 // 刷新配置
 const handleRefresh = async () => {
+    if (configLoading.value || savingComment.value || dialogVisible.value) return;
     await getConfig();
-    ElMessage.success('刷新成功');
+    if (configReady.value) ElMessage.success('刷新成功');
 };
 
 // 编辑
@@ -407,6 +441,7 @@ const validateConfig = () => {
 
 // 保存配置
 const handleSave = async () => {
+    if (!configReady.value || savingComment.value) return;
     try {
         // 自定义验证
         if (!validateConfig()) {
@@ -415,6 +450,7 @@ const handleSave = async () => {
 
         // 数据转换：从editConfig转换到API需要的格式
         const apiData = {
+            comment_enabled: config.comment_enabled ?? true,
             login: {
                 score: editConfig.login.score,
                 limit: editConfig.login.limit
@@ -433,7 +469,8 @@ const handleSave = async () => {
             }
         };
 
-        await setPointConfig(apiData);
+        const res = await setPointConfig(apiData);
+        if (res.data?.code !== 200) throw new Error('保存配置失败');
 
         // 更新本地config数据
         config.login = { ...apiData.login };
@@ -458,6 +495,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.comment-config {
+    margin-bottom: 20px;
+}
+
+.comment-config p {
+    margin-bottom: 16px;
+    color: var(--el-text-color-secondary);
+}
+
 .handle-box {
     margin-bottom: 20px;
 }
